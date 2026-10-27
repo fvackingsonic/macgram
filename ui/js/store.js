@@ -70,17 +70,18 @@ function inSchedule() {
   const a = toMin(S.prefs.nightFrom || '22:00'), b = toMin(S.prefs.nightTo || '07:00');
   return a <= b ? cur >= a && cur < b : cur >= a || cur < b;
 }
-// Итоговая тема с учётом автоночи: 'classic' | 'day' | 'night' | 'dark'.
+// Итоговая тема с учётом автоночи: 'classic' | 'day' | 'night' | 'black' (нейтральная «Ночь»).
+// ('dark' в старых настройках означал синюю ночь — поэтому нейтральная называется 'black'.)
 export function effectiveTheme() {
   const base = baseTheme();
-  if (base === 'night' || base === 'dark') return base;
+  if (base === 'night' || base === 'black') return base;
   const an = autoNightMode();
-  if ((an === 'system' && darkQuery?.matches) || (an === 'schedule' && inSchedule())) return S.prefs.nightTheme || 'night';
+  if ((an === 'system' && darkQuery?.matches) || (an === 'schedule' && inSchedule())) return S.prefs.nightTheme === 'black' ? 'black' : 'night';
   return base;
 }
 export function palette() {
   const t = effectiveTheme();
-  return t === 'dark' ? 'night' : t;
+  return t === 'black' ? 'night' : t;
 }
 const BASE_FONT = '"SF Pro Text", "Inter var", "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui';
 const BASE_EMOJI = '"Apple Color Emoji", "Segoe UI Emoji", sans-serif';
@@ -179,7 +180,7 @@ export function applyPrefs() {
   const root = document.documentElement;
   root.classList.toggle('lite', S.prefs.glass === false);
   root.dataset.palette = palette();
-  root.dataset.variant = effectiveTheme() === 'dark' ? 'dark' : '';
+  root.dataset.variant = effectiveTheme() === 'black' ? 'dark' : '';
   root.classList.toggle('no-bubbles', S.prefs.bubbles === false);
   root.classList.toggle('glass-bubbles', S.prefs.glassBubbles === true);
   const icon = S.prefs.appIcon || 'blue';

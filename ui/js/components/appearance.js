@@ -26,7 +26,7 @@ export const THEMES = [
   ['classic', 'Классика', { bg: 'linear-gradient(135deg,#dbddbb,#88b884)', inc: '#ffffff', out: '#eeffde' }],
   ['day', 'День', { bg: '#ffffff', inc: '#f1f1f4', out: '#4a95d6' }],
   ['night', 'Синяя ночь', { bg: '#0e1621', inc: '#1e2c3b', out: '#416ead' }],
-  ['dark', 'Ночь', { bg: '#000000', inc: '#262628', out: '#3e88f7' }],
+  ['black', 'Ночь', { bg: '#000000', inc: '#262628', out: '#3e88f7' }],
 ];
 const ACCENTS = [null, '#007aff', '#5856d6', '#af52de', '#ff2d55', '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be', '#8e8e93'];
 // Цвета имени, доступные всем (встроенные 0–6 в Telegram).
@@ -36,7 +36,7 @@ const SIZES = [11, 12, 13, 14, 15, 16, 17, 18];
 const hex = n => `#${(n >>> 0 & 0xffffff).toString(16).padStart(6, '0')}`;
 
 function pickTheme(v) {
-  const night = v === 'night' || v === 'dark';
+  const night = v === 'night' || v === 'black';
   // Выбрали дневную тему, а сейчас ночь включила «Автоночь» — выключаем её, как в macOS.
   if (!night && effectiveTheme() !== baseTheme() && autoNightMode() !== 'off') { setPref('autoNight', 'off'); showHud('Автоночь выключена'); }
   if (night) setPref('nightTheme', v); else setPref('dayTheme', v);
@@ -66,7 +66,7 @@ function resetAppearance() {
 
 export function Appearance() {
   const eff = effectiveTheme();
-  const dark = eff === 'night' || eff === 'dark';
+  const dark = eff === 'night' || eff === 'black';
   const an = autoNightMode();
   const me = S.users.get(S.myId);
   const nameColor = NAME_COLORS[(me?.accent_color_id ?? 5) % 7];
@@ -86,7 +86,7 @@ export function Appearance() {
     </div>
 
     <div class="group">
-      <div class="item"><span class="lbl">Тёмный режим</span><${Switch} on=${dark} onChange=${v => pickTheme(v ? (S.prefs.nightTheme || 'night') : (['classic', 'day'].includes(S.prefs.dayTheme) ? S.prefs.dayTheme : 'classic'))}/></div>
+      <div class="item"><span class="lbl">Тёмный режим</span><${Switch} on=${dark} onChange=${v => pickTheme(v ? (S.prefs.nightTheme === 'black' ? 'black' : 'night') : (['classic', 'day'].includes(S.prefs.dayTheme) ? S.prefs.dayTheme : 'classic'))}/></div>
       <div class="item"><span class="lbl">Пузыри сообщений</span><${Switch} on=${S.prefs.bubbles !== false} onChange=${v => setPref('bubbles', v)}/></div>
       ${S.prefs.bubbles !== false && html`<div class="item"><span class="lbl">Стеклянные пузыри<small>Полупрозрачные, с размытием фона (в Telegram для Mac пузыри обычные)</small></span><${Switch} on=${S.prefs.glassBubbles === true} onChange=${v => setPref('glassBubbles', v)}/></div>`}
       ${S.prefs.bubbles !== false && html`<button class="item" onClick=${() => go('wallpaper')}><span class="lbl">Фон чата</span><span class="chev">${Icon.chevron(11)}</span></button>`}
@@ -142,7 +142,7 @@ export function AutoNight() {
     </div>`}
     ${an !== 'off' && html`<div class="pane-sec">Ночная тема</div>
     <div class="group">
-      ${[['night', 'Синяя ночь'], ['dark', 'Ночь']].map(([v, l]) => html`<button class="item" onClick=${() => setPref('nightTheme', v)}><span class="lbl">${l}</span>${(S.prefs.nightTheme || 'night') === v && html`<${Check}/>`}</button>`)}
+      ${[['night', 'Синяя ночь'], ['black', 'Ночь']].map(([v, l]) => html`<button class="item" onClick=${() => setPref('nightTheme', v)}><span class="lbl">${l}</span>${(S.prefs.nightTheme === 'black' ? 'black' : 'night') === v && html`<${Check}/>`}</button>`)}
     </div>`}
   </${Page}>`;
 }
@@ -152,7 +152,7 @@ export function NameColor() {
   const me = S.users.get(S.myId);
   const cur = (me?.accent_color_id ?? 5) % 7;
   const prof = me?.profile_accent_color_id ?? -1;
-  const dark = effectiveTheme() === 'night' || effectiveTheme() === 'dark';
+  const dark = effectiveTheme() === 'night' || effectiveTheme() === 'black';
   const premiumErr = e => showHud(/PREMIUM|BOOST/i.test(e.message || '') ? 'Этот цвет доступен только с Telegram Premium' : e.message);
   const set = id => send({ '@type': 'setAccentColor', accent_color_id: id, background_custom_emoji_id: '0' })
     .then(() => { if (me) { S.users.set(me.id, { ...me, accent_color_id: id }); changed(); } showHud('Цвет имени изменён'); }).catch(premiumErr);
@@ -211,7 +211,7 @@ function BgThumb({ bg }) {
 // Применить фон. Фото ставим сразу для дневной и ночной темы — иначе при смене темы
 // казалось, что «фон сбросился» (у Telegram фон хранится отдельно для каждой).
 async function applyBg(background, type, both) {
-  const dark = effectiveTheme() === 'night' || effectiveTheme() === 'dark';
+  const dark = effectiveTheme() === 'night' || effectiveTheme() === 'black';
   const bg = await send({ '@type': 'setDefaultBackground', background, type, for_dark_theme: dark });
   if (both && bg?.id) {
     const darkType = type?.['@type'] === 'backgroundTypePattern' ? { ...type, is_inverted: true } : type;
@@ -289,7 +289,7 @@ function BgPreview({ pv, onClose }) {
 }
 
 export function WallpaperSettings() {
-  const dark = ['night', 'dark'].includes(effectiveTheme());
+  const dark = ['night', 'black'].includes(effectiveTheme());
   const [list, setList] = useState(null);
   const setPv = p => { S.bgPreview = p ? { ...p, key: Date.now(), onDone: load } : null; changed(); };
   const cur = S.prefs.liveWall ? null : S.backgrounds?.[dark ? 'dark' : 'light'];
