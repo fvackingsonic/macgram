@@ -9,6 +9,7 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 static CLOSE_TO_TRAY: AtomicBool = AtomicBool::new(true);
 /// Номер последнего уведомления — страховка: окно прячется само, даже если его страница не ответила.
 static TOAST_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+static TOAST_ACK: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 /// Последнее уведомление: окно, созданное только что, ещё не слушает события и забирает его само.
 static LAST_TOAST: std::sync::Mutex<Option<serde_json::Value>> = std::sync::Mutex::new(None);
 pub fn close_to_tray() -> bool {
@@ -110,22 +111,47 @@ pub async fn toast_show(app: AppHandle, payload: serde_json::Value) -> Result<()
             .build()
             .map_err(|e| e.to_string())?,
     };
-    let _ = win.set_focusable(false);
+    let seq = TOAST_SEQ.fetch_add(1, Ordering::Relaxed) + 1;
+    let mut payload = payload;
+    if let Some(o) = payload.as_object_mut() {
+        o.insert("id".into(), serde_json::json!(seq));
+    }
     let _ = win.set_size(tauri::LogicalSize::new(TOAST_W, TOAST_H));
     place_toast(&win, TOAST_H);
     if let Ok(mut l) = LAST_TOAST.lock() {
         *l = Some(payload.clone());
     }
-    let _ = app.emit_to("toast", "toast", payload);
+    let _ = app.emit_to("toast", "toast", payload.clone());
     let _ = win.show();
-    let seq = TOAST_SEQ.fetch_add(1, Ordering::Relaxed) + 1;
+    // Доставка надёжнее событий: вызываем функцию страницы напрямую, пока она не подтвердит показ.
+    // Если за 5 с подтверждения нет — прячем окно и просим главное окно показать уведомление Windows.
+    let js = format!("window.__toast && window.__toast({})", payload);
+    let fallback = payload.clone();
     std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_secs(12));
+        for ms in [150u64, 450, 900, 1500, 2000] {
+            std::thread::sleep(std::time::Duration::from_millis(ms));
+            if TOAST_ACK.load(Ordering::Relaxed) >= seq || TOAST_SEQ.load(Ordering::Relaxed) != seq {
+                break;
+            }
+            let _ = win.eval(&js);
+        }
+        if TOAST_ACK.load(Ordering::Relaxed) < seq && TOAST_SEQ.load(Ordering::Relaxed) == seq {
+            let _ = win.hide();
+            let _ = app.emit_to("main", "toast-failed", fallback);
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_secs(10));
         if TOAST_SEQ.load(Ordering::Relaxed) == seq {
             let _ = win.hide();
         }
     });
     Ok(())
+}
+
+/// Окно уведомления показало карточку.
+#[tauri::command]
+pub fn toast_ack(id: u64) {
+    TOAST_ACK.fetch_max(id, Ordering::Relaxed);
 }
 
 /// Окно уведомления только что загрузилось — отдать ему уведомление, ради которого его открыли.

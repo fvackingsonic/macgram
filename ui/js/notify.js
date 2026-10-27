@@ -27,8 +27,9 @@ onUpdate(u => {
 
 // Всплывающее уведомление: своё окно macgram в углу экрана (по щелчку открывает чат)
 // или системное уведомление Windows — смотря что выбрано в настройках.
+let toastBroken = false;
 function show(chat, title, body) {
-  if (S.prefs.notifyStyle === 'windows' || !window.__TAURI__) { shell.notify(title, body); return; }
+  if (S.prefs.notifyStyle === 'windows' || toastBroken || !window.__TAURI__) { shell.notify(title, body); return; }
   const photo = chat && S.prefs.notifyName !== false ? fileUrl(chat.photo?.small) : '';
   const payload = { chatId: chat?.id || 0, title, body,
     initials: chat ? initials(chatTitle(chat)) : 'm', color: chat ? avatarGradient(peerIndex(chat.id)) : '', photo };
@@ -46,6 +47,8 @@ if (window.__TAURI__) {
   ev.listen('open-chat', e => { if (e.payload) selectChat(e.payload); });
   ev.listen('tray-notify', e => setPref('notifyAll', !!e.payload));
   ev.listen('tray-lock', () => lockNow());
+  // Своё окно уведомления не смогло показаться — показываем уведомление Windows и дальше сразу его.
+  ev.listen('toast-failed', e => { toastBroken = true; const p = e.payload || {}; shell.notify(p.title || 'macgram', p.body || ''); });
   // Быстрый ответ из всплывающего уведомления, как в macOS.
   ev.listen('toast-reply', e => {
     const { chatId, text } = e.payload || {};

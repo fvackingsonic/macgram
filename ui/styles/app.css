@@ -1394,3 +1394,9 @@ html.no-bubbles .messages { --msg-gap: 2px; }
 :root[data-palette="day"] .ap-preview { background: #f1f1f4; }
 :root[data-palette="night"] .ap-preview { background: linear-gradient(135deg, #1b2836, #111820); }
 :root[data-palette="night"][data-variant="dark"] .ap-preview { background: #000; }
+/* кнопки сбоку от сообщения канала: «переслать» и (для кружков/стикеров) «комментарии» */
+.side-actions { align-self: flex-end; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: 0 0 2px 8px; flex: none; }
+.side-actions .share-btn { margin: 0; align-self: auto; }
+.comments-mini { height: 32px; min-width: 32px; padding: 0 9px; border-radius: 16px; display: flex; align-items: center; justify-content: center; gap: 4px; color: var(--accent); font-weight: 600; font-size: 12.5px; transition: transform .2s var(--spring); }
+.comments-mini:hover { transform: scale(1.06); }
+.comments-mini:active { transform: scale(.94); }

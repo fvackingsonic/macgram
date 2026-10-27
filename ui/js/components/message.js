@@ -526,8 +526,10 @@ function MessageRowView({ msg, chat, first, last, inThread }) {
     ? html`<div class="bubble jumbo">${jumbo}<${Meta} msg=${msg} chat=${chat}/></div>`
     : html`<${Body} msg=${msg} chat=${chat} showName=${group && !out && first}/>`;
   // Комментарии к посту канала — полоска внизу пузыря, как в Telegram для macOS.
-  const comments = isChannel(chat) && !inThread && !jumbo && msg.interaction_info?.reply_info && S.selection?.chatId !== chat.id;
-  const content = comments ? html`<div class="with-comments">${body}<${CommentsBar} msg=${msg} chat=${chat}/></div>` : body;
+  // Для кружков, стикеров и крупных смайликов — маленькая кнопка сбоку (как ChannelCommentsSmallControl).
+  const comments = isChannel(chat) && !inThread && msg.interaction_info?.reply_info && S.selection?.chatId !== chat.id;
+  const compactComments = comments && (jumbo || ['messageVideoNote', 'messageSticker', 'messageAnimatedEmoji', 'messageDice'].includes(c['@type']));
+  const content = comments && !compactComments ? html`<div class="with-comments">${body}<${CommentsBar} msg=${msg} chat=${chat}/></div>` : body;
   const reacts = reactionList(msg).some(r => r.total_count > 0);
   const sender = S.users.get(msg.sender_id?.user_id);
   const senderChat = msg.sender_id?.chat_id ? S.chats.get(msg.sender_id.chat_id) : null;
@@ -543,7 +545,10 @@ function MessageRowView({ msg, chat, first, last, inThread }) {
     ${selecting && html`<span class=${`sel-check ${selected ? 'on' : ''}`}>${selected && Icon.check(12)}</span>`}
     ${showAvatar && html`<div class="av-slot">${last && (sender || senderChat) && html`<${Avatar} user=${sender} chat=${senderChat} size=${34}/>`}</div>`}
     ${reacts ? html`<div class="with-reactions">${content}<${Reactions} msg=${msg}/>${kb}</div>` : kb ? html`<div class="with-kb">${content}${kb}</div>` : content}
-    ${share && html`<button class="share-btn glass" title="Переслать" onClick=${e => { e.stopPropagation(); openForward(chat.id, [msg.id]); }}>${Icon.forward(16)}</button>`}
+    ${(share || compactComments) && html`<div class="side-actions">
+      ${share && html`<button class="share-btn glass" title="Переслать" onClick=${e => { e.stopPropagation(); openForward(chat.id, [msg.id]); }}>${Icon.forward(16)}</button>`}
+      ${compactComments && html`<${CommentsBar} msg=${msg} chat=${chat} compact=${true}/>`}
+    </div>`}
   </div>`;
 }
 

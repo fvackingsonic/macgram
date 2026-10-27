@@ -214,10 +214,12 @@ export function ThreadScreen() {
 }
 
 // ── кнопка «Комментарии» под постом канала (ChannelCommentsControl в macOS) ──
-export function CommentsBar({ msg, chat }) {
+export function CommentsBar({ msg, chat, compact }) {
   const ri = msg.interaction_info?.reply_info;
   if (!ri) return null;
   const n = ri.reply_count || 0;
+  if (compact) return html`<button class="comments-mini glass" title=${n ? count(n, 'комментарий', 'комментария', 'комментариев') : 'Оставить комментарий'}
+    onClick=${e => { e.stopPropagation(); openComments(chat.id, msg); }}>${MI('Icon_ChannelComments', 15)}${n > 0 && html`<span>${n > 999 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K` : n}</span>`}</button>`;
   const peers = (ri.recent_replier_ids || []).slice(0, 3);
   const unread = n > 0 && ri.last_message_id > (ri.last_read_inbox_message_id || 0);
   return html`<button class="comments-bar" onClick=${e => { e.stopPropagation(); openComments(chat.id, msg); }}>

@@ -38,7 +38,9 @@
     if (e.key === 'Escape') { e.preventDefault(); hide(); }
   });
   sendBtn.addEventListener('click', e => { e.stopPropagation(); send(); });
+  let lastId = 0;
   const showToast = p => {
+    if (p?.id) { if (p.id <= lastId) return; lastId = p.id; T.core.invoke('toast_ack', { id: p.id }).catch(() => {}); }
     if (replying && input.value.trim()) return; // не мешаем, пока человек пишет ответ
     if (replying) setReply(false);
     cur = p || {};
@@ -55,6 +57,7 @@
   };
   // Ушли из поля ответа, ничего не написав, — уведомление закрывается, как в macOS.
   window.addEventListener('blur', () => { if (replying && !input.value.trim()) hide(); });
+  window.__toast = showToast;
   T.event.listen('toast', e => showToast(e.payload));
   T.core.invoke('toast_last').then(p => { if (p && !cur) showToast(p); }).catch(() => {});
 })();

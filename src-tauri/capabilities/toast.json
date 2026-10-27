@@ -3,5 +3,5 @@
   "identifier": "toast",
   "description": "Окно всплывающих уведомлений: только события и свои команды",
   "windows": ["toast"],
-  "permissions": ["core:event:default"]
+  "permissions": ["core:default", "core:event:default"]
 }
