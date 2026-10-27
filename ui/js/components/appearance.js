@@ -88,7 +88,7 @@ export function Appearance() {
     <div class="group">
       <div class="item"><span class="lbl">Тёмный режим</span><${Switch} on=${dark} onChange=${v => pickTheme(v ? (S.prefs.nightTheme || 'night') : (['classic', 'day'].includes(S.prefs.dayTheme) ? S.prefs.dayTheme : 'classic'))}/></div>
       <div class="item"><span class="lbl">Пузыри сообщений</span><${Switch} on=${S.prefs.bubbles !== false} onChange=${v => setPref('bubbles', v)}/></div>
-      ${S.prefs.bubbles !== false && html`<div class="item"><span class="lbl">Стеклянные пузыри<small>Полупрозрачные, с размытием фона — как Liquid Glass в macOS</small></span><${Switch} on=${S.prefs.glassBubbles !== false} onChange=${v => setPref('glassBubbles', v)}/></div>`}
+      ${S.prefs.bubbles !== false && html`<div class="item"><span class="lbl">Стеклянные пузыри<small>Полупрозрачные, с размытием фона (в Telegram для Mac пузыри обычные)</small></span><${Switch} on=${S.prefs.glassBubbles === true} onChange=${v => setPref('glassBubbles', v)}/></div>`}
       ${S.prefs.bubbles !== false && html`<button class="item" onClick=${() => go('wallpaper')}><span class="lbl">Фон чата</span><span class="chev">${Icon.chevron(11)}</span></button>`}
       <div class="item"><span class="lbl">Цвета под фон<small>${S.prefs.tint ? 'Цвета темы подобраны под ваш фон' : S.wallTint ? 'Подобрать акцент, свои сообщения и панели под цвет фона' : 'Сначала поставьте свой фон'}</small></span>
         ${S.prefs.tint && html`<span class="ap-dot" style=${`background:hsl(${Math.round(S.prefs.tint.h)} ${Math.round(Math.min(85, S.prefs.tint.s + 15))}% 50%)`}/>`}

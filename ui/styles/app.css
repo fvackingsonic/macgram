@@ -206,10 +206,10 @@ svg { display: block; flex: none; }
 }
 .msg-row.in .bubble { background: var(--in-bg); color: var(--in-text); box-shadow: inset 0 0 0 1px var(--in-border); }
 .msg-row.out .bubble { background: var(--out-bg); color: var(--out-text); }
-.msg-row.in:not(.last) .bubble { border-bottom-left-radius: 6px; }
-.msg-row.in:not(.first) .bubble { border-top-left-radius: 6px; }
-.msg-row.out:not(.last) .bubble { border-bottom-right-radius: 6px; }
-.msg-row.out:not(.first) .bubble { border-top-right-radius: 6px; }
+.msg-row.in:not(.last) .bubble { border-bottom-left-radius: 8px; }
+.msg-row.in:not(.first) .bubble { border-top-left-radius: 8px; }
+.msg-row.out:not(.last) .bubble { border-bottom-right-radius: 8px; }
+.msg-row.out:not(.first) .bubble { border-top-right-radius: 8px; }
 .msg-row.in .bubble a { color: var(--in-link); }
 .msg-row.out .bubble a { color: var(--out-link); text-decoration: underline; }
 .bubble.media { padding: 0; overflow: hidden; background: transparent !important; box-shadow: none !important; }
@@ -1231,8 +1231,8 @@ body.resizing .sidebar.card, body.resizing .main { transition: none !important; 
    Как в Telegram для macOS: полоска — часть того же пузыря, отделена тонкой линией. */
 .with-comments { display: flex; flex-direction: column; max-width: min(480px, 72%); border-radius: 16px; overflow: hidden;
   background: var(--in-bg); box-shadow: inset 0 0 0 .5px var(--in-border), 0 1px 1px rgba(0, 0, 0, .06); }
-.msg-row.in:not(.last) .with-comments { border-bottom-left-radius: 6px; }
-.msg-row.in:not(.first) .with-comments { border-top-left-radius: 6px; }
+.msg-row.in:not(.last) .with-comments { border-bottom-left-radius: 8px; }
+.msg-row.in:not(.first) .with-comments { border-top-left-radius: 8px; }
 .with-comments > .bubble { max-width: 100%; border-radius: 0 !important; box-shadow: none !important; background: transparent !important; }
 .with-reactions .with-comments, .with-kb .with-comments { max-width: 100%; }
 .comments-bar { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 8px 0 10px; position: relative;
@@ -1509,3 +1509,30 @@ html.glass-bubbles[data-palette="night"]:not(.lite):not(.no-bubbles) .msg-row.ou
 .tp-top span { font-size: 11px; opacity: .55; }
 .tp-text { opacity: .78; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .item.wrap .seg { flex-wrap: wrap; }
+
+/* ── пузыри точно как в Telegram для macOS (ChatMessageBubbleImages.swift):
+   радиус 16, со стороны соседних сообщений 8, у последнего в группе — «хвостик» 6px ── */
+.msg-row.last .bubble { contain: layout; }
+.msg-row.last:not(.selecting) > .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
+.msg-row.last:not(.selecting) > .with-reactions > .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
+.msg-row.last:not(.selecting) > .with-kb > .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
+.msg-row.last:not(.selecting) > .bubble.media.with-caption,
+.msg-row.last:not(.selecting) > .with-reactions > .bubble.media.with-caption { position: relative; }
+.msg-row.out.last > .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
+.msg-row.out.last > .with-reactions > .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
+.msg-row.out.last > .with-kb > .bubble:not(.media):not(.sticker):not(.round):not(.jumbo) { border-bottom-right-radius: 0; }
+.msg-row.in.last > .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
+.msg-row.in.last > .with-reactions > .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
+.msg-row.in.last > .with-kb > .bubble:not(.media):not(.sticker):not(.round):not(.jumbo) { border-bottom-left-radius: 0; }
+.msg-row.last > .bubble:not(.media):not(.sticker):not(.round):not(.jumbo)::after,
+.msg-row.last > .with-reactions > .bubble:not(.media):not(.sticker):not(.round):not(.jumbo)::after,
+.msg-row.last > .with-kb > .bubble:not(.media):not(.sticker):not(.round):not(.jumbo)::after {
+  content: ""; position: absolute; bottom: 0; width: 9px; height: 17px; pointer-events: none;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='9' height='17'><path d='M0 0Q1 13 9 17H0Z'/></svg>") no-repeat;
+          mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='9' height='17'><path d='M0 0Q1 13 9 17H0Z'/></svg>") no-repeat;
+}
+.msg-row.out.last > .bubble::after, .msg-row.out.last > .with-reactions > .bubble::after, .msg-row.out.last > .with-kb > .bubble::after { right: -8.5px; background: var(--out-bg); }
+.msg-row.in.last > .bubble::after, .msg-row.in.last > .with-reactions > .bubble::after, .msg-row.in.last > .with-kb > .bubble::after { left: -8.5px; background: var(--in-bg); transform: scaleX(-1); }
+/* стеклянные пузыри и режим без пузырей — без хвостика */
+html.glass-bubbles .msg-row .bubble::after, html.no-bubbles .msg-row .bubble::after { display: none; }
+html.glass-bubbles .msg-row.last .bubble, html.no-bubbles .msg-row.last .bubble { border-bottom-left-radius: 16px !important; border-bottom-right-radius: 16px !important; }

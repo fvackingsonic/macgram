@@ -181,7 +181,7 @@ export function applyPrefs() {
   root.dataset.palette = palette();
   root.dataset.variant = effectiveTheme() === 'dark' ? 'dark' : '';
   root.classList.toggle('no-bubbles', S.prefs.bubbles === false);
-  root.classList.toggle('glass-bubbles', S.prefs.glassBubbles !== false);
+  root.classList.toggle('glass-bubbles', S.prefs.glassBubbles === true);
   const icon = S.prefs.appIcon || 'blue';
   if (icon !== appliedIcon && (appliedIcon || icon !== 'blue')) window.__TAURI__?.core.invoke('set_app_icon', { name: icon }).catch(() => {});
   appliedIcon = icon;
