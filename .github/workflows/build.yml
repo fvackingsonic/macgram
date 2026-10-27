@@ -1,8 +1,7 @@
 name: Сборка для Windows
 
+# Сборка запускается вручную: GitHub → Actions → «Сборка для Windows» → Run workflow.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
