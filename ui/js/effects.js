@@ -3,35 +3,66 @@ import { S, selectChat } from './store.js';
 
 const reduce = () => S.prefs.glass === false || matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// 1. Стеклянные кнопки «тянутся» за курсором при нажатии и пружинят обратно.
+// 1. Стеклянные кнопки как «жидкое стекло» в новом Telegram для macOS: зажатая кнопка
+// тянется за курсором (с резиновым сопротивлением), вытягивается в сторону рывка и
+// немного увеличивается; отпустили — пружиной возвращается на место с лёгким перелётом.
 const STRETCHY = '.glass.circle, .chat-header.glass, .pinned-bar, .archive-btn, .ps-actions button, .story-av';
 let drag = null;
+const springs = new Map(); // el -> состояние пружины
+function springFor(el) {
+  let st = springs.get(el);
+  if (!st) { st = { x: 0, y: 0, vx: 0, vy: 0, s: 1, vs: 0, tx: 0, ty: 0, ts: 1, raf: 0 }; springs.set(el, st); }
+  return st;
+}
+function run(el) {
+  const st = springFor(el);
+  if (st.raf) return;
+  const small = el.offsetWidth < 80; // круглые кнопки тянутся сильнее, широкие плашки — едва
+  const step = () => {
+    const k = 0.16, d = 0.74;               // мягкая пружина с небольшим перелётом
+    st.vx = (st.vx + (st.tx - st.x) * k) * d;
+    st.vy = (st.vy + (st.ty - st.y) * k) * d;
+    st.vs = (st.vs + (st.ts - st.s) * k) * d;
+    st.x += st.vx; st.y += st.vy; st.s += st.vs;
+    // вытягивание вдоль направления смещения
+    const dist = Math.hypot(st.x, st.y);
+    const stretch = Math.min(small ? .16 : .04, dist / (small ? 70 : 400));
+    const ang = Math.atan2(st.y, st.x) * 180 / Math.PI;
+    el.style.transform = dist < .05 && Math.abs(st.s - 1) < .001 ? ''
+      : `translate(${st.x.toFixed(2)}px, ${st.y.toFixed(2)}px) rotate(${ang}deg) scale(${(st.s * (1 + stretch)).toFixed(4)}, ${(st.s * (1 - stretch * .55)).toFixed(4)}) rotate(${-ang}deg)`;
+    const still = Math.abs(st.vx) + Math.abs(st.vy) + Math.abs(st.vs) < .01 && Math.abs(st.tx - st.x) + Math.abs(st.ty - st.y) < .05 && Math.abs(st.ts - st.s) < .001;
+    if (still && !(drag && drag.el === el)) { st.raf = 0; el.style.transform = ''; el.style.willChange = ''; el.style.transition = ''; springs.delete(el); return; }
+    st.raf = requestAnimationFrame(step);
+  };
+  el.style.willChange = 'transform';
+  el.style.transition = 'none';
+  st.raf = requestAnimationFrame(step);
+}
 document.addEventListener('pointerdown', e => {
   if (e.button !== 0 || reduce()) return;
   const el = e.target.closest(STRETCHY);
   if (!el) return;
-  drag = { el, x: e.clientX, y: e.clientY, r: el.getBoundingClientRect() };
-  if (el.matches('.glass.circle, .ps-actions button')) blobStart(e.clientX, e.clientY);
-  el.style.transition = 'transform .12s cubic-bezier(.2,.9,.3,1)';
-  el.style.transform = 'scale(1.06)';
+  drag = { el, x: e.clientX, y: e.clientY, small: el.offsetWidth < 80 };
+  const st = springFor(el);
+  st.ts = drag.small ? 1.1 : 1.02;
+  run(el);
 }, true);
 document.addEventListener('pointermove', e => {
   if (!drag) return;
   const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-  // резиновое сопротивление: чем дальше, тем меньше смещение
-  const rub = v => Math.sign(v) * Math.min(10, Math.sqrt(Math.abs(v)) * 1.6);
-  const tx = rub(dx), ty = rub(dy);
-  const sx = 1.06 + Math.min(.08, Math.abs(dx) / 600), sy = 1.06 + Math.min(.08, Math.abs(dy) / 600);
-  drag.el.style.transition = 'transform .06s linear';
-  drag.el.style.transform = `translate(${tx}px, ${ty}px) scale(${sx}, ${sy})`;
+  // резиновое сопротивление: чем дальше тянешь, тем меньше прибавка
+  const lim = drag.small ? 18 : 6;
+  const rub = v => Math.sign(v) * lim * (1 - 1 / (Math.abs(v) / (lim * 1.6) + 1));
+  const st = springFor(drag.el);
+  st.tx = rub(dx); st.ty = rub(dy);
+  run(drag.el);
 }, true);
 const release = () => {
-  blobEnd();
   if (!drag) return;
-  const el = drag.el; drag = null;
-  el.style.transition = 'transform .45s cubic-bezier(.2,1.4,.35,1)';
-  el.style.transform = '';
-  setTimeout(() => { if (!drag || drag.el !== el) el.style.transition = ''; }, 460);
+  const st = springFor(drag.el);
+  st.tx = 0; st.ty = 0; st.ts = 1;
+  run(drag.el);
+  drag = null;
 };
 document.addEventListener('pointerup', release, true);
 document.addEventListener('pointercancel', release, true);
@@ -64,45 +95,3 @@ document.addEventListener('wheel', e => {
     area.style.transform = ''; area.style.filter = ''; area.style.opacity = '';
   }, 140);
 }, { passive: true });
-
-// 3. «Капля» Liquid Glass (как в новом Telegram для macOS): при нажатии на стеклянную кнопку
-// из неё выходит круглая капля цвета акцента и тянется за курсором с пружинной задержкой,
-// вытягиваясь по направлению движения; кнопка под ней подсвечивается. Отпустили — капля
-// сжимается и растворяется на месте.
-let blob = null;
-function blobStart(x, y) {
-  blobEnd(true);
-  const el = document.createElement('div');
-  el.className = 'press-blob';
-  document.body.appendChild(el);
-  blob = { el, x, y, tx: x, ty: y, vx: 0, vy: 0, raf: 0, born: performance.now() };
-  const move = e => { if (blob) { blob.tx = e.clientX; blob.ty = e.clientY; } };
-  blob.move = move;
-  window.addEventListener('pointermove', move, true);
-  const step = () => {
-    const b = blob; if (!b) return;
-    // пружина: жёсткость и затухание подобраны под мягкое «догоняние»
-    const k = 0.22, d = 0.68;
-    b.vx = (b.vx + (b.tx - b.x) * k) * d;
-    b.vy = (b.vy + (b.ty - b.y) * k) * d;
-    b.x += b.vx; b.y += b.vy;
-    const speed = Math.min(1, Math.hypot(b.vx, b.vy) / 30);
-    const ang = Math.atan2(b.vy, b.vx);
-    const grow = Math.min(1, (performance.now() - b.born) / 180);
-    const s = 0.4 + 0.6 * (1 - Math.pow(1 - grow, 3));
-    b.el.style.transform = `translate(${b.x}px, ${b.y}px) rotate(${ang}rad) scale(${s * (1 + speed * 0.35)}, ${s * (1 - speed * 0.2)})`;
-    b.raf = requestAnimationFrame(step);
-  };
-  step();
-}
-function blobEnd(now = false) {
-  const b = blob; if (!b) return;
-  blob = null;
-  window.removeEventListener('pointermove', b.move, true);
-  cancelAnimationFrame(b.raf);
-  if (now) { b.el.remove(); return; }
-  b.el.style.transition = 'transform .35s cubic-bezier(.3, 0, .2, 1), opacity .35s ease';
-  b.el.style.transform = `translate(${b.x}px, ${b.y}px) scale(.2)`;
-  b.el.style.opacity = '0';
-  setTimeout(() => b.el.remove(), 380);
-}
