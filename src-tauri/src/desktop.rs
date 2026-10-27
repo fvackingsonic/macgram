@@ -37,7 +37,7 @@ pub async fn pick_files(app: AppHandle, media: bool) -> Result<Vec<String>, Stri
 #[tauri::command]
 pub fn save_paste(app: AppHandle, data: String, ext: String) -> Result<String, String> {
     let ext = ext.to_ascii_lowercase();
-    if !matches!(ext.as_str(), "png" | "jpg" | "jpeg" | "gif" | "webp") {
+    if !matches!(ext.as_str(), "png" | "jpg" | "jpeg" | "gif" | "webp" | "ogg") {
         return Err("неподдерживаемый формат".into());
     }
     let bytes = base64::engine::general_purpose::STANDARD.decode(data).map_err(|e| e.to_string())?;
@@ -49,7 +49,8 @@ pub fn save_paste(app: AppHandle, data: String, ext: String) -> Result<String, S
     let mut rnd = [0u8; 8];
     getrandom::getrandom(&mut rnd).map_err(|e| e.to_string())?;
     let name: String = rnd.iter().map(|b| format!("{b:02x}")).collect();
-    let path = dir.join(format!("image-{name}.{ext}"));
+    let kind = if ext == "ogg" { "voice" } else { "image" };
+    let path = dir.join(format!("{kind}-{name}.{ext}"));
     std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
     allow(&app, &path);
     Ok(path.to_string_lossy().into_owned())

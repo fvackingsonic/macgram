@@ -12,6 +12,7 @@ import { ProfileScreen } from './profile.js';
 import { pickAndSend, pasteImage } from './attach.js';
 import { MediaPanel } from './media-panel.js';
 import { SelectionBar } from './forward.js';
+import { startRecording, finishRecording, cancelRecording } from '../voice.js';
 import { player, progress } from '../player.js';
 import { duration } from '../format.js';
 
@@ -182,7 +183,20 @@ function Composer({ chat }) {
     sendText(chat.id, text);
     setText(''); drafts.delete(chat.id);
   };
+  const wrapSel = mark => {
+    const el = ref.current; if (!el) return;
+    const a = el.selectionStart, b = el.selectionEnd;
+    if (a === b) return;
+    const v = text.slice(0, a) + mark + text.slice(a, b) + mark + text.slice(b);
+    setText(v);
+    setTimeout(() => { el.focus(); el.setSelectionRange(a + mark.length, b + mark.length); }, 0);
+  };
   const onKey = e => {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+      const marks = { KeyB: '**', KeyI: '__', KeyU: '__', KeyM: '`', KeyP: '||' };
+      if (e.shiftKey && e.code === 'KeyX') { e.preventDefault(); wrapSel('~~'); return; }
+      if (marks[e.code] && !e.shiftKey) { e.preventDefault(); wrapSel(marks[e.code]); return; }
+    }
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); submit(); }
     else if (e.key === 'Escape' && (S.reply || S.editing)) {
       if (S.editing) setText('');
@@ -196,6 +210,25 @@ function Composer({ chat }) {
     : S.reply ? { title: `Ответ ${senderName(S.reply.sender_id) || chatTitle(chat)}`, text: contentSummary(S.reply.content, id => userName(S.users.get(id))), icon: Icon.menu('Icon_ChatAction_ReplyMessage') } : null;
   const ready = !!text.trim();
   const soon = what => () => showHud(`${what} — в следующем обновлении`);
+  const rec = S.recording?.chatId === chat.id ? S.recording : null;
+  useEffect(() => {
+    if (!rec) return;
+    const k = e => { if (e.key === 'Escape') { e.stopPropagation(); cancelRecording(); } if (e.key === 'Enter') { e.preventDefault(); finishRecording(); } };
+    window.addEventListener('keydown', k, true);
+    return () => window.removeEventListener('keydown', k, true);
+  }, [!!rec]);
+  if (rec) {
+    const t = rec.time;
+    return html`<div class="composer-wrap">
+      <button class="glass circle" title="Отменить" onClick=${cancelRecording}>${Icon.trash(20)}</button>
+      <div class="composer glass recording">
+        <span class="rec-dot" style=${`transform:scale(${1 + Math.min(1, rec.level * 4) * 0.6})`}/>
+        <span class="rec-time">${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')},${Math.floor((t * 10) % 10)}</span>
+        <span class="rec-hint">Esc — отмена, Enter — отправить</span>
+      </div>
+      <button class="glass circle send-btn ready rec-send" title="Отправить" onClick=${finishRecording}><span>${Icon.send(22)}</span></button>
+    </div>`;
+  }
   return html`<div class="composer-wrap">
     ${panel && html`<${MediaPanel} chatId=${chat.id} onEmoji=${insertEmoji} onClose=${() => setPanel(false)}/>`}
     <button class="glass circle" title="Прикрепить файл" onClick=${() => pickAndSend(false)}>${Icon.attach()}</button>
@@ -211,7 +244,7 @@ function Composer({ chat }) {
         <button class=${`icon-btn emoji-btn ${panel ? 'active' : ''}`} title="Эмодзи и стикеры" onClick=${() => setPanel(!panel)}>${Icon.smile()}</button>
       </div>
     </div>
-    <button class=${`glass circle send-btn ${ready ? 'ready' : ''}`} title=${ready ? 'Отправить' : 'Голосовое сообщение'} onClick=${ready ? submit : soon('Голосовые сообщения')}>
+    <button class=${`glass circle send-btn ${ready ? 'ready' : ''}`} title=${ready ? 'Отправить' : 'Голосовое сообщение'} onClick=${ready ? submit : () => startRecording(chat.id)}>
       <span class=${ready ? 'hide' : ''}>${Icon.mic()}</span>
       <span class=${ready ? '' : 'hide'}>${Icon.send(22)}</span>
     </button>

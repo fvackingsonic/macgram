@@ -683,7 +683,7 @@ body { background: var(--wall); }
 .compose-row .icon-btn { margin-bottom: 5px; }
 .compose-bar { padding: 8px 10px 0 14px; }
 .send-btn span { position: absolute; inset: 0; display: grid; place-items: center; transition: transform .25s var(--spring), opacity .15s; }
-.composer-wrap > .send-btn.ready { background: var(--accent); color: #fff; }
+.composer-wrap > .send-btn.ready, .composer-wrap > .send-btn.ready:hover { background: var(--accent); color: #fff; }
 .media-panel { right: 52px; bottom: calc(100% + 8px); }
 .readonly-bar.glass { flex: 1; height: 44px; border-radius: 22px; color: var(--accent); font-weight: 600; padding: 0; }
 
@@ -832,3 +832,11 @@ button.poll-opt:hover .poll-radio { border-color: var(--accent); }
 .album-row:last-of-type { margin-bottom: 0 !important; }
 .album-tile { position: relative; overflow: hidden; cursor: zoom-in; flex: none; }
 .bubble.album .meta-overlay { right: 8px; bottom: 8px; }
+
+/* ── запись голосового ── */
+.composer.recording { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 16px; }
+.rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); transition: transform .08s linear; animation: rec-blink 1s infinite; flex: none; }
+@keyframes rec-blink { 50% { opacity: .5; } }
+.rec-time { font-variant-numeric: tabular-nums; font-weight: 500; min-width: 52px; }
+.rec-hint { flex: 1; text-align: center; color: var(--gray-text); font-size: var(--fs-short); }
+.rec-send { animation: pop .25s var(--spring); }

@@ -32,6 +32,8 @@ export const S = {
   profile: false,
   viewer: null,
   pinned: new Map(),
+  recording: null,
+  forward: null,
   unreadMark: new Map(),
   chatSearch: null,
   selection: null,

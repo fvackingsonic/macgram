@@ -154,7 +154,7 @@ export function createMock(dispatch) {
         case 'sendMessage': {
           const ic = q.input_message_content;
           if (ic['@type'] !== 'inputMessageText') {
-            const path = (ic.photo || ic.document || ic.video || ic.audio || ic.animation).path;
+            const path = (ic.photo || ic.document || ic.video || ic.audio || ic.animation || ic.voice_note).path;
             const m = msg(q.chat_id, ++nextId, ME, '', Math.floor(Date.now() / 1000), { content: { '@type': 'messageDocument', document: { file_name: path.split('/').pop(), document: { id: nextId, size: 120000, local: {} } }, caption: ic.caption } });
             (hist[q.chat_id] ||= []).push(m);
             return reply(m, 20);
