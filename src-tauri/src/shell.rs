@@ -339,7 +339,16 @@ pub fn stage_wallpaper(app: AppHandle, path: String) -> Result<String, String> {
     }
     let dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("wallpapers");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let dst = dir.join(format!("preview.{}", ext));
+    // Каждый раз новое имя: TDLib узнаёт файл по пути и иначе снова ставил старую картинку.
+    if let Ok(rd) = std::fs::read_dir(&dir) {
+        for e in rd.flatten() {
+            if e.file_name().to_string_lossy().starts_with("preview") {
+                let _ = std::fs::remove_file(e.path());
+            }
+        }
+    }
+    let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+    let dst = dir.join(format!("preview_{}.{}", stamp, ext));
     std::fs::copy(&src, &dst).map_err(|e| e.to_string())?;
     Ok(dst.to_string_lossy().into_owned())
 }
