@@ -925,3 +925,8 @@ button.item { width: 100%; text-align: left; }
 .picker-row.check:hover { background: var(--row-hover); color: inherit; }
 .sel-check.static { position: static; border-color: var(--gray-icon); background: transparent; }
 .sel-check.static.on { background: var(--accent); border-color: var(--accent); }
+
+/* медиа с подписью: ширина пузыря = ширине фото/видео, подпись переносится */
+.bubble.media.with-caption { width: min-content; }
+.bubble.media.with-caption .caption { min-width: 100%; }
+.emoji-grid button, .bubble.jumbo, .r-emoji, .ctx-reactions button { font-family: "Apple Color Emoji", "Segoe UI Emoji", sans-serif; }

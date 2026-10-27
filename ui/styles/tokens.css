@@ -4,8 +4,8 @@
   Активная палитра задаётся атрибутом <html data-palette="classic|day|night">.
 */
 :root {
-  --font: "SF Pro Text", "Inter var", "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
-  --font-display: "SF Pro Display", "Inter var", "Inter", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --font: "SF Pro Text", "Inter var", "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+  --font-display: "SF Pro Display", "Inter var", "Inter", "Segoe UI Variable Display", "Segoe UI", system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
   --font-mono: "SF Mono", "Cascadia Mono", Consolas, monospace;
 
   --fs-small: 11px;
