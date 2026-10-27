@@ -104,6 +104,9 @@ export function createMock(dispatch) {
     emit({ '@type': 'updateChatFolders', chat_folders: [{ id: 1, name: { text: { text: 'Личное' } } }, { id: 2, name: { text: { text: 'Работа' } } }] });
     chats.filter(c => c.type['@type'] === 'chatTypePrivate').forEach(c => emit({ '@type': 'updateChatPosition', chat_id: c.id, position: { ...c.positions[0], list: { '@type': 'chatListFolder', chat_folder_id: 1 } } }));
     [12, -100].forEach(id => { const c = chats.find(x => x.id === id); emit({ '@type': 'updateChatPosition', chat_id: id, position: { ...c.positions[0], list: { '@type': 'chatListFolder', chat_folder_id: 2 } } }); });
+    emit({ '@type': 'updateChatActiveStories', active_stories: { chat_id: 12, list: { '@type': 'storyListMain' }, order: '100', max_read_story_id: 0, stories: [{ story_id: 1, date: now - 3600 }, { story_id: 2, date: now - 1800 }] } });
+    emit({ '@type': 'updateChatActiveStories', active_stories: { chat_id: 13, list: { '@type': 'storyListMain' }, order: '90', max_read_story_id: 5, stories: [{ story_id: 5, date: now - 7200 }] } });
+    emit({ '@type': 'updateChatActiveStories', active_stories: { chat_id: 11, list: { '@type': 'storyListMain' }, order: '95', max_read_story_id: 0, stories: [{ story_id: 9, date: now - 600, is_for_close_friends: true }] } });
     // «печатает…» и входящее сообщение через пару секунд
     setTimeout(() => emit({ '@type': 'updateChatAction', chat_id: 12, message_thread_id: 0, sender_id: { '@type': 'messageSenderUser', user_id: 12 }, action: { '@type': 'chatActionTyping' } }), 1500);
     setTimeout(() => {
@@ -201,6 +204,14 @@ export function createMock(dispatch) {
           t = t.replace(/\*\*(.+?)\*\*/g, (m0, x, off) => { entities.push({ '@type': 'textEntity', offset: off, length: x.length, type: { '@type': 'textEntityTypeBold' } }); return x; });
           return reply({ '@type': 'formattedText', text: t, entities });
         }
+        case 'getStory': return reply({ '@type': 'story', id: q.story_id, content: { '@type': 'storyContentPhoto', photo: { sizes: [], minithumbnail: null } }, caption: { text: 'Вид с горы 🏔', entities: [] } }, 200);
+        case 'getActiveSessions': return reply({ '@type': 'sessions', sessions: [
+          { id: '1', is_current: true, application_name: 'MacTele', application_version: '0.2', device_model: 'Windows PC', platform: 'Windows', system_version: '11', country: 'Украина', last_active_date: now },
+          { id: '2', application_name: 'Telegram iOS', application_version: '12.1', device_model: 'iPhone 16', platform: 'iOS', system_version: '26', country: 'Украина', ip_address: '93.x.x.x', last_active_date: now - 3600 }] }, 200);
+        case 'getStorageStatisticsFast': return reply({ files_size: 734003200, file_count: 1873, database_size: 52428800 }, 100);
+        case 'getUserPrivacySettingRules': return reply({ rules: [{ '@type': 'userPrivacySettingRuleAllowContacts' }] }, 100);
+        case 'getPasswordState': return reply({ has_password: true }, 100);
+        case 'getBlockedMessageSenders': return reply({ total_count: 3 }, 100);
         case 'getContacts': return reply({ '@type': 'users', user_ids: users.slice(1).map(u => u.id) }, 200);
         case 'createPrivateChat': return reply(chats.find(c => c.id === q.user_id) || chats[0]);
         case 'getRepliedMessage': {

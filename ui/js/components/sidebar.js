@@ -8,6 +8,8 @@ import { Icon } from '../icons.js';
 import { listTime, contentSummary, userStatus, userName } from '../format.js';
 import { Avatar, Traffic, TypingDots, Spinner, dragHandlers } from './common.js';
 import { SettingsPane } from './settings.js';
+import { StoriesRow } from './stories.js';
+import { composeMenu } from './new-chat.js';
 
 const CONN = {
   connectionStateWaitingForNetwork: 'Ожидание сети…',
@@ -25,7 +27,7 @@ export function Sidebar() {
       <${Traffic}/>
       <div class="sb-title" key=${conn ? 'c' : S.tab}>${conn ? html`<span class="conn-state"><${Spinner}/>${conn}</span>` : titles[S.tab]}</div>
       <div class="sb-actions">
-        ${S.tab === 'chats' && html`<button class="icon-btn" title="Новое сообщение" onClick=${() => { S.tab = 'contacts'; if (!S.contacts) loadContacts(); changed(); }}>${Icon.compose()}</button>`}
+        ${S.tab === 'chats' && html`<button class="icon-btn" title="Новый чат" onClick=${composeMenu}>${Icon.compose()}</button>`}
       </div>
     </div>
     ${S.tab === 'chats' && html`<${ChatsPane}/>`}
@@ -80,6 +82,7 @@ function ChatsPane() {
   const archived = sortedChats('archive');
   const inArchive = S.folder === 'archive';
   return html`
+    ${!S.searchResults && !inArchive && html`<${StoriesRow}/>`}
     <div class="search-row">
       <label class=${`search ${focus || q ? 'active' : ''}`}>
         ${Icon.search()}
@@ -140,10 +143,14 @@ function preview(chat) {
   const m = chat.last_message;
   if (!m) return '';
   const text = contentSummary(m.content, id => userName(S.users.get(id)));
+  const mc = m.content;
+  const mini = (mc.photo || mc.video || mc.animation || mc.video_note)?.minithumbnail?.data;
+  const thumb = mini && html`<img class="pv-thumb" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`;
   let who = null;
   if (m.is_outgoing && !isSaved(chat) && !isChannel(chat)) who = 'Вы';
   else if (isGroup(chat)) who = senderName(m.sender_id).split(' ')[0];
-  return html`${who && html`<span class="who">${who}: </span>`}${text}`;
+  const shown = mini ? text.replace(/^(Фото|Видео|GIF|Видеосообщение)(, )?/, (all, kind, comma) => comma ? '' : kind) : text;
+  return html`${who && html`<span class="who">${who}: </span>`}${thumb}${shown}`;
 }
 
 function ChatRow({ chat, pinned, compact }) {
@@ -172,7 +179,7 @@ function ChatRow({ chat, pinned, compact }) {
     <${Avatar} chat=${chat} size=${50} online=${online}/>
     <div class="body">
       <div class="line">
-        <div class="name"><span>${chatTitle(chat)}</span>${verified && Icon.verified(14)}${muted && html`<span class="muted-ic">${Icon.muted()}</span>`}</div>
+        <div class="name">${chat.type?.['@type'] === 'chatTypeSecret' && html`<span class="secret-ic">${Icon.menu('Icon_SecretChatLock')}</span>`}<span>${chatTitle(chat)}</span>${verified && Icon.verified(14)}${muted && html`<span class="muted-ic">${Icon.muted()}</span>`}</div>
         ${!compact && html`<div class="time">
           ${out && html`<span class="check">${m.sending_state ? Icon.clock() : read ? Icon.checks(13) : Icon.check(13)}</span>`}
           ${listTime(m?.date)}

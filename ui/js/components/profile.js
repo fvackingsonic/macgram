@@ -6,6 +6,8 @@ import { userStatus, count, renderFormatted, duration, avatarGradient, peerIndex
 import { fileOf } from '../store.js';
 import { useRef } from '../lib.js';
 import { Avatar, Spinner, dragHandlers } from './common.js';
+import { startSecretChat } from './new-chat.js';
+import { openStories } from './stories.js';
 
 // Экран профиля — как в новом Telegram для macOS: цветная шапка, 4 кнопки, карточка данных, вкладки медиа.
 const TABS = [
@@ -52,7 +54,9 @@ export function ProfileScreen({ chat }) {
     const r = e.currentTarget.getBoundingClientRect();
     openMenu(r.left, r.bottom + 6, [
       { label: muted ? 'Включить уведомления' : 'Выключить уведомления', icon: Icon.muted(15), action: toggleMute },
-      ...(username ? [{ label: 'Скопировать ссылку', icon: Icon.copy(), action: () => copy(`https://t.me/${username}`, 'Ссылка') }] : []),
+      ...(username ? [{ label: 'Скопировать ссылку', icon: Icon.menu('menu_copy_link'), action: () => copy(`https://t.me/${username}`, 'Ссылка') }] : []),
+      ...(user && !isSaved(chat) && chat.type['@type'] === 'chatTypePrivate' && user.type?.['@type'] !== 'userTypeBot' ? [{ label: 'Начать секретный чат', icon: Icon.menu('menu_secret_chat'), action: () => startSecretChat(user.id) }] : []),
+      ...(S.stories.has(chat.id) ? [{ label: 'Смотреть истории', icon: Icon.menu('menu_play'), action: () => openStories(chat.id) }] : []),
     ]);
   };
 
