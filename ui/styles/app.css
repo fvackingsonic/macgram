@@ -547,10 +547,10 @@ button:focus-visible { outline: none; }
 .mp-tabs button.on { background: var(--bg); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
 .mp-body { flex: 1; overflow-y: auto; padding: 0 6px 6px; }
 .mp-center { display: grid; place-items: center; color: var(--gray-text); }
-.mp-sec { position: sticky; top: 0; z-index: 1; padding: 8px 6px 4px; font-size: var(--fs-short); font-weight: 600; color: var(--gray-text); background: linear-gradient(var(--menu-bg) 70%, transparent); backdrop-filter: blur(10px); }
+.mp-sec { position: sticky; top: 0; z-index: 1; padding: 8px 6px 4px; font-size: var(--fs-short); font-weight: 600; color: var(--gray-text); background: linear-gradient(var(--menu-bg) 70%, transparent); }
 .emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); }
-.emoji-grid button { font-size: 26px; height: 40px; border-radius: 8px; line-height: 1; transition: transform .12s var(--spring), background .12s; }
-.emoji-grid button:hover { background: var(--glass-sel); transform: scale(1.15); }
+.emoji-grid button { font-size: 26px; height: 40px; border-radius: 8px; line-height: 1; }
+.emoji-grid button:hover { background: var(--glass-sel); }
 .mp-foot { flex: none; display: flex; gap: 2px; padding: 4px 6px; border-top: 1px solid var(--menu-border); overflow-x: auto; scrollbar-width: none; }
 .mp-foot::-webkit-scrollbar { display: none; }
 .mp-foot button { width: 32px; height: 32px; flex: none; border-radius: 8px; display: grid; place-items: center; font-size: 18px; color: var(--gray-icon); }
@@ -572,15 +572,21 @@ button:focus-visible { outline: none; }
 .tgs-fallback { line-height: 1; }
 
 /* ───────── видеоплеер ───────── */
-.vplayer { position: relative; background: #000; border-radius: 8px; overflow: hidden; animation: viewer-in .28s var(--spring); cursor: default; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
-.vplayer:fullscreen { border-radius: 0; width: 100% !important; height: 100% !important; }
+.vplayer { position: absolute; inset: 0; display: grid; place-items: center; cursor: zoom-out; }
+.vp-frame { position: relative; background: #000; border-radius: 6px; overflow: hidden; animation: viewer-in .28s var(--spring); cursor: default; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+.vplayer:fullscreen { background: #000; }
+.vplayer:fullscreen .vp-frame { border-radius: 0; box-shadow: none; }
 .vplayer video, .vp-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.viewer-close { z-index: 2; }
+/* Узкое окно (<300px) — компактная панель, как в macOS: без громкости, скорости и полноэкранного режима */
+.vplayer.compact .vp-ctl { width: 220px; }
+.vplayer.compact .vp-vol, .vplayer.compact .vp-rate, .vplayer.compact .vp-right .vp-b:nth-last-child(2) { display: none; }
 .vp-poster.blur { filter: blur(16px); transform: scale(1.1); object-fit: cover; }
 .vp-loading { position: absolute; inset: 0; display: grid; place-items: center; }
 .vp-loading span { position: absolute; margin-top: 84px; font-size: 12px; font-weight: 600; }
 /* Панель управления — как SVideoControlsView (macOS): 510×94, радиус 15, тёмное стекло */
 .vp-ctl {
-  position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); width: min(510px, calc(100% - 10px)); height: 94px;
+  position: absolute; left: 50%; bottom: 24px; cursor: default; transform: translateX(-50%); width: min(510px, calc(100% - 10px)); height: 94px;
   border-radius: 15px; color: #fff; box-sizing: border-box; padding: 16px 16px 0;
   background: rgba(28, 28, 30, .62); backdrop-filter: blur(30px) saturate(1.5); -webkit-backdrop-filter: blur(30px) saturate(1.5);
   transition: opacity .3s ease, transform .35s cubic-bezier(.2, .9, .3, 1); user-select: none;
@@ -1056,3 +1062,15 @@ html.lite *, html.lite *::before, html.lite *::after { animation-duration: .001s
 .pb-rate-val { font: 600 13px/1 var(--font); color: var(--text); }
 .pb-rate-reset { font-size: 12px; color: var(--accent); padding: 2px 6px; border-radius: 6px; }
 .pb-rate-reset:hover { background: var(--glass-sel); }
+
+/* Панель смайликов: прокрутка в отдельном слое, без размытия на каждом кадре */
+.mp-body { will-change: scroll-position; overscroll-behavior: contain; contain: strict; transform: translateZ(0); }
+.emoji-grid { contain: layout paint; }
+.media-panel { contain: layout paint; }
+
+/* Всплывающие ползунки громкости/скорости: «мостик» над промежутком и задержка скрытия,
+   чтобы ползунок не пропадал, пока ведёшь мышь от кнопки к нему */
+.pb-vol-pop { visibility: hidden; pointer-events: auto; transition: opacity .15s .35s, transform .2s .35s, visibility 0s .55s; }
+.pb-vol-pop::before { content: ''; position: absolute; left: -14px; right: -14px; top: -14px; height: 14px; }
+.pb-vol:hover .pb-vol-pop, .pb-ratew:focus-within .pb-vol-pop, .pb-vol-pop:hover { visibility: visible; opacity: 1; transform: translateX(-50%) scale(1); transition: opacity .15s, transform .2s var(--spring), visibility 0s; }
+.pb-vol-pop input { cursor: pointer; }

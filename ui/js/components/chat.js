@@ -299,7 +299,7 @@ function PlayerBar() {
           ${p.rate !== 1 && html`<button class="pb-rate-reset" onClick=${e => { e.preventDefault(); player.setRate(1); }}>Сбросить</button>`}
         </span>
       </label>
-      <label class="pb-vol" title="Громкость">
+      <label class="pb-vol" title="Громкость (колёсико мыши — тише/громче)" onWheel=${e => { e.preventDefault(); player.setVolume(Math.max(0, Math.min(1, (p.volume ?? 1) - Math.sign(e.deltaY) * 0.05))); }}>
         <button class=${`pb-btn ${p.muted ? 'dim' : ''}`} onClick=${e => { e.preventDefault(); player.toggleMute(); }}>${MI(p.muted ? 'Icon_InlinePlayer_VolumeOff' : 'Icon_InlinePlayer_VolumeOn', 24)}</button>
         <span class="pb-vol-pop"><input type="range" min="0" max="1" step="0.01" value=${p.volume} onInput=${e => player.setVolume(Number(e.target.value))}/></span>
       </label>

@@ -192,7 +192,7 @@ function VideoPlayer({ video }) {
   const pct = f?.size ? Math.round(100 * (f.local?.downloaded_size || 0) / f.size) : 0;
   const thumb = video.thumbnail?.format?.['@type'] === 'thumbnailFormatJpeg' ? fileUrl(video.thumbnail.file) : '';
   const mini = video.minithumbnail?.data;
-  const [W, H] = (() => { const k = Math.min(innerWidth * .9 / (video.width || 16), innerHeight * .82 / (video.height || 9)); return [Math.round((video.width || 16) * k), Math.round((video.height || 9) * k)]; })();
+  const [W, H] = (() => { const k = Math.min(innerWidth * .9 / (video.width || 16), (innerHeight - 80) / (video.height || 9)); return [Math.round((video.width || 16) * k), Math.round((video.height || 9) * k)]; })();
   const v = () => ref.current;
   const toggle = () => { const el = v(); if (!el) return; el.paused ? el.play().catch(() => {}) : el.pause(); };
   const skip = dt => { const el = v(); if (el) el.currentTime = Math.max(0, Math.min(el.duration || 0, el.currentTime + dt)); };
@@ -261,13 +261,19 @@ function VideoPlayer({ video }) {
   }, []);
   const vol = st.muted ? 0 : st.vol;
   const hideCtl = idle && st.playing && !scrub;
-  return html`<div class=${`vplayer ${hideCtl ? 'idle' : ''}`} ref=${wrap} style=${st.full ? '' : `width:${W}px;height:${H}px`} onClick=${e => e.stopPropagation()}>
+  // Как SVideoView: плеер занимает всю область просмотра, видео вписано в неё,
+  // а панель управления стоит внизу области (а не поверх узкого вертикального видео).
+  const compact = innerWidth < 300;
+  return html`<div class=${`vplayer ${hideCtl ? 'idle' : ''} ${compact ? 'compact' : ''}`} ref=${wrap}
+    onClick=${e => { if (e.target.closest('.vp-ctl, video')) e.stopPropagation(); }}>
+    <div class="vp-frame" style=${st.full ? 'width:100%;height:100%' : `width:${W}px;height:${H}px`}>
     ${!src && mini && html`<img class="vp-poster blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
     ${!src && thumb && html`<img class="vp-poster" src=${thumb} alt=""/>`}
     ${src && html`<video ref=${ref} src=${src} autoplay playsinline onClick=${toggle} onDblClick=${full}
       onPlay=${() => setSt(s => ({ ...s, playing: true }))} onPause=${() => setSt(s => ({ ...s, playing: false }))}
       onEnterPictureInPicture=${() => setSt(s => ({ ...s, pip: true }))} onLeavePictureInPicture=${() => setSt(s => ({ ...s, pip: false }))}
       onLoadedMetadata=${e => setSt(s => ({ ...s, d: e.target.duration || s.d }))}/>`}
+    </div>
     ${!src && html`<div class="vp-loading"><svg width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="rgba(0,0,0,.5)"/>
       <circle cx="20" cy="20" r="15" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" pathLength="100" stroke-dasharray=${`${Math.max(4, pct)} 100`} transform="rotate(-90 20 20)" style="transition:stroke-dasharray .3s"/></svg></div>`}
     ${src && html`<div class="vp-ctl" onDblClick=${e => e.stopPropagation()}>
