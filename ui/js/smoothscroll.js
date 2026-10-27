@@ -39,14 +39,3 @@ document.addEventListener('wheel', e => {
   if (!st.raf) st.raf = requestAnimationFrame(() => step(el));
 }, { passive: false, capture: true });
 
-// Пока лента сообщений прокручивается, стеклу не нужна линза (см. app.css: html.is-scrolling).
-let scrollT = 0;
-document.addEventListener('scroll', e => {
-  const t = e.target;
-  if (!(t instanceof Element) || !t.classList.contains('messages')) return;
-  const root = document.documentElement;
-  if (!root.classList.contains('glass-bubbles') && !root.classList.contains('lg-panels')) return;
-  if (!root.classList.contains('is-scrolling')) root.classList.add('is-scrolling');
-  clearTimeout(scrollT);
-  scrollT = setTimeout(() => root.classList.remove('is-scrolling'), 160);
-}, { capture: true, passive: true });

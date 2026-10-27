@@ -1521,10 +1521,11 @@ html.glass-bubbles .msg-row.last .bubble, html.no-bubbles .msg-row.last .bubble 
 html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
 html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble.media.with-caption,
 html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments {
-  position: relative; color: var(--lg-text) !important; contain: none !important; transform: translateZ(0);
+  position: relative; color: var(--lg-text) !important; contain: none !important;
   background: var(--lg-tint) !important;
-  backdrop-filter: url(#lg-lens-s) blur(2.5px) saturate(1.5) brightness(1.06) !important;
-  -webkit-backdrop-filter: url(#lg-lens-s) blur(2.5px) saturate(1.5) brightness(1.06) !important;
+  /* без SVG-линзы: её Chromium иногда сбрасывал целиком при остановке прокрутки — стекло «моргало» */
+  backdrop-filter: blur(2.5px) saturate(1.5) brightness(1.06) !important;
+  -webkit-backdrop-filter: blur(2.5px) saturate(1.5) brightness(1.06) !important;
   box-shadow: 0 6px 20px rgba(0,0,0,.14), inset 0 0 0 1px var(--lg-rim-line), inset 0 0 8px var(--lg-in-glow) !important;
 }
 html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
@@ -1566,18 +1567,6 @@ html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble
 }
 html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble:not(.z1):not(.z2):not(.z3):not(.z4):not(.z5)::before { display: none; }
 
-/* Пока лента прокручивается — стекло без линзы (дешёвое размытие): прокрутка не тормозит.
-   Когда прокрутка остановилась, линза возвращается и размытие перерисовывается заново —
-   так больше не «пропадает» эффект после прокрутки. */
-html.is-scrolling.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
-html.is-scrolling.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble.media.with-caption,
-html.is-scrolling.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments {
-  backdrop-filter: blur(2.5px) saturate(1.5) brightness(1.06) !important;
-  -webkit-backdrop-filter: blur(2.5px) saturate(1.5) brightness(1.06) !important;
-}
-html.is-scrolling:not(.lite) .chat-top .glass, html.is-scrolling:not(.lite) .composer-wrap .glass, html.is-scrolling:not(.lite) .top-bars .glass, html.is-scrolling:not(.lite) .scroll-down.glass {
-  backdrop-filter: blur(3px) saturate(1.5) brightness(1.06) !important; -webkit-backdrop-filter: blur(3px) saturate(1.5) brightness(1.06) !important;
-}
 /* поля вокруг вписанного фона — размытая копия картинки (под основным слоем) */
 .wallpaper { isolation: isolate; }
 .wallpaper > .wp-fill { position: absolute; inset: -40px; z-index: -1; filter: blur(30px) brightness(.85); object-fit: cover; width: calc(100% + 80px); height: calc(100% + 80px); }
@@ -1586,3 +1575,6 @@ html.is-scrolling:not(.lite) .chat-top .glass, html.is-scrolling:not(.lite) .com
 .wallpaper > .wp-blur, .wallpaper > .wp-pattern, .wallpaper > .wp-dim { z-index: 2; }
 .wallpaper.live > img, .wallpaper.live > video { z-index: 1; }
 .wallpaper.live > img.wp-fill { z-index: 0; }
+
+/* размытие под пузырями стабильнее без отдельного слоя прокрутки */
+html.glass-bubbles .messages { will-change: auto; }
