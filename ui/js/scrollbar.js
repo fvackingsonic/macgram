@@ -74,6 +74,8 @@ const RULES = [
   ['.messages', { top: 66, bottom: 70 }],
   ['.list', { top: 4, bottom: 70 }],
   ['.ps-scroll', { top: 10, bottom: 10 }],
+  ['.ps-sub-body', { top: 4, bottom: 10 }],
+  ['.forum-list', { top: 66, bottom: 10 }],
   ['.mp-body', { top: 2, bottom: 2 }],
   ['.pp-body', { top: 4, bottom: 4 }],
   ['.picker-list', { top: 2, bottom: 2 }],

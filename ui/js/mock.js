@@ -176,6 +176,7 @@ export function createMock(dispatch) {
           ok();
           return setTimeout(() => { setAuth({ '@type': 'authorizationStateReady' }); populate(); }, 300);
         case 'getMe': return reply(users[0]);
+        case 'getMessageAvailableReactions': return reply({ '@type': 'availableReactions', top_reactions: ['👍', '❤️', '🔥', '🎉', '😁', '🤔', '👏', '😢'].map(emoji => ({ type: { '@type': 'reactionTypeEmoji', emoji }, needs_premium: false })), recent_reactions: [], popular_reactions: [] }, 80);
         // ── ветки комментариев и темы форума ──
         case 'getMessageThread': {
           const tid = q.message_id === 401 ? 8000 : 8100;

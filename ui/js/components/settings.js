@@ -1,6 +1,6 @@
 // Настройки — как в Telegram для macOS: главная страница и вложенные разделы.
 import { html, useState, useEffect } from '../lib.js';
-import { S, changed, setPref, showHud, openModal, closeModal, logOut } from '../store.js';
+import { S, changed, setPref, showHud, openModal, closeModal, logOut, openMenu } from '../store.js';
 import { send, shell } from '../td.js';
 import { Icon } from '../icons.js';
 import { setPasscode, lockNow } from '../passcode.js';
@@ -8,6 +8,7 @@ import { checkUpdates, showUpdate, REPO } from '../updates.js';
 import { openLink } from '../links.js';
 import { playTone, SOUND_NAMES } from '../sound.js';
 import { FoldersSettings, FolderEdit } from './folders.js';
+import { openAvatar } from './profile.js';
 
 // Версия из сборки (tauri.conf.json → CI подставляет номер), в демо-режиме — заглушка.
 let version = '';
@@ -76,7 +77,10 @@ function Main() {
   const uname = me?.usernames?.active_usernames?.[0];
   return html`<div class="list list-anim">
     <div class="profile">
-      <button class="avatar-edit" title="Изменить фото" onClick=${changePhoto}>${me && html`<${Avatar} user=${me} size=${84}/>`}<span class="ae-badge">${MI('menu_camera', 14)}</span></button>
+      <div class="avatar-edit">
+        <button class="ae-photo" title=${me?.profile_photo ? 'Открыть фото' : 'Установить фото'} onClick=${() => me?.profile_photo ? openAvatar(null, me) : changePhoto()}>${me && html`<${Avatar} user=${me} size=${84}/>`}</button>
+        <button class="ae-badge" title="Изменить фото" onClick=${changePhoto}>${MI('menu_camera', 14)}</button>
+      </div>
       <div class="pname">${userName(me)}</div>
       <div class="psub">${me?.phone_number ? `+${me.phone_number}` : ''}${uname ? ` · @${uname}` : ''}</div>
     </div>
@@ -165,6 +169,15 @@ const SCOPES = [
 function Switch({ on, onChange }) {
   return html`<span class=${`switch ${on ? 'on' : ''}`} onClick=${e => { e.stopPropagation(); onChange(!on); }}><i/></span>`;
 }
+// Выбор мелодии — всплывающее меню с галочкой, как в Telegram для macOS; выбранная сразу проигрывается.
+function pickTone(e) {
+  const r = e.currentTarget.getBoundingClientRect();
+  const cur = S.prefs.notifyTone || 'in_app';
+  openMenu(r.right - 190, r.top, SOUND_NAMES.map(([k, l]) => ({
+    label: l, icon: k === cur ? Icon.check(13) : html`<span style="width:18px;display:inline-block"/>`,
+    action: () => { setPref('notifyTone', k); setTimeout(() => playTone(k), 50); },
+  })));
+}
 function Notifications() {
   const [, force] = useState(0);
   useEffect(() => {
@@ -179,7 +192,7 @@ function Notifications() {
   return html`<${Page} title="Уведомления">
     <div class="group">
       <${Toggle} k="notifyAll" label="Уведомления" hint="Выключить все уведомления на этом компьютере (также в меню значка в трее)"/>
-      <div class="item wrap"><span class="lbl">Вид уведомлений</span>${seg('notifyStyle', [['macgram', 'macgram (как на Mac)'], ['windows', 'Windows']], 'macgram')}</div>
+      <div class="item wrap"><span class="lbl">Вид уведомлений</span>${seg('notifyStyle', [['macgram', 'Как на Mac'], ['windows', 'Windows']], 'macgram')}</div>
     </div>
     <div class="pane-sec">Уведомления о сообщениях</div>
     <div class="group">
@@ -189,11 +202,8 @@ function Notifications() {
     <div class="pane-sec">Звук</div>
     <div class="group">
       <div class="item"><span class="lbl">Звук уведомления</span><${Switch} on=${S.prefs.notifySound !== false} onChange=${v => setPref('notifySound', v)}/></div>
-      ${S.prefs.notifySound !== false && html`<div class="item"><span class="lbl">Мелодия</span>
-        <select class="sel" value=${S.prefs.notifyTone || 'in_app'} onChange=${e => { setPref('notifyTone', e.target.value); playTone(e.target.value); }}>
-          ${SOUND_NAMES.map(([k, l]) => html`<option value=${k}>${l}</option>`)}
-        </select>
-        <button class="sel-btn" onClick=${() => playTone(S.prefs.notifyTone || 'in_app')}>▶</button></div>`}
+      ${S.prefs.notifySound !== false && html`<button class="item" onClick=${pickTone}><span class="lbl">Мелодия</span>
+        <span class="val">${(SOUND_NAMES.find(([k]) => k === (S.prefs.notifyTone || 'in_app')) || SOUND_NAMES[0])[1]}</span><span class="chev">${Icon.chevron(11)}</span></button>`}
     </div>
     <div class="pane-sec">На этом компьютере</div>
     <div class="group">

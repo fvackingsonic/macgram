@@ -263,6 +263,8 @@ fn main() {
             shell::toast_show,
             shell::toast_hide,
             shell::toast_last,
+            shell::toast_reply_mode,
+            shell::toast_send,
             shell::toast_open,
             desktop::set_badge
         ])

@@ -3,7 +3,7 @@
 // много; крупные «щелчки» колеса растягиваем на несколько кадров с замедлением, как в macOS.
 import { S } from './store.js';
 
-const SEL = '.messages, .list, .ps-scroll, .mp-body, .pp-body, .picker-list, .upd-notes, .rkb-rows';
+const SEL = '.messages, .list, .ps-scroll, .ps-sub-body, .forum-list, .mp-body, .pp-body, .picker-list, .upd-notes, .rkb-rows';
 const state = new WeakMap();
 
 function step(el) {

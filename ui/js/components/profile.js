@@ -28,8 +28,8 @@ function heroColors(chat, user) {
   const set = pc ? (dark ? pc.dark_theme_colors : pc.light_theme_colors) : null;
   const toHex = n => `#${(n >>> 0 & 0xffffff).toString(16).padStart(6, '0')}`;
   if (set?.background_colors?.length) return set.background_colors.map(toHex);
-  const g = avatarGradient(peerIndex(chat.id, chat.accent_color_id)).match(/#[0-9a-f]{6}/gi);
-  return g || ['#5ea3df', '#3a7bc8'];
+  // Без своего цвета профиля шапка обычная, без заливки — как в Telegram для macOS.
+  return null;
 }
 
 export function ProfileScreen({ chat }) {
@@ -92,16 +92,17 @@ export function ProfileScreen({ chat }) {
       : bg ? count(bg.member_count, 'участник', 'участника', 'участников') : '';
   const copy = (text, what) => navigator.clipboard.writeText(text).then(() => showHud(`${what} скопирован${what === 'Ссылка' ? 'а' : ''}`));
   const colors = heroColors(chat, user);
+  const hasPhoto = !!(user?.profile_photo || chat.photo);
   const soon = what => () => showHud(`${what} — в следующих обновлениях`);
   const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 
   return html`<div class=${`pscreen ${sub ? 'has-sub' : ''}`}>
     <div class="ps-scroll">
-      <div class="ps-hero" style=${`background:radial-gradient(circle at 50% 35%, ${colors[0]}, ${colors[colors.length - 1]})`}>
+      <div class=${`ps-hero ${colors ? '' : 'plain'}`} style=${colors ? `background:radial-gradient(circle at 50% 35%, ${colors[0]}, ${colors[colors.length - 1]})` : ''}>
         <div class="ps-top" ...${dragHandlers()}>
           <button class="glass circle" title="Назад" onClick=${close}>${Icon.back(18)}</button>
         </div>
-        <div class="ps-avatar"><${Avatar} chat=${chat} size=${96}/></div>
+        <div class=${`ps-avatar ${hasPhoto ? 'zoomable' : ''}`} title=${hasPhoto ? 'Открыть фото' : ''} onClick=${() => hasPhoto && openAvatar(chat, user)}><${Avatar} chat=${chat} size=${96}/></div>
         <div class="ps-name">${chatTitle(chat)}</div>
         <div class="ps-status">${statusLine}</div>
         <div class="ps-actions">
@@ -183,6 +184,14 @@ function MediaThumb({ msg }) {
 }
 
 // Просмотр фото на весь окно.
+// Открыть аватар во весь экран — как щелчок по фото в профиле Telegram для macOS.
+export function openAvatar(chat, user) {
+  const ph = user?.profile_photo || chat?.photo;
+  if (!ph?.big) return;
+  S.viewer = { photo: { sizes: [{ type: 'c', width: 640, height: 640, photo: ph.big }], minithumbnail: ph.minithumbnail } };
+  changed();
+}
+
 export function Viewer() {
   const v = S.viewer;
   const [closing, setClosing] = useState(false);

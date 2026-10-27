@@ -74,6 +74,19 @@ pub fn shell_prefs(app: AppHandle, close_to_tray: bool, notify: bool) {
 
 const TOAST_W: f64 = 360.0;
 const TOAST_H: f64 = 92.0;
+const TOAST_H_REPLY: f64 = 132.0;
+
+/// Правый нижний угол основного монитора, над панелью задач.
+fn place_toast(win: &tauri::WebviewWindow, h: f64) {
+    if let Ok(Some(m)) = win.primary_monitor() {
+        let scale = m.scale_factor();
+        let size = m.size().to_logical::<f64>(scale);
+        let pos = m.position().to_logical::<f64>(scale);
+        let x = pos.x + size.width - TOAST_W - 12.0;
+        let y = pos.y + size.height - h - 60.0;
+        let _ = win.set_position(tauri::LogicalPosition::new(x, y));
+    }
+}
 
 /// Показать всплывающее уведомление macgram (окно без рамки поверх всех, не забирает фокус).
 /// Команда обязательно async: на Windows создание окна из синхронной команды блокирует
@@ -97,15 +110,9 @@ pub async fn toast_show(app: AppHandle, payload: serde_json::Value) -> Result<()
             .build()
             .map_err(|e| e.to_string())?,
     };
-    // правый нижний угол основного монитора, над панелью задач
-    if let Ok(Some(m)) = win.primary_monitor() {
-        let scale = m.scale_factor();
-        let size = m.size().to_logical::<f64>(scale);
-        let pos = m.position().to_logical::<f64>(scale);
-        let x = pos.x + size.width - TOAST_W - 12.0;
-        let y = pos.y + size.height - TOAST_H - 60.0;
-        let _ = win.set_position(tauri::LogicalPosition::new(x, y));
-    }
+    let _ = win.set_focusable(false);
+    let _ = win.set_size(tauri::LogicalSize::new(TOAST_W, TOAST_H));
+    place_toast(&win, TOAST_H);
     if let Ok(mut l) = LAST_TOAST.lock() {
         *l = Some(payload.clone());
     }
@@ -131,7 +138,29 @@ pub fn toast_last() -> Option<serde_json::Value> {
 pub fn toast_hide(app: AppHandle) {
     if let Some(w) = app.get_webview_window("toast") {
         let _ = w.hide();
+        let _ = w.set_focusable(false);
     }
+}
+
+/// «Ответить» в уведомлении: окно становится выше и принимает ввод с клавиатуры.
+#[tauri::command]
+pub async fn toast_reply_mode(app: AppHandle, on: bool) {
+    if let Some(w) = app.get_webview_window("toast") {
+        let h = if on { TOAST_H_REPLY } else { TOAST_H };
+        TOAST_SEQ.fetch_add(1, Ordering::Relaxed); // пока пишут ответ — не прятать само
+        let _ = w.set_focusable(on);
+        let _ = w.set_size(tauri::LogicalSize::new(TOAST_W, h));
+        place_toast(&w, h);
+        if on {
+            let _ = w.set_focus();
+        }
+    }
+}
+
+/// Отправить быстрый ответ из уведомления (сообщение отправляет главное окно через TDLib).
+#[tauri::command]
+pub fn toast_send(app: AppHandle, chat_id: i64, text: String) {
+    let _ = app.emit_to("main", "toast-reply", serde_json::json!({ "chatId": chat_id, "text": text }));
 }
 
 /// Щелчок по уведомлению: открыть macgram на нужном чате.

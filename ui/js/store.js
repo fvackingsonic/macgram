@@ -706,6 +706,7 @@ onUpdate(u => {
     case 'updateChatUnreadReactionCount': patchChat(u.chat_id, c => { c.unread_reaction_count = u.unread_reaction_count; }); break;
     case 'updateMessageUnreadReactions': patchChat(u.chat_id, c => { c.unread_reaction_count = u.unread_reaction_count; }); break;
     case 'updateChatNotificationSettings': patchChat(u.chat_id, c => { c.notification_settings = u.notification_settings; }); break;
+    case 'updateChatAvailableReactions': patchChat(u.chat_id, c => { c.available_reactions = u.available_reactions; }); break;
     case 'updateChatIsMarkedAsUnread': patchChat(u.chat_id, c => { c.is_marked_as_unread = u.is_marked_as_unread; }); break;
     case 'updateChatFolders': case 'updateChatFilters': {
       const arr = u.chat_folders || u.chat_filters || [];

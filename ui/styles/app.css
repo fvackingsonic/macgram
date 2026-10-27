@@ -629,8 +629,9 @@ body { background: var(--wall); }
 .wp-blur { position: absolute; inset: 0; backdrop-filter: blur(24px); }
 
 .glass {
-  background: var(--glass-bg); backdrop-filter: blur(22px) saturate(1.8); -webkit-backdrop-filter: blur(22px) saturate(1.8);
-  box-shadow: var(--glass-shadow), inset 0 0 0 .5px var(--glass-edge), inset 0 1px 0 var(--glass-hi);
+  /* Liquid Glass macOS 26: прозрачнее, блик по верхнему-левому краю, мягкое свечение внутри, тонкий кант */
+  background: var(--glass-sheen), var(--glass-bg); backdrop-filter: blur(16px) saturate(1.9) brightness(1.04); -webkit-backdrop-filter: blur(16px) saturate(1.9) brightness(1.04);
+  box-shadow: var(--glass-shadow), inset 0 0 0 .5px var(--glass-edge), inset 1.5px 1.5px 1px -1px var(--glass-hi), inset -1px -1px 1px -.5px var(--glass-lo), inset 0 0 14px var(--glass-glow);
 }
 .glass.circle {
   width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; flex: none; color: var(--text);
@@ -971,7 +972,7 @@ button.item { width: 100%; text-align: left; }
 /* ── плавная прокрутка: меньше дорогих эффектов поверх движущегося содержимого ── */
 .date-sep span, .service span, .unread-sep, .service-pill { backdrop-filter: none !important; }
 .chat-top .glass, .composer-wrap .glass, .top-bars .glass, .scroll-down {
-  backdrop-filter: blur(14px) !important; -webkit-backdrop-filter: blur(14px) !important;
+  backdrop-filter: blur(14px) saturate(1.9) brightness(1.04) !important; -webkit-backdrop-filter: blur(14px) saturate(1.9) brightness(1.04) !important;
 }
 .messages .day { content-visibility: auto; contain-intrinsic-size: auto 800px; }
 .row { content-visibility: auto; contain-intrinsic-size: auto 68px; }
@@ -1226,21 +1227,23 @@ body.resizing .sidebar.card, body.resizing .main { transition: none !important; 
 .main.pushed .nav-prev .glass, .main.popping .nav-prev .glass { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 .main.pushed .nav-prev, .main.popping .nav-prev { will-change: transform, opacity; }
 
-/* ── 0.6: комментарии к постам каналов (ChannelCommentsControl) ── */
-.with-comments { display: flex; flex-direction: column; max-width: min(480px, 72%); }
-.with-comments > .bubble, .with-comments > .with-reactions { max-width: 100%; }
-.with-comments > .bubble { border-bottom-left-radius: 6px !important; border-bottom-right-radius: 6px !important; }
+/* ── 0.6: комментарии к постам каналов (ChannelCommentsControl) ──
+   Как в Telegram для macOS: полоска — часть того же пузыря, отделена тонкой линией. */
+.with-comments { display: flex; flex-direction: column; max-width: min(480px, 72%); border-radius: 16px; overflow: hidden;
+  background: var(--in-bg); box-shadow: inset 0 0 0 .5px var(--in-border), 0 1px 1px rgba(0, 0, 0, .06); }
+.msg-row.in:not(.last) .with-comments { border-bottom-left-radius: 6px; }
+.msg-row.in:not(.first) .with-comments { border-top-left-radius: 6px; }
+.with-comments > .bubble { max-width: 100%; border-radius: 0 !important; box-shadow: none !important; background: transparent !important; }
 .with-reactions .with-comments, .with-kb .with-comments { max-width: 100%; }
-.comments-bar { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 10px 0 10px; margin-top: 1px; border-radius: 6px 6px 16px 16px;
-  background: var(--in-bg); color: var(--accent); box-shadow: inset 0 0 0 .5px var(--in-border), 0 1px 1px rgba(0, 0, 0, .06); font-weight: 500; font-size: var(--fs-text); text-align: left; transition: background .15s; }
-.comments-bar:hover { background: color-mix(in srgb, var(--in-bg) 92%, var(--accent)); }
-.comments-bar:active { transform: scale(.99); }
+.comments-bar { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 8px 0 10px; position: relative;
+  background: transparent; color: var(--accent); font-weight: 500; font-size: var(--fs-text); text-align: left; transition: background .15s; }
+.comments-bar::before { content: ""; position: absolute; top: 0; left: 10px; right: 10px; height: .5px; background: var(--border); transform: scaleY(1); }
+.comments-bar:hover { background: var(--accent-soft); }
 .comments-bar .cb-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .comments-bar .cb-ic, .comments-bar .cb-next { display: flex; color: var(--accent); }
-.comments-bar .cb-next { opacity: .8; }
-.cb-avatars { display: flex; padding-left: 4px; }
-.cb-av { margin-left: -6px; border-radius: 50%; box-shadow: 0 0 0 2px var(--in-bg); display: flex; }
-.cb-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
+.cb-avatars { display: flex; padding-left: 6px; }
+.cb-av { margin-left: -6px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--in-bg); display: flex; }
+.cb-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; }
 
 /* ── ветка комментариев / тема форума ── */
 .thread-root { padding-top: 6px; }
@@ -1323,3 +1326,22 @@ body.resizing .sidebar.card, body.resizing .main { transition: none !important; 
 .pscreen.has-sub .ps-scroll { transform: translateX(-33%); opacity: 0; pointer-events: none; }
 .fl-type { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; flex: none; color: #fff; }
 .ps-sub-search { background: var(--card-bg); box-shadow: var(--card-shadow); }
+
+/* профиль без своего цвета — обычная шапка, как в Telegram для macOS */
+.ps-hero.plain { background: var(--bg); color: var(--text); }
+.ps-hero.plain .ps-name { text-shadow: none; }
+.ps-hero.plain .ps-status { color: var(--gray-text); opacity: 1; }
+.ps-hero.plain .ps-top .glass.circle { color: var(--accent); background: var(--accent-soft); box-shadow: none; }
+.ps-hero.plain .ps-actions button { background: var(--accent-soft); color: var(--accent); backdrop-filter: none; }
+.ps-hero.plain .ps-actions button:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.ps-hero.plain .ps-actions button .mi { background-color: var(--accent); }
+.ps-avatar.zoomable { cursor: pointer; }
+.ps-avatar.zoomable:active { transform: scale(.97); }
+.avatar-edit { display: inline-block; }
+.ae-photo { border-radius: 50%; display: block; transition: transform .2s var(--spring); }
+.ae-photo:hover { transform: scale(1.03); }
+.ae-badge { transition: transform .2s var(--spring); }
+.ae-badge:hover { transform: scale(1.12); }
+/* список участников листается: карточки не сжимаются под высоту окна */
+.ps-sub-body { min-height: 0; }
+.ps-sub-body > * { flex-shrink: 0; }

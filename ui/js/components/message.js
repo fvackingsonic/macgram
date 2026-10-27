@@ -405,7 +405,7 @@ export function toggleReaction(msg, emoji, chosen) {
   const req = chosen
     ? { '@type': 'removeMessageReaction', chat_id: msg.chat_id, message_id: msg.id, reaction_type }
     : { '@type': 'addMessageReaction', chat_id: msg.chat_id, message_id: msg.id, reaction_type, is_big: false, update_recent_reactions: true };
-  send(req).catch(e => showHud(e.message?.includes('REACTION') ? 'Эта реакция недоступна в чате' : e.message));
+  send(req).catch(e => showHud(/reaction/i.test(e.message || '') ? 'Эта реакция недоступна в этом чате' : e.message));
 }
 function Reactions({ msg }) {
   const list = reactionList(msg).filter(r => r.total_count > 0);
@@ -489,7 +489,21 @@ function MessageRowView({ msg, chat, first, last, inThread }) {
   const onContext = e => {
     e.preventDefault();
     const chosen = new Set(reactionList(msg).filter(r => r.is_chosen).map(r => r.type?.emoji));
-    const items = [{ reactions: QUICK, chosen, pick: emoji => toggleReaction(msg, emoji, chosen.has(emoji)) }];
+    // Только реакции, разрешённые в этом чате (иначе Telegram отвечает «реакция недоступна»).
+    const ar = (S.chats.get(chat.id) || chat).available_reactions;
+    const allowed = ar?.['@type'] === 'chatAvailableReactionsSome' ? ar.reactions.map(r => r.emoji).filter(Boolean) : null;
+    const first = (allowed ? allowed : QUICK).slice(0, 8);
+    const items = first.length ? [{ reactions: first, chosen, pick: emoji => toggleReaction(msg, emoji, chosen.has(emoji)) }] : [];
+    // Точный список для этого сообщения — от TDLib (как в официальных клиентах); меню обновится само.
+    send({ '@type': 'getMessageAvailableReactions', chat_id: msg.chat_id, message_id: msg.id, row_size: 8 }).then(r => {
+      const list = [...(r.top_reactions || []), ...(r.recent_reactions || []), ...(r.popular_reactions || [])]
+        .filter(x => x.type?.['@type'] === 'reactionTypeEmoji' && !x.needs_premium).map(x => x.type.emoji);
+      const uniq = [...new Set(list)].slice(0, 8);
+      if (!S.menu || S.menu.items !== items) return;
+      if (uniq.length) { if (items[0]?.reactions) items[0].reactions = uniq; else items.unshift({ reactions: uniq, chosen, pick: emoji => toggleReaction(msg, emoji, chosen.has(emoji)) }); }
+      else if (items[0]?.reactions) items.shift();
+      changed();
+    }).catch(() => {});
     const text = c.text?.text || c.caption?.text;
     if (canReply(chat)) items.push({ label: 'Ответить', icon: Icon.reply(), action: () => { S.reply = msg; S.editing = null; changed(); focusComposer(); } });
     if (msg.is_outgoing && c['@type'] === 'messageText' && Date.now() / 1000 - msg.date < 48 * 3600) {

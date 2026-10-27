@@ -80,10 +80,13 @@
 
   /* стекло (Liquid Glass) */
   --card-bg: rgba(255, 255, 255, .9);
-  --glass-bg: rgba(255, 255, 255, .72);
-  --glass-edge: rgba(0, 0, 0, .08);
-  --glass-hi: rgba(255, 255, 255, .8);
-  --glass-shadow: 0 6px 24px rgba(0, 0, 0, .12);
+  --glass-bg: rgba(255, 255, 255, .6);
+  --glass-edge: rgba(0, 0, 0, .07);
+  --glass-hi: rgba(255, 255, 255, .95);
+  --glass-lo: rgba(255, 255, 255, .5);
+  --glass-glow: rgba(255, 255, 255, .22);
+  --glass-sheen: linear-gradient(165deg, rgba(255, 255, 255, .34) 0%, rgba(255, 255, 255, 0) 42%, rgba(255, 255, 255, 0) 70%, rgba(255, 255, 255, .14) 100%);
+  --glass-shadow: 0 8px 28px rgba(0, 0, 0, .1), 0 1px 3px rgba(0, 0, 0, .06);
   --glass-sel: rgba(0, 0, 0, .08);
   --card-shadow: 0 8px 32px rgba(0, 0, 0, .14), 0 0 0 .5px rgba(0, 0, 0, .1);
 
@@ -157,10 +160,13 @@
   --input-bg: rgba(255, 255, 255, .08);
 
   --card-bg: rgba(24, 34, 45, .9);
-  --glass-bg: rgba(30, 42, 55, .7);
+  --glass-bg: rgba(34, 42, 52, .55);
   --glass-edge: rgba(255, 255, 255, .1);
-  --glass-hi: rgba(255, 255, 255, .06);
-  --glass-shadow: 0 6px 24px rgba(0, 0, 0, .4);
+  --glass-hi: rgba(255, 255, 255, .32);
+  --glass-lo: rgba(255, 255, 255, .1);
+  --glass-glow: rgba(255, 255, 255, .04);
+  --glass-sheen: linear-gradient(165deg, rgba(255, 255, 255, .12) 0%, rgba(255, 255, 255, 0) 42%, rgba(255, 255, 255, 0) 70%, rgba(255, 255, 255, .05) 100%);
+  --glass-shadow: 0 8px 28px rgba(0, 0, 0, .38), 0 1px 3px rgba(0, 0, 0, .3);
   --glass-sel: rgba(255, 255, 255, .12);
   --card-shadow: 0 8px 32px rgba(0, 0, 0, .45), 0 0 0 .5px rgba(255, 255, 255, .08);
 

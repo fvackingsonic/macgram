@@ -1,8 +1,8 @@
 // Уведомления Windows и счётчик непрочитанных на значке в панели задач.
-import { S, chatTitle, senderName, isGroup, inList, isMuted, fileUrl, selectChat, setPref } from './store.js';
+import { S, chatTitle, senderName, isGroup, inList, isMuted, fileUrl, selectChat, setPref, sendText, showHud, changed } from './store.js';
 import { initials, peerIndex, avatarGradient } from './format.js';
 import { lockNow } from './passcode.js';
-import { onUpdate, shell } from './td.js';
+import { onUpdate, shell, send } from './td.js';
 import { contentSummary, userName } from './format.js';
 import { playTone } from './sound.js';
 
@@ -46,6 +46,16 @@ if (window.__TAURI__) {
   ev.listen('open-chat', e => { if (e.payload) selectChat(e.payload); });
   ev.listen('tray-notify', e => setPref('notifyAll', !!e.payload));
   ev.listen('tray-lock', () => lockNow());
+  // Быстрый ответ из всплывающего уведомления, как в macOS.
+  ev.listen('toast-reply', e => {
+    const { chatId, text } = e.payload || {};
+    if (!chatId || !text || S.locked) return;
+    const saved = { reply: S.reply, editing: S.editing };
+    S.reply = null; S.editing = null;
+    const last = S.chats.get(chatId)?.last_message;
+    if (last) send({ '@type': 'viewMessages', chat_id: chatId, message_ids: [last.id], force_read: true }).catch(() => {});
+    sendText(chatId, text).then(() => showHud('Ответ отправлен')).finally(() => { if (!S.reply && !S.editing) { S.reply = saved.reply; S.editing = saved.editing; changed(); } });
+  });
 }
 
 let lastBadge = -1;
