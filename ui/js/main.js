@@ -9,6 +9,7 @@ import { Viewer } from './components/profile.js';
 import { Wallpaper } from './components/wallpaper.js';
 import './notify.js';
 import { SendDialog, DropOverlay } from './components/attach.js';
+import { ForwardDialog } from './components/forward.js';
 
 function App() {
   useStore();
@@ -17,8 +18,12 @@ function App() {
     const f = () => setFocused(true), b = () => setFocused(false);
     window.addEventListener('focus', f); window.addEventListener('blur', b);
     const keys = e => {
-      if (e.key === 'Escape' && !S.menu && !S.modal && !S.viewer && !S.sendDialog && !S.reply && !S.editing && S.currentChatId && document.activeElement?.tagName !== 'INPUT') selectChat(null);
-      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'f' || e.key.toLowerCase() === 'k' || e.code === 'KeyK' || e.code === 'KeyF')) {
+      if (e.key === 'Escape' && S.selection && !S.modal && !S.forward) { S.selection = null; changed(); return; }
+      if (e.key === 'Escape' && !S.menu && !S.modal && !S.viewer && !S.sendDialog && !S.forward && !S.selection && !S.reply && !S.editing && S.currentChatId && document.activeElement?.tagName !== 'INPUT') selectChat(null);
+      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyF' && S.currentChatId && !S.profile) {
+        e.preventDefault(); S.chatSearch = { chatId: S.currentChatId, q: '', results: [], index: -1, total: 0 }; changed(); return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyK' || e.code === 'KeyF')) {
         e.preventDefault(); S.tab = 'chats'; changed();
         setTimeout(() => document.querySelector('.search input')?.focus(), 0);
       }
@@ -38,6 +43,7 @@ function App() {
     ${ready ? html`<${Wallpaper}/><${Sidebar}/><${Main}/>` : html`<${Auth}/>`}
     <${DropOverlay}/>
     <${SendDialog}/>
+    <${ForwardDialog}/>
     <${Viewer}/>
     <${ContextMenu}/>
     <${Modal}/>

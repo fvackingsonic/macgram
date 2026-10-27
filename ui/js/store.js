@@ -31,6 +31,10 @@ export const S = {
   player: null,
   profile: false,
   viewer: null,
+  pinned: new Map(),
+  unreadMark: new Map(),
+  chatSearch: null,
+  selection: null,
   sendDialog: null,
   dragging: false,
   scopes: {},
@@ -169,15 +173,18 @@ export function closeModal() {
 }
 
 // ── история сообщений ──
+// list — загруженный отрезок истории (по возрастанию id). hasMore — есть ли старее,
+// hasNewer — отрезок не доходит до последнего сообщения (после перехода к старому).
 function hist(chatId) {
   let h = S.history.get(chatId);
-  if (!h) { h = { list: [], byId: new Map(), hasMore: true, loading: false }; S.history.set(chatId, h); }
+  if (!h) { h = { list: [], byId: new Map(), hasMore: true, hasNewer: false, loading: false }; S.history.set(chatId, h); }
   return h;
 }
 function putMessage(m, { fresh = false } = {}) {
   const h = S.history.get(m.chat_id);
   if (!h) return;
   const exists = h.byId.has(m.id);
+  if (!exists && h.hasNewer) return; // новое сообщение «вне» загруженного отрезка
   h.byId.set(m.id, m);
   if (exists) { h.list = h.list.map(x => (x.id === m.id ? m : x)); return; }
   if (!h.list.length || h.list[h.list.length - 1].id < m.id) h.list = [...h.list, m];
@@ -190,6 +197,10 @@ function removeMessage(chatId, id) {
   h.byId.delete(id);
   h.list = h.list.filter(x => x.id !== id);
 }
+function setList(h, msgs) {
+  for (const m of msgs) h.byId.set(m.id, m);
+  h.list = [...h.byId.values()].sort((a, b) => a.id - b.id);
+}
 
 export async function loadHistory(chatId, older = false) {
   const h = hist(chatId);
@@ -200,8 +211,9 @@ export async function loadHistory(chatId, older = false) {
     let got = 0;
     for (let i = 0; i < 5 && got < 40; i++) {
       const r = await send({ '@type': 'getChatHistory', chat_id: chatId, from_message_id: from, offset: 0, limit: 50, only_local: false });
-      if (!r.messages?.length) { h.hasMore = false; break; }
-      for (const m of r.messages) if (!h.byId.has(m.id)) { h.byId.set(m.id, m); got++; }
+      const fresh = (r.messages || []).filter(m => !h.byId.has(m.id));
+      if (!r.messages?.length || (!fresh.length && from)) { h.hasMore = false; break; }
+      for (const m of fresh) { h.byId.set(m.id, m); got++; }
       from = r.messages[r.messages.length - 1].id;
     }
     h.list = [...h.byId.values()].sort((a, b) => a.id - b.id);
@@ -212,18 +224,97 @@ export async function loadHistory(chatId, older = false) {
   }
 }
 
+// Подгрузка более новых сообщений, когда пользователь листает вниз после перехода к старому.
+export async function loadNewer(chatId) {
+  const h = hist(chatId);
+  if (h.loading || !h.hasNewer || !h.list.length) return;
+  h.loading = true;
+  try {
+    const last = h.list[h.list.length - 1].id;
+    const r = await send({ '@type': 'getChatHistory', chat_id: chatId, from_message_id: last, offset: -49, limit: 50, only_local: false });
+    const msgs = (r.messages || []).filter(m => m.id > last);
+    setList(h, msgs);
+    const chat = S.chats.get(chatId);
+    if (!msgs.length || (chat?.last_message && h.byId.has(chat.last_message.id))) h.hasNewer = false;
+  } catch {} finally { h.loading = false; changed(); }
+}
+
+// Загрузить отрезок вокруг сообщения (для перехода к ответу, закрепу, результату поиска).
+export async function loadAround(chatId, msgId) {
+  const h = hist(chatId);
+  h.loading = true; changed();
+  try {
+    const r = await send({ '@type': 'getChatHistory', chat_id: chatId, from_message_id: msgId, offset: -25, limit: 50, only_local: false });
+    h.byId = new Map(); h.list = [];
+    setList(h, r.messages || []);
+    const chat = S.chats.get(chatId);
+    h.hasNewer = !(chat?.last_message && h.byId.has(chat.last_message.id));
+    h.hasMore = true;
+  } catch {} finally { h.loading = false; changed(); }
+}
+
+// Вернуться к последним сообщениям.
+export async function resetToLatest(chatId) {
+  const h = hist(chatId);
+  if (h.hasNewer) {
+    h.byId = new Map(); h.list = []; h.hasNewer = false; h.hasMore = true;
+    await loadHistory(chatId);
+  }
+}
+
+function flashMessage(id) {
+  S.highlight = id; changed();
+  setTimeout(() => { if (S.highlight === id) { S.highlight = null; changed(); } }, 1400);
+}
+export async function jumpTo(chatId, id) {
+  if (chatId !== S.currentChatId) await selectChat(chatId, { noScrollToUnread: true });
+  const scroll = () => {
+    const el = document.querySelector(`[data-mid="${id}"]`);
+    if (!el) return false;
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    flashMessage(id);
+    return true;
+  };
+  if (scroll()) return;
+  await loadAround(chatId, id);
+  requestAnimationFrame(() => requestAnimationFrame(() => { if (!scroll()) showHud('Сообщение не найдено'); }));
+}
+
+// ── закреплённые сообщения ──
+export async function loadPinned(chatId) {
+  try {
+    const r = await send({ '@type': 'searchChatMessages', chat_id: chatId, query: '', from_message_id: 0, offset: 0, limit: 50, filter: { '@type': 'searchMessagesFilterPinned' } });
+    const list = r.messages || [];
+    S.pinned.set(chatId, { list, index: 0 });
+  } catch {
+    try {
+      const m = await send({ '@type': 'getChatPinnedMessage', chat_id: chatId });
+      S.pinned.set(chatId, { list: [m], index: 0 });
+    } catch { S.pinned.delete(chatId); }
+  }
+  changed();
+}
+
 // ── действия ──
-export async function selectChat(chatId) {
+export async function selectChat(chatId, opts = {}) {
   if (S.currentChatId === chatId) return;
   const prev = S.currentChatId;
   if (prev) send({ '@type': 'closeChat', chat_id: prev }).catch(() => {});
   S.currentChatId = chatId;
-  S.reply = null; S.editing = null; S.highlight = null;
+  S.reply = null; S.editing = null; S.highlight = null; S.profile = false; S.chatSearch = null; S.selection = null;
   changed();
   if (!chatId) return;
   send({ '@type': 'openChat', chat_id: chatId }).catch(() => {});
+  const chat = S.chats.get(chatId);
   const h = hist(chatId);
-  if (!h.list.length) await loadHistory(chatId);
+  // Разделитель «Непрочитанные сообщения» и переход к первому непрочитанному — как в Telegram.
+  const lastRead = chat?.last_read_inbox_message_id || 0;
+  S.unreadMark.set(chatId, chat?.unread_count > 0 ? lastRead : null);
+  loadPinned(chatId);
+  if (chat?.unread_count > 0 && lastRead && !opts.noScrollToUnread) {
+    await loadAround(chatId, lastRead);
+    requestAnimationFrame(() => requestAnimationFrame(() => document.querySelector('.unread-sep')?.scrollIntoView({ block: 'start' })));
+  } else if (!h.list.length) await loadHistory(chatId);
   markRead(chatId);
 }
 
@@ -245,12 +336,19 @@ export function markRead(chatId = S.currentChatId) {
 document.addEventListener('visibilitychange', () => markRead());
 window.addEventListener('focus', () => markRead());
 
+// Разметка как в Telegram: **жирный**, __курсив__, ~~зачёркнутый~~, ||спойлер||, `код`, ```блок```.
+export async function parseText(text) {
+  const plain = { '@type': 'formattedText', text, entities: [] };
+  if (!/(\*\*|__|~~|\|\||`)/.test(text)) return plain;
+  try { return await send({ '@type': 'parseMarkdown', text: plain }); } catch { return plain; }
+}
+
 export async function sendText(chatId, text) {
   const body = text.replace(/\s+$/, '');
   if (!body.trim()) return;
   const editing = S.editing, reply = S.reply;
   S.editing = null; S.reply = null; changed();
-  const content = { '@type': 'inputMessageText', text: { '@type': 'formattedText', text: body, entities: [] } };
+  const content = { '@type': 'inputMessageText', text: await parseText(body) };
   try {
     if (editing) {
       await send({ '@type': 'editMessageText', chat_id: chatId, message_id: editing.id, input_message_content: content });
@@ -438,6 +536,10 @@ onUpdate(u => {
       if (m) putMessage({ ...m, interaction_info: u.interaction_info });
       break;
     }
+    case 'updateMessageIsPinned':
+      if (u.chat_id === S.currentChatId) loadPinned(u.chat_id);
+      { const h = S.history.get(u.chat_id), m = h?.byId.get(u.message_id); if (m) putMessage({ ...m, is_pinned: u.is_pinned }); }
+      break;
     case 'updateDeleteMessages':
       if (!u.from_cache) for (const id of u.message_ids) removeMessage(u.chat_id, id);
       break;

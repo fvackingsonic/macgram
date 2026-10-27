@@ -33,12 +33,16 @@ export function createMock(dispatch) {
       msg(11, 103, 11, 'Звучит круто', now - D - 5 * H + 90),
       msg(11, 104, 11, 'Покажешь, когда будет первая версия?', now - D - 5 * H + 95),
       msg(11, 105, ME, 'Конечно', now - D - 4 * H, { interaction_info: { reactions: { reactions: [{ type: { '@type': 'reactionTypeEmoji', emoji: '❤️' }, total_count: 1, is_chosen: false }, { type: { '@type': 'reactionTypeEmoji', emoji: '🔥' }, total_count: 2, is_chosen: true }] } } }),
-      msg(11, 106, 11, '', now - 40 * 60, { content: fmt('Кстати, вот ссылка на макет: figma.com/file/demo и важное: дедлайн в пятницу', [
+      msg(11, 106, 11, '', now - 40 * 60, { is_pinned: true, content: fmt('Кстати, вот ссылка на макет: figma.com/file/demo и важное: дедлайн в пятницу', [
         { '@type': 'textEntity', offset: 29, length: 19, type: { '@type': 'textEntityTypeUrl' } },
         { '@type': 'textEntity', offset: 51, length: 6, type: { '@type': 'textEntityTypeBold' } },
       ]) }),
       msg(11, 107, ME, 'Отлично, гляну вечером', now - 35 * 60, { reply_to: { '@type': 'messageReplyToMessage', chat_id: 11, message_id: 106 } }),
       msg(11, 108, 11, '👍', now - 30 * 60),
+      msg(11, 113, 11, '', now - 29 * 60, { media_album_id: '777', content: { '@type': 'messagePhoto', photo: { sizes: [{ type: 'x', width: 800, height: 600, photo: { id: 501, size: 1, local: {} } }] }, caption: { text: 'Фото с прогулки', entities: [] } } }),
+      msg(11, 114, 11, '', now - 29 * 60, { media_album_id: '777', content: { '@type': 'messagePhoto', photo: { sizes: [{ type: 'x', width: 600, height: 800, photo: { id: 502, size: 1, local: {} } }] }, caption: { text: '', entities: [] } } }),
+      msg(11, 115, 11, '', now - 29 * 60, { media_album_id: '777', content: { '@type': 'messagePhoto', photo: { sizes: [{ type: 'x', width: 800, height: 800, photo: { id: 503, size: 1, local: {} } }] }, caption: { text: '', entities: [] } } }),
+      msg(11, 116, 11, '', now - 28 * 60, { content: { '@type': 'messagePoll', poll: { question: { text: 'Куда пойдём в субботу?' }, is_anonymous: true, total_voter_count: 7, type: { '@type': 'pollTypeRegular' }, options: [{ text: { text: 'В горы' }, voter_count: 4, vote_percentage: 57, is_chosen: true }, { text: { text: 'На море' }, voter_count: 2, vote_percentage: 29 }, { text: { text: 'Остаться дома' }, voter_count: 1, vote_percentage: 14 }] } } }),
       msg(11, 112, 11, '', now - 26 * 60, { content: { '@type': 'messageVideo', video: { duration: 42, width: 1280, height: 720, video: { id: 79, size: 9000000, local: { is_downloading_completed: false, can_be_downloaded: true, downloaded_size: 3000000 } } }, caption: { text: 'Видео с выходных', entities: [] } } }),
       msg(11, 110, 11, '', now - 25 * 60, { content: { '@type': 'messageVoiceNote', voice_note: { duration: 14, waveform: 'AAAQIEBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygp', voice: { id: 77, size: 20000, local: { is_downloading_completed: false, can_be_downloaded: true } } } } }),
       msg(11, 111, ME, '', now - 20 * 60, { content: { '@type': 'messageAudio', audio: { duration: 187, title: 'Night Drive', performer: 'Demo Artist', file_name: 'night.mp3', audio: { id: 78, size: 4200000, local: { is_downloading_completed: false, can_be_downloaded: true } } }, caption: { text: '', entities: [] } } }),
@@ -186,7 +190,17 @@ export function createMock(dispatch) {
           return reply({ '@type': 'chats', chat_ids: chats.filter(c => c.title.toLowerCase().includes(lq)).map(c => c.id) });
         }
         case 'getUserFullInfo': return reply({ '@type': 'userFullInfo', bio: { '@type': 'formattedText', text: 'Дизайнер. Люблю кофе и горы ☕️', entities: [] } }, 150);
-        case 'searchChatMessages': return reply({ '@type': 'foundChatMessages', messages: [] }, 150);
+        case 'searchChatMessages': {
+          const all = (hist[q.chat_id] || []).slice().reverse();
+          if (q.filter?.['@type'] === 'searchMessagesFilterPinned') return reply({ '@type': 'foundChatMessages', messages: all.filter(m => m.is_pinned), total_count: all.filter(m => m.is_pinned).length }, 100);
+          if (q.query) { const r = all.filter(m => (m.content.text?.text || '').toLowerCase().includes(q.query.toLowerCase())); return reply({ '@type': 'foundChatMessages', messages: r, total_count: r.length }, 100); }
+          return reply({ '@type': 'foundChatMessages', messages: [], total_count: 0 }, 150);
+        }
+        case 'parseMarkdown': {
+          let t = q.text.text; const entities = [];
+          t = t.replace(/\*\*(.+?)\*\*/g, (m0, x, off) => { entities.push({ '@type': 'textEntity', offset: off, length: x.length, type: { '@type': 'textEntityTypeBold' } }); return x; });
+          return reply({ '@type': 'formattedText', text: t, entities });
+        }
         case 'getContacts': return reply({ '@type': 'users', user_ids: users.slice(1).map(u => u.id) }, 200);
         case 'createPrivateChat': return reply(chats.find(c => c.id === q.user_id) || chats[0]);
         case 'getRepliedMessage': {

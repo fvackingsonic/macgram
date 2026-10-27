@@ -1,8 +1,9 @@
 import { html, useEffect, useState, useRef } from '../lib.js';
-import { S, changed, download, fileUrl, fileOf, senderName, senderId, openMenu, openModal, closeModal, showHud, deleteMessages, isGroup, isChannel, chatUser } from '../store.js';
+import { S, changed, jumpTo, download, fileUrl, fileOf, senderName, senderId, openMenu, openModal, closeModal, showHud, deleteMessages, isGroup, isChannel, chatUser } from '../store.js';
 import { send, shell } from '../td.js';
 import { Icon } from '../icons.js';
-import { hm, renderFormatted, contentSummary, fileSize, duration, peerIndex, nameColor, jumboEmoji, userName, serviceText } from '../format.js';
+import { hm, renderFormatted, contentSummary, fileSize, duration, peerIndex, nameColor, jumboEmoji, userName, serviceText, count } from '../format.js';
+import { openForward, startSelection, toggleSelected } from './forward.js';
 import { Avatar } from './common.js';
 import { player, progress } from '../player.js';
 import { Tgs } from './tgs.js';
@@ -26,14 +27,6 @@ function useReplied(msg) {
   }, [replyId]);
   if (!replyId) return null;
   return { id: replyId, msg: local || replyCache.get(`${replyChat}:${replyId}`), quote: rt?.quote };
-}
-
-export function jumpTo(chatId, id) {
-  const el = document.querySelector(`[data-mid="${id}"]`);
-  if (!el) { showHud('Сообщение ещё не загружено'); return; }
-  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  S.highlight = id; changed();
-  setTimeout(() => { if (S.highlight === id) { S.highlight = null; changed(); } }, 1300);
 }
 
 function ReplyQuote({ msg }) {
@@ -191,6 +184,110 @@ function Doc({ name, size, icon }) {
     <div style="min-width:0"><div class="fname">${name}</div><div class="fsize">${fileSize(size)}</div></div></div>`;
 }
 
+// ── превью ссылки ──
+function LinkPreview({ lp }) {
+  const photo = lp.photo || lp.type?.photo || lp.type?.video?.cover || null;
+  const sizes = photo?.sizes || [];
+  const big = photo && (lp.show_large_media ?? lp.has_large_media ?? false);
+  const size = big ? pickSize(sizes, 600) : [...sizes].sort((a, b) => a.width - b.width).find(x => x.width >= 100) || sizes[0];
+  useEffect(() => { if (size) download(size.photo, 1); }, [size?.photo.id]);
+  const url = size ? fileUrl(size.photo) : '';
+  const desc = typeof lp.description === 'string' ? lp.description : lp.description?.text;
+  return html`<div class="link-preview" onClick=${e => { e.stopPropagation(); onLink(lp.url); }}>
+    <div class="lp-body">
+      ${lp.site_name && html`<div class="lp-site">${lp.site_name}</div>`}
+      ${lp.title && html`<div class="lp-title">${lp.title}</div>`}
+      ${desc && html`<div class="lp-desc">${desc}</div>`}
+    </div>
+    ${url && !big && html`<img class="lp-thumb" src=${url} alt=""/>`}
+    ${url && big && html`<img class="lp-big" src=${url} alt=""/>`}
+  </div>`;
+}
+
+// ── опрос ──
+function Poll({ msg }) {
+  const p = msg.content.poll;
+  const q = typeof p.question === 'string' ? p.question : p.question?.text;
+  const optText = o => typeof o.text === 'string' ? o.text : o.text?.text;
+  const voted = p.is_closed || p.options.some(o => o.is_chosen);
+  const quiz = p.type?.['@type'] === 'pollTypeQuiz';
+  const multi = p.type?.allow_multiple_answers;
+  const [picked, setPicked] = useState([]);
+  const vote = ids => send({ '@type': 'setPollAnswer', chat_id: msg.chat_id, message_id: msg.id, option_ids: ids }).catch(e => showHud(e.message));
+  const kind = quiz ? 'Викторина' : p.is_anonymous ? 'Анонимный опрос' : 'Опрос';
+  return html`<div class="poll">
+    <div class="poll-q">${q}</div>
+    <div class="poll-kind">${p.is_closed ? 'Опрос завершён' : kind}</div>
+    ${p.options.map((o, i) => voted
+      ? html`<div class=${`poll-opt res ${o.is_chosen ? 'chosen' : ''} ${quiz && p.type.correct_option_id === i ? 'correct' : ''}`}>
+          <span class="poll-pct">${o.vote_percentage}%</span>
+          <div class="poll-main"><div>${optText(o)}${o.is_chosen ? ' ✓' : ''}</div><div class="poll-bar"><i style=${`width:${Math.max(2, o.vote_percentage)}%`}/></div></div>
+        </div>`
+      : html`<button class="poll-opt" onClick=${e => {
+          e.stopPropagation();
+          if (multi) setPicked(x => x.includes(i) ? x.filter(y => y !== i) : [...x, i]); else vote([i]);
+        }}><span class=${`poll-radio ${picked.includes(i) ? 'on' : ''}`}/><span>${optText(o)}</span></button>`)}
+    <div class="poll-foot">
+      ${multi && !voted ? html`<button class="poll-vote" disabled=${!picked.length} onClick=${e => { e.stopPropagation(); vote(picked); }}>Проголосовать</button>`
+        : count(p.total_voter_count, 'голос', 'голоса', 'голосов')}
+    </div>
+  </div>`;
+}
+
+// ── альбом (несколько фото/видео одним сообщением) ──
+function albumRows(n) {
+  return { 2: [2], 3: [1, 2], 4: [2, 2], 5: [2, 3], 6: [3, 3], 7: [2, 2, 3], 8: [2, 3, 3], 9: [3, 3, 3], 10: [2, 2, 3, 3] }[n] || [n];
+}
+function mediaInfo(m) {
+  const c = m.content;
+  if (c['@type'] === 'messagePhoto') { const s = pickSize(c.photo.sizes, 600); return { kind: 'photo', w: s?.width || 1, h: s?.height || 1, file: s?.photo, mini: c.photo.minithumbnail?.data, photo: c.photo }; }
+  if (c['@type'] === 'messageVideo') return { kind: 'video', w: c.video.width || 16, h: c.video.height || 9, thumb: c.video.thumbnail, mini: c.video.minithumbnail?.data, video: c.video };
+  return { kind: 'other', w: 1, h: 1 };
+}
+function AlbumTile({ m, w, h }) {
+  const info = mediaInfo(m);
+  useEffect(() => { if (info.file) download(info.file, 2); if (info.thumb?.file) download(info.thumb.file, 2); }, [m.id]);
+  const url = info.file ? fileUrl(info.file) : info.thumb?.format?.['@type'] === 'thumbnailFormatJpeg' ? fileUrl(info.thumb.file) : '';
+  const open = e => { e.stopPropagation(); S.viewer = info.kind === 'video' ? { video: info.video } : { photo: info.photo, url }; changed(); };
+  return html`<div class="album-tile photo" style=${`width:${w}px;height:${h}px`} data-mid=${m.id} onClick=${open}>
+    ${info.mini && html`<img class="blur" src=${`data:image/jpeg;base64,${info.mini}`} alt=""/>`}
+    ${url && html`<img class="full" src=${url} alt="" draggable="false"/>`}
+    ${info.kind === 'video' && html`<div class="play-badge" style="width:36px;height:36px">${Icon.play(14)}</div>`}
+    <${Upload} msg=${m}/>
+  </div>`;
+}
+export function AlbumRow({ msgs, chat, first, last }) {
+  const lead = msgs[0], end = msgs[msgs.length - 1];
+  const out = lead.is_outgoing && !isChannel(chat);
+  const group = isGroup(chat);
+  const W = 360, GAP = 2;
+  const rows = []; let k = 0;
+  for (const n of albumRows(msgs.length)) { rows.push(msgs.slice(k, k + n)); k += n; }
+  const capMsg = msgs.find(m => m.content.caption?.text);
+  const sender = S.users.get(lead.sender_id?.user_id);
+  const onContext = e => { e.preventDefault(); openMenu(e.clientX, e.clientY, [
+    { label: 'Ответить', icon: Icon.reply(), action: () => { S.reply = lead; changed(); focusComposer(); } },
+    { label: 'Переслать', icon: Icon.forward(), action: () => openForward(chat.id, msgs.map(m => m.id)) },
+    '-',
+    { label: 'Удалить альбом', icon: Icon.trash(), danger: true, action: () => deleteMessages(chat.id, msgs.map(m => m.id), true).catch(err => showHud(err.message)) },
+  ]); };
+  return html`<div data-mid=${lead.id} class=${`msg-row ${out ? 'out' : 'in'} ${first ? 'first' : ''} ${last ? 'last' : ''}`} onContextMenu=${onContext}>
+    ${group && !out && html`<div class="av-slot">${last && sender && html`<${Avatar} user=${sender} size=${34}/>`}</div>`}
+    <div class=${`bubble media album ${capMsg ? 'with-caption' : ''}`} style=${`width:${W}px`}>
+      ${rows.map(row => {
+        const ars = row.map(m => { const i = mediaInfo(m); return i.w / i.h; });
+        const sum = ars.reduce((a, b) => a + b, 0);
+        const rh = Math.min(260, Math.round((W - GAP * (row.length - 1)) / sum));
+        return html`<div class="album-row" style=${`gap:${GAP}px;margin-bottom:${GAP}px`}>
+          ${row.map((m, i) => html`<${AlbumTile} key=${m.id} m=${m} w=${Math.floor((W - GAP * (row.length - 1)) * ars[i] / sum)} h=${rh}/>`)}
+        </div>`;
+      })}
+      ${capMsg ? html`<div class="caption"><span class="text selectable">${renderFormatted(capMsg.content.caption, onLink)}</span><${Meta} msg=${end} chat=${chat}/></div>`
+        : html`<div class="meta-overlay">${metaInner(end, chat)}</div>`}
+    </div>
+  </div>`;
+}
+
 // ── тело сообщения ──
 function uploadFile(c) {
   switch (c['@type']) {
@@ -219,8 +316,15 @@ function Body({ msg, showName, chat }) {
   const fwd = msg.forward_info && html`<div class="sender" style="font-weight:500;opacity:.85">Переслано от ${forwardName(msg.forward_info)}</div>`;
   const meta = html`<${Meta} msg=${msg} chat=${chat}/>`;
   switch (t) {
-    case 'messageText':
-      return html`<div class="bubble">${nameEl}${fwd}<${ReplyQuote} msg=${msg}/><span class="text selectable">${renderFormatted(c.text, onLink)}</span>${meta}</div>`;
+    case 'messageText': {
+      const lp = c.link_preview || c.web_page;
+      return html`<div class="bubble">${nameEl}${fwd}<${ReplyQuote} msg=${msg}/>
+        ${lp && lp.show_above_text && html`<${LinkPreview} lp=${lp}/>`}
+        <span class="text selectable">${renderFormatted(c.text, onLink)}</span>
+        ${lp && !lp.show_above_text && html`<${LinkPreview} lp=${lp}/>`}${meta}</div>`;
+    }
+    case 'messagePoll':
+      return html`<div class="bubble poll-bubble">${nameEl}${fwd}<${Poll} msg=${msg}/>${meta}</div>`;
     case 'messagePhoto': case 'messageVideo': case 'messageAnimation': {
       const cap = c.caption?.text;
       const media = t === 'messagePhoto' ? html`<${Photo} photo=${c.photo} overlay=${!cap && html`<div class="meta-overlay">${metaInner(msg, chat)}</div>`}/>`
@@ -320,7 +424,12 @@ export function MessageRow({ msg, chat, first, last }) {
       items.push({ label: 'Изменить', icon: Icon.edit(), action: () => { S.editing = msg; S.reply = null; changed(); focusComposer(msg.content.text.text); } });
     }
     if (text) items.push({ label: 'Копировать текст', icon: Icon.copy(), action: () => navigator.clipboard.writeText(text).then(() => showHud('Скопировано')) });
-    if (items.length) items.push('-');
+    if (msg.can_be_forwarded !== false) items.push({ label: 'Переслать', icon: Icon.forward(), action: () => openForward(chat.id, [msg.id]) });
+    items.push(msg.is_pinned
+      ? { label: 'Открепить', icon: Icon.menu('menu_unpin'), action: () => send({ '@type': 'unpinChatMessage', chat_id: chat.id, message_id: msg.id }).catch(err => showHud(err.message)) }
+      : { label: 'Закрепить', icon: Icon.menu('menu_pin'), action: () => send({ '@type': 'pinChatMessage', chat_id: chat.id, message_id: msg.id, disable_notification: false, only_for_self: false }).then(() => showHud('Сообщение закреплено')).catch(err => showHud(err.message?.includes('RIGHT') || err.message?.includes('ADMIN') ? 'Нет прав закреплять сообщения' : err.message)) });
+    items.push({ label: 'Выбрать', icon: Icon.menu('menu_select_messages'), action: () => startSelection(chat.id, msg.id) });
+    items.push('-');
     items.push({ label: 'Удалить', icon: Icon.trash(), danger: true, action: () => confirmDelete(chat, msg) });
     openMenu(e.clientX, e.clientY, items);
   };
@@ -331,9 +440,13 @@ export function MessageRow({ msg, chat, first, last }) {
   const reacts = reactionList(msg).some(r => r.total_count > 0);
   const sender = S.users.get(msg.sender_id?.user_id);
   const senderChat = msg.sender_id?.chat_id ? S.chats.get(msg.sender_id.chat_id) : null;
+  const selecting = S.selection?.chatId === chat.id;
+  const selected = selecting && S.selection.ids.has(msg.id);
   return html`<div data-mid=${msg.id}
-      class=${`msg-row ${out ? 'out' : 'in'} ${first ? 'first' : ''} ${last ? 'last' : ''} ${fresh ? 'fresh' : ''} ${S.highlight === msg.id ? 'highlight' : ''}`}
-      onContextMenu=${onContext} onDblClick=${() => { if (canReply(chat)) { S.reply = msg; changed(); focusComposer(); } }}>
+      class=${`msg-row ${out ? 'out' : 'in'} ${first ? 'first' : ''} ${last ? 'last' : ''} ${fresh ? 'fresh' : ''} ${S.highlight === msg.id ? 'highlight' : ''} ${selecting ? 'selecting' : ''} ${selected ? 'selected' : ''}`}
+      onClickCapture=${e => { if (selecting) { e.stopPropagation(); e.preventDefault(); toggleSelected(msg.id); } }}
+      onContextMenu=${e => { if (selecting) { e.preventDefault(); return; } onContext(e); }} onDblClick=${() => { if (!selecting && canReply(chat)) { S.reply = msg; changed(); focusComposer(); } }}>
+    ${selecting && html`<span class=${`sel-check ${selected ? 'on' : ''}`}>${selected && Icon.check(12)}</span>`}
     ${showAvatar && html`<div class="av-slot">${last && (sender || senderChat) && html`<${Avatar} user=${sender} chat=${senderChat} size=${34}/>`}</div>`}
     ${reacts ? html`<div class="with-reactions">${content}<${Reactions} msg=${msg}/></div>` : content}
   </div>`;
