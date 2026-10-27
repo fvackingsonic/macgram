@@ -1,6 +1,6 @@
 import { html, useRef, useEffect, useState, useLayoutEffect } from '../lib.js';
 import {
-  S, changed, loadHistory, loadNewer, resetToLatest, jumpTo, sendText, selectChat, isMuted, chatTitle, chatUser, isSaved, isGroup, isChannel, typingText, senderName,
+  S, changed, useTick, loadHistory, loadNewer, resetToLatest, jumpTo, sendText, selectChat, isMuted, chatTitle, chatUser, isSaved, isGroup, isChannel, typingText, senderName,
   openMenu, showHud, markRead,
 } from '../store.js';
 import { send } from '../td.js';
@@ -210,6 +210,7 @@ function Composer({ chat }) {
     : S.reply ? { title: `Ответ ${senderName(S.reply.sender_id) || chatTitle(chat)}`, text: contentSummary(S.reply.content, id => userName(S.users.get(id))), icon: Icon.menu('Icon_ChatAction_ReplyMessage') } : null;
   const ready = !!text.trim();
   const soon = what => () => showHud(`${what} — в следующем обновлении`);
+  useTick();
   const rec = S.recording?.chatId === chat.id ? S.recording : null;
   useEffect(() => {
     if (!rec) return;
@@ -254,6 +255,7 @@ function Composer({ chat }) {
 // Полоска плеера под шапкой чата (как в macOS).
 const RATES = [1, 1.5, 2];
 function PlayerBar() {
+  useTick();
   const p = S.player;
   if (!p) return null;
   const owner = S.chats.get(p.chatId);

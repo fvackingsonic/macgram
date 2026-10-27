@@ -1,6 +1,6 @@
 // Общий аудиоплеер (голосовые и музыка). Живёт отдельно от экрана чата,
 // поэтому звук не прерывается при переходе в другой чат.
-import { S, changed, download, fileUrl, fileOf } from './store.js';
+import { S, changed, tick, download, fileUrl, fileOf } from './store.js';
 
 const audio = new Audio();
 audio.preload = 'auto';
@@ -64,7 +64,7 @@ audio.addEventListener('timeupdate', () => {
   if (!S.player) return;
   S.player.time = audio.currentTime;
   const now = Date.now();
-  if (now - lastTick > 200) { lastTick = now; changed(); }
+  if (now - lastTick > 100) { lastTick = now; tick(); }
 });
 audio.addEventListener('play', () => { if (S.player) { S.player.playing = true; S.player.loading = false; changed(); } });
 audio.addEventListener('pause', () => { if (S.player) { S.player.playing = false; changed(); } });

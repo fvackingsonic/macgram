@@ -1,7 +1,7 @@
 // Запись голосовых сообщений.
 // WebView записывает только WebM/Opus, а голосовые Telegram — это OGG/Opus.
 // Поэтому звук не перекодируем, а перекладываем те же Opus-пакеты из WebM в OGG.
-import { S, changed, showHud } from './store.js';
+import { S, changed, tick, showHud } from './store.js';
 import { send, shell } from './td.js';
 
 import { webmToOpusPackets, packOgg, packWaveform, b64 } from './ogg.js';
@@ -25,7 +25,7 @@ export async function startRecording(chatId) {
     let sum = 0; for (const v of data) { const x = (v - 128) / 128; sum += x * x; }
     const lvl = Math.sqrt(sum / data.length);
     levels.push(lvl);
-    if (S.recording) { S.recording.level = lvl; S.recording.time = (Date.now() - S.recording.started) / 1000; changed(); }
+    if (S.recording) { S.recording.level = lvl; S.recording.time = (Date.now() - S.recording.started) / 1000; tick(); }
   }, 50);
   mr.ondataavailable = e => e.data.size && chunks.push(e.data);
   rec = { mr, stream, ctx, tick, chunks, levels, chatId };

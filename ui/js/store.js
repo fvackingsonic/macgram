@@ -83,6 +83,20 @@ export function changed() {
   const run = () => { queued = false; for (const f of subs) f(version); };
   document.hidden ? setTimeout(run, 50) : requestAnimationFrame(run);
 }
+// «Тик» — частые мелкие обновления (ход плеера, уровень микрофона). Перерисовывают только
+// подписанные компоненты, а не всё окно.
+const ticks = new Set();
+let tickQueued = false;
+export function tick() {
+  if (tickQueued) return;
+  tickQueued = true;
+  requestAnimationFrame(() => { tickQueued = false; for (const f of ticks) f(); });
+}
+export function useTick() {
+  const [, set] = useState(0);
+  useEffect(() => { const f = () => set(x => x + 1); ticks.add(f); return () => ticks.delete(f); }, []);
+}
+
 export function useStore() {
   const [, set] = useState(0);
   useEffect(() => { subs.add(set); return () => subs.delete(set); }, []);
@@ -489,7 +503,19 @@ onUpdate(u => {
     case 'updateUserStatus': { const usr = S.users.get(u.user_id); if (usr) S.users.set(u.user_id, { ...usr, status: u.status }); break; }
     case 'updateBasicGroup': S.basicGroups.set(u.basic_group.id, u.basic_group); break;
     case 'updateSupergroup': S.supergroups.set(u.supergroup.id, u.supergroup); break;
-    case 'updateFile': S.files.set(u.file.id, u.file); break;
+    case 'updateFile': {
+      // Прогресс скачивания приходит очень часто — перерисовываем только на заметных шагах.
+      const prev = S.files.get(u.file.id), f = u.file;
+      S.files.set(f.id, f);
+      const pct = x => x?.size ? Math.floor(20 * (x.local?.downloaded_size || 0) / x.size) : 0;
+      const upct = x => x?.size ? Math.floor(20 * (x.remote?.uploaded_size || 0) / x.size) : 0;
+      const significant = !prev || prev.local?.is_downloading_completed !== f.local?.is_downloading_completed
+        || prev.local?.is_downloading_active !== f.local?.is_downloading_active
+        || prev.remote?.is_uploading_completed !== f.remote?.is_uploading_completed
+        || pct(prev) !== pct(f) || upct(prev) !== upct(f);
+      if (!significant) return;
+      break;
+    }
     case 'updateNewChat': {
       const c = { ...u.chat, positions: [...(u.chat.positions || [])] };
       S.chats.set(c.id, c);

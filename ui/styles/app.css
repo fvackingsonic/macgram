@@ -930,3 +930,12 @@ button.item { width: 100%; text-align: left; }
 .bubble.media.with-caption { width: min-content; }
 .bubble.media.with-caption .caption { min-width: 100%; }
 .emoji-grid button, .bubble.jumbo, .r-emoji, .ctx-reactions button { font-family: "Apple Color Emoji", "Segoe UI Emoji", sans-serif; }
+
+/* ── кружки ── */
+.note-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.note-ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); pointer-events: none; }
+.note-ring circle { fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; opacity: .9; transition: stroke-dasharray .25s linear; }
+.video-note .note-dur { left: 50%; top: auto; bottom: 10px; transform: translateX(-50%); display: inline-flex; gap: 3px; align-items: center; }
+.note-ctl { display: flex; align-items: center; gap: 8px; padding: 4px 6px 4px 12px; border-radius: 16px; background: var(--glass-bg); backdrop-filter: blur(16px); box-shadow: var(--glass-shadow); animation: pop .25s var(--spring); }
+.note-time { font-size: var(--fs-short); font-variant-numeric: tabular-nums; min-width: 32px; }
+.note-ctl .pb-vol input { width: 70px; }

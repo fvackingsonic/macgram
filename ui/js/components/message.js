@@ -1,5 +1,5 @@
 import { html, useEffect, useState, useRef } from '../lib.js';
-import { S, changed, jumpTo, download, fileUrl, fileOf, senderName, senderId, openMenu, openModal, closeModal, showHud, deleteMessages, isGroup, isChannel, chatUser } from '../store.js';
+import { S, changed, useTick, jumpTo, download, fileUrl, fileOf, senderName, senderId, openMenu, openModal, closeModal, showHud, deleteMessages, isGroup, isChannel, chatUser } from '../store.js';
 import { send, shell } from '../td.js';
 import { Icon } from '../icons.js';
 import { hm, renderFormatted, contentSummary, fileSize, duration, peerIndex, nameColor, jumboEmoji, userName, serviceText, count } from '../format.js';
@@ -100,6 +100,7 @@ function Sticker({ sticker }) {
 }
 
 function Voice({ msg }) {
+  useTick();
   const voice = msg.content.voice_note;
   const cur = player.isCurrent(msg);
   const p = cur ? S.player : null;
@@ -124,6 +125,7 @@ function Voice({ msg }) {
 }
 
 function Audio_({ msg }) {
+  useTick();
   const a = msg.content.audio;
   const cur = player.isCurrent(msg);
   const p = cur ? S.player : null;
@@ -159,23 +161,60 @@ function useWave(b64) {
   } catch { return Array(40).fill(.3); }
 }
 
+// Кружок: без звука крутится, только когда виден; по клику — со звуком, кольцом прогресса,
+// громкостью и скоростью (как в Telegram для macOS). Повторный клик — пауза.
+const NOTE_RATES = [1, 1.5, 2];
 function VideoNote({ note }) {
   const ref = useRef();
+  const box = useRef();
   const [sound, setSound] = useState(false);
-  useEffect(() => { if (note.thumbnail?.file) download(note.thumbnail.file, 2); download(note.video, 1); }, [note.video.id]);
+  const [playing, setPlaying] = useState(false);
+  const [t, setT] = useState(0);
+  const [rate, setRate] = useState(1);
+  useEffect(() => { if (note.thumbnail?.file) download(note.thumbnail.file, 2); }, [note.video.id]);
+  // Видео качаем и запускаем, только когда кружок на экране.
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const io = new IntersectionObserver(([e]) => setVisible(e.isIntersecting), { threshold: 0.2 });
+    io.observe(box.current);
+    return () => io.disconnect();
+  }, []);
+  useEffect(() => { if (visible) download(note.video, 1); }, [visible]);
   const src = fileUrl(note.video);
+  useEffect(() => {
+    const v = ref.current; if (!v) return;
+    if (!visible && !sound) v.pause(); else if (visible && !sound) v.play().catch(() => {});
+  }, [visible, src]);
   const thumb = note.thumbnail?.format?.['@type'] === 'thumbnailFormatJpeg' ? fileUrl(note.thumbnail.file) : '';
   const mini = note.minithumbnail?.data;
-  const toggle = () => {
-    const v = ref.current; if (!v) return;
-    if (!sound) { v.muted = false; v.loop = false; v.currentTime = 0; v.play().catch(() => {}); setSound(true); }
-    else { v.muted = true; v.loop = true; setSound(false); }
+  const click = () => {
+    const v = ref.current; if (!v) { download(note.video, 32); return; }
+    if (!sound) {
+      v.loop = false; v.currentTime = 0; v.muted = false; v.volume = S.prefs.noteVolume ?? 1; v.playbackRate = rate;
+      setSound(true); v.play().catch(() => {});
+    } else if (v.paused) v.play().catch(() => {}); else v.pause();
   };
-  return html`<div class="video-note" onClick=${toggle}>
-    ${mini && html`<img class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
-    ${thumb && !src && html`<img src=${thumb} alt="" onError=${e => e.target.remove()}/>`}
-    ${src && html`<video ref=${ref} src=${src} autoplay muted loop playsinline onEnded=${() => { const v = ref.current; if (v) { v.muted = true; v.loop = true; v.play().catch(() => {}); } setSound(false); }}/>`}
-    ${!sound && html`<span class="dur-badge" style="left:50%;top:auto;bottom:10px;transform:translateX(-50%)">${duration(note.duration || 0)} ${Icon.muted(11)}</span>`}
+  const stopSound = () => { const v = ref.current; if (v) { v.muted = true; v.loop = true; v.playbackRate = 1; v.play().catch(() => {}); } setSound(false); setT(0); };
+  const d = note.duration || 1;
+  const C = 2 * Math.PI * 108;
+  return html`<div class="note-wrap" onClick=${e => e.stopPropagation()}>
+    <div class="video-note" ref=${box} onClick=${click}>
+      ${mini && html`<img class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
+      ${thumb && !src && html`<img src=${thumb} alt="" onError=${e => e.target.remove()}/>`}
+      ${src && html`<video ref=${ref} src=${src} muted loop playsinline preload="metadata"
+        onPlay=${() => setPlaying(true)} onPause=${() => setPlaying(false)}
+        onTimeUpdate=${e => sound && setT(e.target.currentTime)} onEnded=${stopSound}/>`}
+      ${sound && html`<svg class="note-ring" viewBox="0 0 220 220"><circle cx="110" cy="110" r="108" stroke-dasharray=${`${C * t / d} ${C}`}/></svg>`}
+      ${sound && !playing && html`<div class="play-badge">${Icon.play(20)}</div>`}
+      ${!sound && html`<span class="dur-badge note-dur">${duration(d)} ${Icon.muted(11)}</span>`}
+    </div>
+    ${sound && html`<div class="note-ctl">
+      <span class="note-time">${duration(Math.floor(t))}</span>
+      <button class="pb-rate" onClick=${() => { const r = NOTE_RATES[(NOTE_RATES.indexOf(rate) + 1) % NOTE_RATES.length]; setRate(r); if (ref.current) ref.current.playbackRate = r; }}>${rate}×</button>
+      <label class="pb-vol">${Icon.volume(14)}<input type="range" min="0" max="1" step="0.01" value=${S.prefs.noteVolume ?? 1}
+        onInput=${e => { const x = Number(e.target.value); if (ref.current) ref.current.volume = x; S.prefs.noteVolume = x; }}/></label>
+      <button class="icon-btn gray" title="Без звука" onClick=${stopSound}>${Icon.menu('Icon_ChatAction_Close')}</button>
+    </div>`}
   </div>`;
 }
 

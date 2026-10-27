@@ -1,7 +1,7 @@
-import { html, useRef, useLayoutEffect, useState, useEffect } from '../lib.js';
+import { html, useRef, useLayoutEffect, useState, useEffect, memo } from '../lib.js';
 import {
   S, changed, sortedChats, selectChat, chatTitle, chatUser, isSaved, isGroup, isChannel, senderName, typingText,
-  search, loadContacts, isMuted, openPrivate, openMenu, openModal, closeModal, setPref, logOut, showHud, position,
+  search, loadContacts, isMuted, fileUrl, openPrivate, openMenu, openModal, closeModal, setPref, logOut, showHud, position,
 } from '../store.js';
 import { send } from '../td.js';
 import { Icon } from '../icons.js';
@@ -123,7 +123,7 @@ function ChatList() {
   const ready = S.auth?.['@type'] === 'authorizationStateReady';
   if (!list.length) return html`<div class="list">${ready ? html`<div class="empty">${S.folder === 'main' ? 'Загрузка чатов…' : 'В этой папке пока нет чатов'}</div>` : null}</div>`;
   return html`<div class="list list-anim">
-    ${list.map(({ chat, pinned }) => html`<${ChatRow} key=${chat.id} chat=${chat} pinned=${pinned}/>`)}
+    ${list.map(({ chat, pinned }) => html`<${ChatRow} key=${chat.id} chat=${chat} pinned=${pinned} ...${rowDeps(chat)}/>`)}
   </div>`;
 }
 
@@ -131,7 +131,7 @@ function SearchResults() {
   const ids = S.searchResults || [];
   return html`<div class="list list-anim">
     ${!ids.length && html`<div class="empty">Ничего не найдено</div>`}
-    ${ids.map(id => S.chats.get(id)).filter(Boolean).map(c => html`<${ChatRow} key=${c.id} chat=${c} compact/>`)}
+    ${ids.map(id => S.chats.get(id)).filter(Boolean).map(c => html`<${ChatRow} key=${c.id} chat=${c} compact ...${rowDeps(c)}/>`)}
   </div>`;
 }
 
@@ -153,7 +153,22 @@ function preview(chat) {
   return html`${who && html`<span class="who">${who}: </span>`}${thumb}${shown}`;
 }
 
-function ChatRow({ chat, pinned, compact }) {
+// Всё, от чего зависит вид строки, передаём явно — тогда неизменные строки не перерисовываются.
+function rowDeps(chat) {
+  const u = chatUser(chat);
+  const m = chat.last_message;
+  return {
+    on: S.currentChatId === chat.id,
+    user: u,
+    typing: typingText(chat.id),
+    muted: isMuted(chat),
+    avatar: chat.photo?.small ? fileUrl(chat.photo.small) : '',
+    sender: m && isGroup(chat) ? S.users.get(m.sender_id?.user_id) : null,
+    me: S.myId,
+  };
+}
+const ChatRow = memo(ChatRowView);
+function ChatRowView({ chat, pinned, compact }) {
   const on = S.currentChatId === chat.id;
   const user = chatUser(chat);
   const online = user && user.id !== S.myId && user.status?.['@type'] === 'userStatusOnline' && user.type?.['@type'] !== 'userTypeBot';
