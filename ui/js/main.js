@@ -10,6 +10,7 @@ import { Wallpaper } from './components/wallpaper.js';
 import './notify.js';
 import './effects.js';
 import './memory.js';
+import './scrollbar.js';
 import { SendDialog, DropOverlay } from './components/attach.js';
 import { ForwardDialog } from './components/forward.js';
 import { StoryViewer } from './components/stories.js';

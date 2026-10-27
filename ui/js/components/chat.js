@@ -94,8 +94,24 @@ function Messages({ chat }) {
   const h = S.history.get(chat.id);
   const list = h?.list || [];
   const [atBottom, setAtBottom] = useState(true);
+  // Лента в column-reverse привязана к низу: если внизу добавились сообщения (подгрузка более новых
+  // или новое входящее), браузер сдвигает видимую часть — читателя «кидает вниз». Запоминаем
+  // положение от верха и возвращаем его, когда пользователь не у самого конца переписки.
+  const pos = useRef({ fromTop: 0, lastId: 0, bottom: true });
+  const lastId = list.length ? list[list.length - 1].id : 0;
+  useLayoutEffect(() => {
+    const el = ref.current; if (!el) return;
+    const p = pos.current;
+    if (lastId !== p.lastId && p.lastId && !p.bottom) {
+      el.scrollTop = p.fromTop - (el.scrollHeight - el.clientHeight);
+    }
+    p.lastId = lastId;
+    p.fromTop = el.scrollHeight - el.clientHeight + el.scrollTop;
+  }, [lastId, list.length]);
   const onScroll = () => {
     const el = ref.current; if (!el) return;
+    pos.current.fromTop = el.scrollHeight - el.clientHeight + el.scrollTop;
+    pos.current.bottom = el.scrollTop > -5;
     // column-reverse: scrollTop отрицательный, 0 — у самого низа
     if (el.scrollHeight - el.clientHeight + el.scrollTop < 600) loadHistory(chat.id, true);
     if (el.scrollTop > -400 && h?.hasNewer) loadNewer(chat.id);

@@ -161,6 +161,7 @@ export function applyPrefs() {
   root.classList.toggle('lite', S.prefs.glass === false);
   root.dataset.palette = palette();
   root.style.setProperty('--fs-msg', `${S.prefs.fontSize}px`);
+  if (S.prefs.sidebarW) root.style.setProperty('--sidebar-w', `${S.prefs.sidebarW}px`); else root.style.removeProperty('--sidebar-w');
   applyFonts();
 }
 darkQuery?.addEventListener?.('change', () => { applyPrefs(); changed(); });

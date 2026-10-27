@@ -20,10 +20,28 @@ const CONN = {
 };
 
 
+// Ширина списка чатов меняется перетаскиванием края, как в Telegram для macOS; запоминается.
+function resizeSidebar(e) {
+  e.preventDefault();
+  const aside = e.currentTarget.parentElement;
+  const left = aside.getBoundingClientRect().left;
+  const root = document.documentElement;
+  e.currentTarget.setPointerCapture(e.pointerId);
+  document.body.classList.add('resizing');
+  let w = aside.offsetWidth;
+  const move = ev => {
+    w = Math.round(Math.max(260, Math.min(Math.min(560, innerWidth - 440), ev.clientX - left)));
+    root.style.setProperty('--sidebar-w', `${w}px`);
+  };
+  const up = () => { e.target.removeEventListener('pointermove', move); e.target.removeEventListener('pointerup', up); document.body.classList.remove('resizing'); setPref('sidebarW', w); };
+  e.target.addEventListener('pointermove', move); e.target.addEventListener('pointerup', up);
+}
+
 export function Sidebar() {
   const conn = CONN[S.connection];
   const titles = { chats: S.folder === 'archive' ? 'Архив' : 'Чаты', contacts: 'Контакты', calls: 'Звонки', settings: 'Настройки' };
   return html`<aside class="sidebar card">
+    <div class="side-resize" title="Потяните, чтобы изменить ширину (двойной щелчок — по умолчанию)" onPointerDown=${resizeSidebar} onDblClick=${() => setPref('sidebarW', null)}/>
     <div class="sidebar-top" ...${dragHandlers()}>
       <${Traffic}/>
       <div class="sb-title" key=${conn ? 'c' : S.tab}>${conn ? html`<span class="conn-state"><${Spinner}/>${conn}</span>` : titles[S.tab]}</div>
