@@ -1,0 +1,47 @@
+name: Озвучка промо-ролика
+
+# Синтез русской озвучки (Piper, голоса rhasspy/piper-voices, лицензия MIT/CC) по promo/voice.txt.
+on:
+  push:
+    branches: [main]
+    paths: ['promo/voice.txt', '.github/workflows/promo-voice.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  voice:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Piper и голоса
+        run: |
+          pip install piper-tts==1.2.0
+          mkdir -p voices out
+          for v in dmitri irina; do
+            base="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/ru/ru_RU/$v/medium"
+            curl -sSfL -o voices/$v.onnx "$base/ru_RU-$v-medium.onnx"
+            curl -sSfL -o voices/$v.onnx.json "$base/ru_RU-$v-medium.onnx.json"
+          done
+      - name: Синтез
+        run: |
+          for v in dmitri irina; do
+            i=0
+            while IFS= read -r line || [ -n "$line" ]; do
+              [ -z "$line" ] && continue
+              i=$((i+1))
+              echo "$line" | piper --model voices/$v.onnx --length_scale 0.95 --sentence_silence 0.15 --output_file "out/${v}_$(printf %02d $i).wav"
+            done < promo/voice.txt
+          done
+          ls -la out
+          cd out && zip -q ../voice.zip *.wav
+      - name: Выложить
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view promo-assets > /dev/null 2>&1 || gh release create promo-assets --title "Материалы для промо" --notes "Озвучка промо-ролика" --prerelease
+          gh release upload promo-assets voice.zip --clobber
