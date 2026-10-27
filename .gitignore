@@ -1,0 +1,7 @@
+/src-tauri/target/
+/src-tauri/gen/
+/src-tauri/lib/
+/ui/fonts/*.woff2
+/.tmp/
+node_modules/
+selftest.txt
