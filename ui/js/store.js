@@ -47,11 +47,21 @@ export function setPref(k, v) {
   applyPrefs();
   changed();
 }
+// Тема: auto (Day Classic днём / Night при тёмной теме Windows), classic, day, night.
+const darkQuery = window.matchMedia?.('(prefers-color-scheme: dark)');
+export function palette() {
+  const t = S.prefs.theme;
+  if (t === 'classic' || t === 'day' || t === 'night') return t;
+  if (t === 'light') return 'classic';
+  if (t === 'dark') return 'night';
+  return darkQuery?.matches ? 'night' : 'classic';
+}
 export function applyPrefs() {
   const root = document.documentElement;
-  if (S.prefs.theme === 'auto') delete root.dataset.theme; else root.dataset.theme = S.prefs.theme;
+  root.dataset.palette = palette();
   root.style.setProperty('--fs-msg', `${S.prefs.fontSize}px`);
 }
+darkQuery?.addEventListener?.('change', () => { applyPrefs(); changed(); });
 
 // ── перерисовка ──
 const subs = new Set();
@@ -356,6 +366,7 @@ onUpdate(u => {
         });
       } else if (t === 'authorizationStateReady') {
         loadChats('main');
+        loadChats('archive');
         send({ '@type': 'getMe' }).then(me => { S.myId = me.id; S.users.set(me.id, me); changed(); }).catch(() => {});
       } else if (t === 'authorizationStateClosed') {
         for (const k of ['users', 'chats', 'basicGroups', 'supergroups', 'files', 'history', 'typing']) S[k].clear();
@@ -431,6 +442,7 @@ onUpdate(u => {
       if (!u.from_cache) for (const id of u.message_ids) removeMessage(u.chat_id, id);
       break;
     case 'updateChatAction': setTyping(u.chat_id, u.sender_id, u.action); break;
+    case 'updateProfileAccentColors': S.profileColors = Object.fromEntries((u.colors || []).map(c => [c.id, c])); break;
     case 'updateScopeNotificationSettings': S.scopes[u.scope['@type']] = u.notification_settings; break;
     default: return;
   }

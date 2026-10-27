@@ -18,10 +18,14 @@ const CONN = {
 
 export function Sidebar() {
   const conn = CONN[S.connection];
-  return html`<aside class="sidebar">
+  const titles = { chats: S.folder === 'archive' ? 'Архив' : 'Чаты', contacts: 'Контакты', calls: 'Звонки', settings: 'Настройки' };
+  return html`<aside class="sidebar card">
     <div class="sidebar-top" ...${dragHandlers()}>
       <${Traffic}/>
-      ${conn && html`<div class="conn-state"><${Spinner}/>${conn}</div>`}
+      <div class="sb-title" key=${conn ? 'c' : S.tab}>${conn ? html`<span class="conn-state"><${Spinner}/>${conn}</span>` : titles[S.tab]}</div>
+      <div class="sb-actions">
+        ${S.tab === 'chats' && html`<button class="icon-btn" title="Новое сообщение" onClick=${() => { S.tab = 'contacts'; if (!S.contacts) loadContacts(); changed(); }}>${Icon.compose()}</button>`}
+      </div>
     </div>
     ${S.tab === 'chats' && html`<${ChatsPane}/>`}
     ${S.tab === 'contacts' && html`<${ContactsPane}/>`}
@@ -53,7 +57,7 @@ function TabBar() {
   return html`<nav class=${`tabbar ${lifted ? 'lifted' : ''}`} onMouseDown=${() => setLifted(true)}>
     <div class="tab-sel" style=${sel}/>
     ${TABS.map(t => html`<button class=${`tab ${S.tab === t.id ? 'on' : ''}`} title=${t.title} onClick=${() => pick(t.id)}>
-      ${t.icon()}
+      ${t.id === 'settings' && S.users.get(S.myId) ? html`<span class="tab-avatar"><${Avatar} user=${S.users.get(S.myId)} size=${26}/></span>` : t.icon()}
       ${t.id === 'chats' && unread > 0 && html`<span class="badge">${unread > 99 ? '99+' : unread}</span>`}
     </button>`)}
   </nav>`;
@@ -70,16 +74,22 @@ function ChatsPane() {
     timer.current = setTimeout(() => search(v), 220);
   };
   const clear = () => { setQ(''); search(''); };
+  const [focus, setFocus] = useState(false);
+  const archived = sortedChats('archive');
+  const inArchive = S.folder === 'archive';
   return html`
     <div class="search-row">
-      <label class="search">
+      <label class=${`search ${focus || q ? 'active' : ''}`}>
         ${Icon.search()}
-        <input placeholder="Поиск" value=${q} onInput=${onInput} onKeyDown=${e => e.key === 'Escape' && clear()}/>
+        <input placeholder="Поиск (Ctrl+K)" value=${q} onInput=${onInput} onFocus=${() => setFocus(true)} onBlur=${() => setFocus(false)} onKeyDown=${e => e.key === 'Escape' && (clear(), e.target.blur())}/>
         ${q && html`<button class="no-drag" style="color:var(--gray-icon)" onClick=${clear}>${Icon.close(13)}</button>`}
       </label>
-      <button class="icon-btn" title="Новое сообщение" onClick=${() => { S.tab = 'contacts'; if (!S.contacts) loadContacts(); changed(); }}>${Icon.compose()}</button>
     </div>
-    ${S.searchResults ? html`<${SearchResults}/>` : html`<${Folders}/><${ChatList} key=${S.folder}/>`}`;
+    ${S.searchResults ? html`<${SearchResults}/>` : inArchive
+      ? html`<button class="archive-btn back" onClick=${() => { S.folder = 'main'; changed(); }}>${Icon.back(14)} Все чаты</button><${ChatList} key="archive"/>`
+      : html`<${Folders}/>
+        ${S.folder === 'main' && archived.length > 0 && html`<button class="archive-btn" onClick=${() => { S.folder = 'archive'; changed(); }}>${Icon.archive(15)} Архив ${Icon.chevron(11)}</button>`}
+        <${ChatList} key=${S.folder}/>`}`;
 }
 
 function Folders() {
@@ -234,7 +244,7 @@ function SettingsPane() {
     </div>
     <div class="group">
       <div class="item"><span class="ic" style="background:#5856d6">${Icon.moon(14)}</span><span class="lbl">Тема</span>
-        ${seg('theme', [['auto', 'Авто'], ['light', 'Светлая'], ['dark', 'Тёмная']])}</div>
+        ${seg('theme', [['auto', 'Авто'], ['classic', 'Classic'], ['day', 'День'], ['night', 'Ночь']])}</div>
       <div class="item"><span class="ic" style="background:#ff9500">${Icon.textSize(14)}</span><span class="lbl">Текст</span>
         ${seg('fontSize', [[13, '13'], [14, '14'], [15, '15'], [16, '16']])}</div>
     </div>

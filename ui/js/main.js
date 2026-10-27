@@ -6,6 +6,7 @@ import { Sidebar } from './components/sidebar.js';
 import { Main } from './components/chat.js';
 import { ContextMenu, Hud, Modal } from './components/common.js';
 import { Viewer } from './components/profile.js';
+import { Wallpaper } from './components/wallpaper.js';
 import './notify.js';
 import { SendDialog, DropOverlay } from './components/attach.js';
 
@@ -17,7 +18,7 @@ function App() {
     window.addEventListener('focus', f); window.addEventListener('blur', b);
     const keys = e => {
       if (e.key === 'Escape' && !S.menu && !S.modal && !S.viewer && !S.sendDialog && !S.reply && !S.editing && S.currentChatId && document.activeElement?.tagName !== 'INPUT') selectChat(null);
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'f' || e.key.toLowerCase() === 'k' || e.code === 'KeyK' || e.code === 'KeyF')) {
         e.preventDefault(); S.tab = 'chats'; changed();
         setTimeout(() => document.querySelector('.search input')?.focus(), 0);
       }
@@ -34,7 +35,7 @@ function App() {
 
   const ready = S.auth?.['@type'] === 'authorizationStateReady';
   return html`<div class=${`window ${focused ? '' : 'blurred'}`}>
-    ${ready ? html`<${Sidebar}/><${Main}/>` : html`<${Auth}/>`}
+    ${ready ? html`<${Wallpaper}/><${Sidebar}/><${Main}/>` : html`<${Auth}/>`}
     <${DropOverlay}/>
     <${SendDialog}/>
     <${Viewer}/>

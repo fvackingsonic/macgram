@@ -595,3 +595,144 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; bo
 .vp-track:hover { height: 6px; }
 .vp-track i { display: block; height: 100%; border-radius: 2px; background: #fff; }
 .vp-bar input[type=range] { width: 70px; accent-color: #fff; }
+
+/* ═══════════════════════════════════════════════════════════════
+   НОВЫЙ ДИЗАЙН TELEGRAM ДЛЯ macOS (Liquid Glass, версия 12.7+)
+   Обои на всё окно, плавающая карточка списка (радиус 20),
+   стеклянные шапка чата, поле ввода и круглые кнопки.
+   ═══════════════════════════════════════════════════════════════ */
+body { background: var(--wall); }
+.window { position: relative; background: var(--wall); }
+.wallpaper { position: absolute; inset: 0; z-index: 0; transition: background .4s; }
+.wp-pattern { position: absolute; inset: 0; -webkit-mask-size: auto 900px; mask-size: auto 900px; -webkit-mask-repeat: repeat; mask-repeat: repeat; -webkit-mask-position: center top; mask-position: center top; }
+.wp-blur { position: absolute; inset: 0; backdrop-filter: blur(24px); }
+
+.glass {
+  background: var(--glass-bg); backdrop-filter: blur(22px) saturate(1.8); -webkit-backdrop-filter: blur(22px) saturate(1.8);
+  box-shadow: var(--glass-shadow), inset 0 0 0 .5px var(--glass-edge), inset 0 1px 0 var(--glass-hi);
+}
+.glass.circle {
+  width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; flex: none; color: var(--text);
+  transition: transform .25s var(--spring), background .15s; position: relative;
+}
+.glass.circle:hover { transform: scale(1.06); }
+.glass.circle:active { transform: scale(1.12); }
+
+/* ── карточка списка чатов ── */
+.sidebar.card {
+  position: relative; z-index: 2; margin: var(--gap); height: calc(100% - var(--gap) * 2); width: var(--sidebar-w);
+  border: 0; border-radius: var(--card-radius); background: var(--card-bg);
+  backdrop-filter: blur(30px) saturate(1.8); box-shadow: var(--card-shadow); overflow: hidden;
+}
+.sidebar-top { position: relative; height: 44px; flex: none; }
+.sidebar-top .traffic { position: relative; z-index: 1; padding-left: 14px; }
+.sb-title {
+  position: absolute; left: 70px; right: 70px; top: 0; height: 100%; display: flex; align-items: center; justify-content: center;
+  font-weight: 600; font-size: var(--fs-header); pointer-events: none; animation: fade-in .2s var(--ease);
+}
+.sb-title .conn-state { padding: 0; color: var(--gray-text); font-size: var(--fs-text); }
+.sb-actions { margin-left: auto; padding-right: 8px; position: relative; z-index: 1; display: flex; }
+.search-row { padding: 2px 12px 8px; }
+.search { height: 32px; border-radius: 16px; background: var(--input-bg); justify-content: center; padding: 0 12px; gap: 6px; transition: box-shadow .2s; }
+.search input { flex: 0 1 112px; width: 112px; transition: flex-basis .25s var(--ease); }
+.search.active { justify-content: flex-start; }
+.search.active input { flex: 1 1 auto; }
+.folders { border-bottom: 0; padding: 0 10px; }
+.archive-btn {
+  width: calc(100% - 24px); margin: 4px 12px 6px; height: 30px; border-radius: 15px; background: var(--input-bg);
+  display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--gray-text); font-weight: 500; flex: none;
+  transition: background .15s;
+}
+.archive-btn:hover { background: var(--glass-sel); }
+.archive-btn.back { justify-content: flex-start; padding-left: 12px; color: var(--accent); }
+.list { padding: 2px 0 76px; }
+.row { margin: 0 8px; padding: 0 8px; border-radius: 12px; height: 68px; }
+.row-sep { left: 66px; right: 8px; }
+.row.on { background: var(--row-active); }
+.tabbar { left: 8px; right: 8px; bottom: 8px; }
+.tab .badge { background: var(--red); }
+.tab-avatar { display: grid; place-items: center; border-radius: 50%; transition: box-shadow .2s; }
+.tab.on .tab-avatar { box-shadow: 0 0 0 2px var(--accent); }
+
+/* ── область чата ── */
+.main { position: relative; z-index: 1; background: transparent; flex: 1; min-width: 0; }
+.main-drag { position: absolute; top: 0; left: 0; right: 0; height: 44px; }
+.main-empty { height: 100%; }
+.service-pill, .main-empty span.service-pill {
+  background: var(--service-bg); color: var(--service-text); backdrop-filter: blur(12px); padding: 4px 12px; border-radius: 13px; font-weight: 500;
+}
+.chat { position: relative; height: 100%; animation: chat-in .25s var(--ease-out); }
+.messages { position: absolute; inset: 0; padding: 64px 0 66px; }
+.chat-top { position: absolute; top: var(--gap); left: 0; right: var(--gap); height: 48px; display: flex; gap: 8px; z-index: 3; }
+.chat-header.glass {
+  flex: 1; min-width: 0; height: 48px; border: 0; border-radius: 24px; padding: 0 18px 0 7px; gap: 10px; cursor: pointer;
+  transition: transform .25s var(--spring);
+}
+.chat-header.glass:active { transform: scale(1.01); }
+.chat-top .glass.circle { width: 48px; height: 48px; }
+.player-bar.glass { position: absolute; top: calc(var(--gap) + 54px); left: 0; right: var(--gap); border: 0; border-radius: 22px; z-index: 3; overflow: hidden; }
+.player-bar.glass .pb-progress { bottom: 0; }
+
+.composer-wrap { position: absolute; left: 0; right: var(--gap); bottom: var(--gap); display: flex; align-items: flex-end; gap: 8px; z-index: 3; }
+.composer.glass { flex: 1; min-width: 0; border: 0; border-radius: 22px; overflow: hidden; transition: transform .25s var(--spring); }
+.composer.glass:focus-within { transform: scale(1.005); }
+.composer-wrap > .glass.circle { color: var(--gray-icon); }
+.composer-wrap > .glass.circle:hover { color: var(--accent); }
+.compose-row { padding: 0 5px 0 16px; gap: 2px; }
+.compose-input { padding: 13px 0; }
+.compose-row .icon-btn { margin-bottom: 5px; }
+.compose-bar { padding: 8px 10px 0 14px; }
+.send-btn span { position: absolute; inset: 0; display: grid; place-items: center; transition: transform .25s var(--spring), opacity .15s; }
+.composer-wrap > .send-btn.ready { background: var(--accent); color: #fff; }
+.media-panel { right: 52px; bottom: calc(100% + 8px); }
+.readonly-bar.glass { flex: 1; height: 44px; border-radius: 22px; color: var(--accent); font-weight: 600; padding: 0; }
+
+.date-sep { top: 64px; }
+.date-sep span, .service span { background: var(--service-bg); color: var(--service-text); box-shadow: none; backdrop-filter: blur(12px); }
+.bubble.jumbo .meta-inline { background: var(--service-bg); color: var(--service-text) !important; }
+.msg-row.in .bubble { box-shadow: inset 0 0 0 .5px var(--in-border), 0 1px 1px rgba(0, 0, 0, .06); }
+.msg-row.out .bubble { box-shadow: inset 0 0 0 .5px var(--out-border), 0 1px 1px rgba(0, 0, 0, .06); }
+.msg-row.out .reply-quote .rq-name { color: var(--out-reply); }
+.msg-row.in .file-ic { background: var(--in-ic-bg); color: var(--in-ic-fg); }
+.msg-row.out .file-ic { background: var(--out-ic-bg); color: var(--out-ic-fg); }
+.msg-row.out .voice-wave i.on { background: var(--out-ic-bg); opacity: 1; }
+.msg-row.out .mini-progress i { background: var(--out-ic-bg); }
+.msg-row.out .reaction { background: var(--out-bg); color: var(--out-reply); box-shadow: inset 0 0 0 .5px var(--out-border); }
+.reaction.on, .msg-row.out .reaction.on { background: var(--accent); color: #fff; }
+.msg-row.out .text code { color: inherit; }
+
+/* ── экран профиля ── */
+.pscreen { position: absolute; inset: 0; animation: chat-in .25s var(--ease-out); }
+.ps-scroll { height: 100%; overflow-y: auto; padding: var(--gap) var(--gap) var(--gap) 0; }
+.ps-hero {
+  position: relative; border-radius: var(--card-radius); padding: 18px 16px 16px; color: #fff; display: flex; flex-direction: column; align-items: center;
+  box-shadow: var(--card-shadow); overflow: hidden;
+}
+.ps-top { position: absolute; left: 10px; top: 10px; right: 10px; height: 40px; display: flex; }
+.ps-top .glass.circle { width: 36px; height: 36px; color: #fff; background: rgba(255, 255, 255, .22); box-shadow: inset 0 0 0 .5px rgba(255, 255, 255, .3); }
+.ps-avatar { margin-top: 20px; border-radius: 50%; box-shadow: 0 6px 20px rgba(0, 0, 0, .25); animation: pop .35s var(--spring); }
+.ps-name { font: 600 20px/1.2 var(--font-display); margin-top: 12px; text-shadow: 0 1px 2px rgba(0, 0, 0, .15); }
+.ps-status { opacity: .85; font-size: var(--fs-text); margin-top: 2px; }
+.ps-actions { display: flex; gap: 10px; width: 100%; margin-top: 18px; }
+.ps-actions button {
+  flex: 1; height: 62px; border-radius: 14px; background: rgba(255, 255, 255, .78); color: rgba(0, 0, 0, .82);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 500;
+  transition: transform .25s var(--spring), background .15s; backdrop-filter: blur(10px);
+}
+.ps-actions button:hover { background: rgba(255, 255, 255, .9); }
+.ps-actions button:active { transform: scale(1.05); }
+.ps-body { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
+.ps-card { background: var(--card-bg); backdrop-filter: blur(30px) saturate(1.6); border-radius: 16px; box-shadow: var(--card-shadow); overflow: hidden; }
+.ps-row { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 16px; min-height: 52px; text-align: left; position: relative; color: var(--text); }
+.ps-row + .ps-row::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; height: 1px; background: var(--border); }
+.ps-row small { display: block; color: var(--accent); font-size: var(--fs-short); margin-bottom: 1px; }
+.ps-row > svg { color: var(--gray-icon); }
+button.ps-row:hover { background: var(--row-hover); }
+.switch { width: 38px; height: 22px; border-radius: 11px; background: var(--gray-fg); position: relative; transition: background .2s; flex: none; }
+.switch i { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .25s var(--spring); }
+.switch.on { background: #34c759; }
+.switch.on i { transform: translateX(16px); }
+.ps-tabs { display: flex; gap: 2px; background: var(--card-bg); backdrop-filter: blur(30px); border-radius: 14px; padding: 4px; overflow-x: auto; box-shadow: var(--card-shadow); scrollbar-width: none; }
+.ps-tabs button { padding: 6px 12px; border-radius: 10px; color: var(--gray-text); font-weight: 500; white-space: nowrap; transition: background .15s, color .15s; }
+.ps-tabs button.on { color: var(--accent); background: var(--accent-soft); }
+.ps-body .media-grid { padding: 0; border-radius: 16px; overflow: hidden; }

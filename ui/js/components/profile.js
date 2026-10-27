@@ -1,72 +1,127 @@
 import { html, useEffect, useState } from '../lib.js';
-import { S, changed, isMuted, chatTitle, chatUser, isSaved, isChannel, showHud, download, fileUrl } from '../store.js';
+import { S, changed, isMuted, chatTitle, chatUser, isSaved, isChannel, showHud, download, fileUrl, openMenu } from '../store.js';
 import { send, shell } from '../td.js';
 import { Icon } from '../icons.js';
-import { userStatus, count, renderFormatted, duration } from '../format.js';
+import { userStatus, count, renderFormatted, duration, avatarGradient, peerIndex } from '../format.js';
 import { fileOf } from '../store.js';
 import { useRef } from '../lib.js';
-import { Avatar, Spinner } from './common.js';
+import { Avatar, Spinner, dragHandlers } from './common.js';
 
-// Панель профиля справа — как в Telegram для macOS.
-export function ProfilePanel({ chat }) {
+// Экран профиля — как в новом Telegram для macOS: цветная шапка, 4 кнопки, карточка данных, вкладки медиа.
+const TABS = [
+  ['media', 'Медиа', 'searchMessagesFilterPhotoAndVideo'],
+  ['files', 'Файлы', 'searchMessagesFilterDocument'],
+  ['links', 'Ссылки', 'searchMessagesFilterUrl'],
+  ['voice', 'Голосовые', 'searchMessagesFilterVoiceNote'],
+  ['music', 'Музыка', 'searchMessagesFilterAudio'],
+];
+
+function heroColors(chat, user) {
+  const id = user?.profile_accent_color_id ?? chat.profile_accent_color_id;
+  const pc = typeof id === 'number' && id >= 0 ? S.profileColors?.[id] : null;
+  const dark = document.documentElement.dataset.palette === 'night';
+  const set = pc ? (dark ? pc.dark_theme_colors : pc.light_theme_colors) : null;
+  const toHex = n => `#${(n >>> 0 & 0xffffff).toString(16).padStart(6, '0')}`;
+  if (set?.background_colors?.length) return set.background_colors.map(toHex);
+  const g = avatarGradient(peerIndex(chat.id, chat.accent_color_id)).match(/#[0-9a-f]{6}/gi);
+  return g || ['#5ea3df', '#3a7bc8'];
+}
+
+export function ProfileScreen({ chat }) {
   const [info, setInfo] = useState(null);
-  const [media, setMedia] = useState(null);
+  const [tab, setTab] = useState('media');
   const user = chatUser(chat);
   const t = chat.type['@type'];
 
   useEffect(() => {
-    setInfo(null); setMedia(null);
     let req = null;
     if (user) req = { '@type': 'getUserFullInfo', user_id: user.id };
     else if (t === 'chatTypeSupergroup') req = { '@type': 'getSupergroupFullInfo', supergroup_id: chat.type.supergroup_id };
     else if (t === 'chatTypeBasicGroup') req = { '@type': 'getBasicGroupFullInfo', basic_group_id: chat.type.basic_group_id };
-    if (req) send(req).then(setInfo).catch(() => setInfo({}));
-    send({ '@type': 'searchChatMessages', chat_id: chat.id, query: '', from_message_id: 0, offset: 0, limit: 60, filter: { '@type': 'searchMessagesFilterPhotoAndVideo' } })
-      .then(r => setMedia(r.messages || [])).catch(() => setMedia([]));
+    if (req) send(req).then(setInfo).catch(() => setInfo({})); else setInfo({});
+    const esc = e => { if (e.key === 'Escape' && !S.viewer && !S.menu) close(); };
+    window.addEventListener('keydown', esc);
+    return () => window.removeEventListener('keydown', esc);
   }, [chat.id]);
+  const close = () => { S.profile = false; changed(); };
 
   const muted = isMuted(chat);
   const toggleMute = () => send({ '@type': 'setChatNotificationSettings', chat_id: chat.id, notification_settings: { ...(chat.notification_settings || {}), '@type': 'chatNotificationSettings', use_default_mute_for: false, mute_for: muted ? 0 : 2147483647 } })
-    .catch(e => showHud(e.message));
+    .then(() => showHud(muted ? 'Уведомления включены' : 'Уведомления выключены')).catch(e => showHud(e.message));
+  const more = e => {
+    const r = e.currentTarget.getBoundingClientRect();
+    openMenu(r.left, r.bottom + 6, [
+      { label: muted ? 'Включить уведомления' : 'Выключить уведомления', icon: Icon.muted(15), action: toggleMute },
+      ...(username ? [{ label: 'Скопировать ссылку', icon: Icon.copy(), action: () => copy(`https://t.me/${username}`, 'Ссылка') }] : []),
+    ]);
+  };
 
   const sg = t === 'chatTypeSupergroup' ? S.supergroups.get(chat.type.supergroup_id) : null;
   const bg = t === 'chatTypeBasicGroup' ? S.basicGroups.get(chat.type.basic_group_id) : null;
   const username = user?.usernames?.active_usernames?.[0] || sg?.usernames?.active_usernames?.[0];
   const about = user ? info?.bio : info?.description;
+  const aboutText = typeof about === 'string' ? about : about?.text;
+  const bday = info?.birthdate;
   const statusLine = isSaved(chat) ? '' : user ? userStatus(user)
     : sg ? count(sg.member_count || info?.member_count || 0, isChannel(chat) ? 'подписчик' : 'участник', isChannel(chat) ? 'подписчика' : 'участника', isChannel(chat) ? 'подписчиков' : 'участников')
       : bg ? count(bg.member_count, 'участник', 'участника', 'участников') : '';
-  const copy = (text, what) => navigator.clipboard.writeText(text).then(() => showHud(`${what} скопирован`));
+  const copy = (text, what) => navigator.clipboard.writeText(text).then(() => showHud(`${what} скопирован${what === 'Ссылка' ? 'а' : ''}`));
+  const colors = heroColors(chat, user);
+  const soon = what => () => showHud(`${what} — в следующих обновлениях`);
+  const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 
-  return html`<aside class="profile-panel">
-    <div class="pp-head">
-      <span class="pp-title">${user ? 'Информация' : isChannel(chat) ? 'О канале' : 'О группе'}</span>
-      <button class="icon-btn gray" title="Закрыть" onClick=${() => { S.profile = false; changed(); }}>${Icon.close(15)}</button>
+  return html`<div class="pscreen">
+    <div class="ps-scroll">
+      <div class="ps-hero" style=${`background:radial-gradient(circle at 50% 35%, ${colors[0]}, ${colors[colors.length - 1]})`}>
+        <div class="ps-top" ...${dragHandlers()}>
+          <button class="glass circle" title="Назад" onClick=${close}>${Icon.back(18)}</button>
+        </div>
+        <div class="ps-avatar"><${Avatar} chat=${chat} size=${96}/></div>
+        <div class="ps-name">${chatTitle(chat)}</div>
+        <div class="ps-status">${statusLine}</div>
+        <div class="ps-actions">
+          <button onClick=${close}>${Icon.chats(22)}<span>Чат</span></button>
+          ${user && !isSaved(chat) ? html`
+            <button onClick=${soon('Звонки')}>${Icon.calls(21)}<span>Звонок</span></button>
+            <button onClick=${soon('Видеозвонки')}>${Icon.video(22)}<span>Видео</span></button>`
+            : html`<button onClick=${toggleMute}>${Icon.muted(22)}<span>${muted ? 'Вкл. звук' : 'Без звука'}</span></button>`}
+          <button onClick=${more}>${Icon.more(22)}<span>Ещё</span></button>
+        </div>
+      </div>
+      <div class="ps-body">
+        <div class="ps-card">
+          ${!info && html`<div class="ps-row" style="justify-content:center;color:var(--gray-text)"><${Spinner}/></div>`}
+          ${username && html`<button class="ps-row" onClick=${() => copy(`@${username}`, 'Username')}><div><small>Имя пользователя</small><div>@${username}</div></div>${Icon.copy(17)}</button>`}
+          ${user?.phone_number && html`<button class="ps-row" onClick=${() => copy(`+${user.phone_number}`, 'Номер')}><div><small>номер телефона</small><div>+${user.phone_number}</div></div>${Icon.copy(17)}</button>`}
+          ${bday && html`<div class="ps-row"><div><small>день рождения</small><div>${bday.day} ${MONTHS[bday.month - 1]}${bday.year ? ` ${bday.year}` : ''}</div></div></div>`}
+          ${aboutText && html`<div class="ps-row selectable"><div><small>${user ? 'о себе' : 'описание'}</small><div style="white-space:pre-wrap">${typeof about === 'string' ? about : renderFormatted(about, url => shell.openUrl(url))}</div></div></div>`}
+          ${info && !username && !user?.phone_number && !aboutText && !bday && html`<div class="ps-row" style="color:var(--gray-text)">Нет дополнительной информации</div>`}
+        </div>
+        <div class="ps-card">
+          <button class="ps-row" onClick=${toggleMute}><div><small>уведомления</small><div>${muted ? 'Выключены' : 'Включены'}</div></div><span class=${`switch ${muted ? '' : 'on'}`}><i/></span></button>
+        </div>
+        <div class="ps-tabs">${TABS.map(([id, label]) => html`<button class=${tab === id ? 'on' : ''} onClick=${() => setTab(id)}>${label}</button>`)}</div>
+        <${SharedList} key=${`${chat.id}-${tab}`} chat=${chat} kind=${tab} filter=${TABS.find(x => x[0] === tab)[2]}/>
+      </div>
     </div>
-    <div class="pp-body">
-      <div class="profile">
-        <${Avatar} chat=${chat} size=${100}/>
-        <div class="pname">${chatTitle(chat)}</div>
-        <div class=${`psub ${statusLine === 'в сети' ? 'online' : ''}`}>${statusLine}</div>
-      </div>
-      <div class="pp-actions">
-        <button onClick=${toggleMute}><span>${Icon.muted(20)}</span>${muted ? 'Вкл. звук' : 'Без звука'}</button>
-        ${username && html`<button onClick=${() => shell.openUrl(`https://t.me/${username}`)}><span>${Icon.reply(20)}</span>Ссылка</button>`}
-      </div>
-      <div class="group">
-        ${user?.phone_number && html`<button class="item two" onClick=${() => copy(`+${user.phone_number}`, 'Номер')}><div><div>+${user.phone_number}</div><small>телефон</small></div></button>`}
-        ${username && html`<button class="item two" onClick=${() => copy(`@${username}`, 'Username')}><div><div>@${username}</div><small>имя пользователя</small></div></button>`}
-        ${about?.text && html`<div class="item two"><div class="selectable" style="white-space:pre-wrap"><div>${renderFormatted(about, url => shell.openUrl(url))}</div><small>${user ? 'о себе' : 'описание'}</small></div></div>`}
-        ${typeof about === 'string' && about && html`<div class="item two"><div class="selectable" style="white-space:pre-wrap"><div>${about}</div><small>описание</small></div></div>`}
-        ${!info && html`<div class="item" style="justify-content:center;color:var(--gray-text)"><${Spinner}/></div>`}
-        ${info && !user?.phone_number && !username && !about && html`<div class="item" style="color:var(--gray-text)">Нет дополнительной информации</div>`}
-      </div>
-      <div class="pp-section">Фото и видео</div>
-      ${media === null ? html`<div style="display:grid;place-items:center;padding:16px;color:var(--gray-text)"><${Spinner}/></div>`
-        : !media.length ? html`<div class="empty" style="padding:12px">Пока нет</div>`
-          : html`<div class="media-grid">${media.map(m => html`<${MediaThumb} key=${m.id} msg=${m}/>`)}</div>`}
-    </div>
-  </aside>`;
+  </div>`;
+}
+
+function SharedList({ chat, kind, filter }) {
+  const [list, setList] = useState(null);
+  useEffect(() => {
+    send({ '@type': 'searchChatMessages', chat_id: chat.id, query: '', from_message_id: 0, offset: 0, limit: 60, filter: { '@type': filter } })
+      .then(r => setList(r.messages || [])).catch(() => setList([]));
+  }, []);
+  if (list === null) return html`<div style="display:grid;place-items:center;padding:24px;color:var(--gray-text)"><${Spinner}/></div>`;
+  if (!list.length) return html`<div style="display:flex;justify-content:center;padding:20px"><span class="service-pill">Пока ничего нет</span></div>`;
+  if (kind === 'media') return html`<div class="media-grid">${list.map(m => html`<${MediaThumb} key=${m.id} msg=${m}/>`)}</div>`;
+  return html`<div class="ps-card">${list.map(m => {
+    const c = m.content;
+    const name = c.document?.file_name || c.audio?.title || c.audio?.file_name || (c.voice_note ? 'Голосовое сообщение' : '') || (c.text?.text || c.caption?.text || '').slice(0, 120);
+    const sub = new Date(m.date * 1000).toLocaleDateString('ru-RU');
+    return html`<div class="ps-row" key=${m.id}><div style="min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div><small>${sub}</small></div></div>`;
+  })}</div>`;
 }
 
 function MediaThumb({ msg }) {

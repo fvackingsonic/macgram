@@ -8,7 +8,7 @@ import { Icon } from '../icons.js';
 import { userStatus, count, dayLabel, sameDay, contentSummary, userName } from '../format.js';
 import { Avatar, Spinner, TypingDots, dragHandlers } from './common.js';
 import { MessageRow, canReply, focusComposer, isServiceType } from './message.js';
-import { ProfilePanel } from './profile.js';
+import { ProfileScreen } from './profile.js';
 import { pickAndSend, pasteImage } from './attach.js';
 import { MediaPanel } from './media-panel.js';
 import { player, progress } from '../player.js';
@@ -16,9 +16,11 @@ import { duration } from '../format.js';
 
 export function Main() {
   const chat = S.chats.get(S.currentChatId);
-  if (!chat) return html`<main class="main"><div class="drag" style=${`height:var(--titlebar-h)`} ...${dragHandlers()}/>
-    <div class="main-empty"><span>Выберите чат, чтобы начать общение</span></div></main>`;
-  return html`<main class="main" style="flex-direction:row"><${Chat} key=${chat.id} chat=${chat}/>${S.profile && html`<${ProfilePanel} chat=${chat}/>`}</main>`;
+  if (!chat) return html`<main class="main"><div class="main-drag" ...${dragHandlers()}/>
+    <div class="main-empty"><span class="service-pill">Выберите, кому хотели бы написать</span></div></main>`;
+  return html`<main class="main">
+    ${S.profile ? html`<${ProfileScreen} key=${`p${chat.id}`} chat=${chat}/>` : html`<${Chat} key=${chat.id} chat=${chat}/>`}
+  </main>`;
 }
 
 function status(chat) {
@@ -54,20 +56,21 @@ function Chat({ chat }) {
       { label: 'Обновить историю', icon: Icon.reply(15), action: () => { S.history.delete(chat.id); loadHistory(chat.id); } },
     ]);
   };
+  const openProfile = () => { S.profile = true; changed(); };
   return html`<div class="chat">
-    <header class="chat-header" ...${dragHandlers()}>
-      <button class="no-drag" style="border-radius:50%" onClick=${() => { S.profile = !S.profile; changed(); }}><${Avatar} chat=${chat} size=${36}/></button>
-      <div class="titles" style="cursor:pointer" onClick=${() => { S.profile = !S.profile; changed(); }}>
-        <div class="title">${chatTitle(chat)}${muted && html`<span style="color:var(--gray-icon)">${Icon.muted()}</span>`}</div>
-        ${st.text && html`<div class=${`status ${st.cls || ''}`}>${st.text}</div>`}
-      </div>
-      <div class="actions">
-        <button class="icon-btn gray" title="Ещё" onClick=${more}>${Icon.more()}</button>
-      </div>
-    </header>
-    <${PlayerBar}/>
     <${Messages} chat=${chat}/>
-    ${canReply(chat) ? html`<${Composer} chat=${chat}/>` : html`<div class="composer"><button class="readonly-bar" style="width:100%" onClick=${toggleMute}>${muted ? 'Включить звук' : 'Выключить звук'}</button></div>`}
+    <div class="chat-top" ...${dragHandlers()}>
+      <header class="chat-header glass no-drag" onClick=${openProfile}>
+        <${Avatar} chat=${chat} size=${34}/>
+        <div class="titles">
+          <div class="title">${chatTitle(chat)}${muted && html`<span style="color:var(--gray-icon)">${Icon.muted()}</span>`}</div>
+          ${st.text && html`<div class=${`status ${st.cls || ''}`}>${st.text}</div>`}
+        </div>
+      </header>
+      <button class="glass circle" title="Ещё" onClick=${more}>${Icon.more()}</button>
+    </div>
+    <${PlayerBar}/>
+    ${canReply(chat) ? html`<${Composer} chat=${chat}/>` : html`<div class="composer-wrap"><button class="glass readonly-bar" onClick=${toggleMute}>${muted ? 'Включить звук' : 'Выключить звук'}</button></div>`}
   </div>`;
 }
 
@@ -155,23 +158,25 @@ function Composer({ chat }) {
     : S.reply ? { title: `Ответ ${senderName(S.reply.sender_id) || chatTitle(chat)}`, text: contentSummary(S.reply.content, id => userName(S.users.get(id))), icon: Icon.reply(18) } : null;
   const ready = !!text.trim();
   const soon = what => () => showHud(`${what} — в следующем обновлении`);
-  return html`<div class="composer" style="position:relative">
+  return html`<div class="composer-wrap">
     ${panel && html`<${MediaPanel} chatId=${chat.id} onEmoji=${insertEmoji} onClose=${() => setPanel(false)}/>`}
-    ${bar && html`<div class="compose-bar" key=${S.editing?.id || S.reply?.id}>
-      <span style="color:var(--accent)">${bar.icon}</span>
-      <div class="bar-body"><div class="bar-title">${bar.title}</div><div class="bar-text">${bar.text}</div></div>
-      <button class="icon-btn gray" onClick=${() => { if (S.editing) setText(''); S.reply = null; S.editing = null; changed(); }}>${Icon.close(14)}</button>
-    </div>`}
-    <div class="compose-row">
-      <button class="icon-btn" title="Прикрепить файл" onClick=${() => pickAndSend(false)}>${Icon.attach()}</button>
-      <textarea ref=${ref} class="compose-input" rows="1" placeholder=${isChannel(chat) ? 'Публикация…' : 'Сообщение'} value=${text}
-        onInput=${onInput} onKeyDown=${onKey} onPaste=${onPaste}/>
-      <button class=${`icon-btn emoji-btn ${panel ? 'active' : ''}`} title="Эмодзи и стикеры" onClick=${() => setPanel(!panel)}>${Icon.smile()}</button>
-      <button class=${`icon-btn send-btn ${ready ? 'ready' : ''}`} title=${ready ? 'Отправить' : 'Голосовое сообщение'} onClick=${ready ? submit : soon('Голосовые сообщения')}>
-        <span class=${ready ? 'hide' : ''} style="position:absolute;inset:0;display:grid;place-items:center;transition:transform .22s var(--spring),opacity .15s">${Icon.mic()}</span>
-        <span class=${ready ? '' : 'hide'} style="position:absolute;inset:0;display:grid;place-items:center;transition:transform .22s var(--spring),opacity .15s">${Icon.sendCircle(28)}</span>
-      </button>
+    <button class="glass circle" title="Прикрепить файл" onClick=${() => pickAndSend(false)}>${Icon.attach()}</button>
+    <div class="composer glass">
+      ${bar && html`<div class="compose-bar" key=${S.editing?.id || S.reply?.id}>
+        <span style="color:var(--accent)">${bar.icon}</span>
+        <div class="bar-body"><div class="bar-title">${bar.title}</div><div class="bar-text">${bar.text}</div></div>
+        <button class="icon-btn gray" onClick=${() => { if (S.editing) setText(''); S.reply = null; S.editing = null; changed(); }}>${Icon.close(14)}</button>
+      </div>`}
+      <div class="compose-row">
+        <textarea ref=${ref} class="compose-input" rows="1" placeholder=${isChannel(chat) ? 'Публикация…' : 'Сообщение'} value=${text}
+          onInput=${onInput} onKeyDown=${onKey} onPaste=${onPaste}/>
+        <button class=${`icon-btn emoji-btn ${panel ? 'active' : ''}`} title="Эмодзи и стикеры" onClick=${() => setPanel(!panel)}>${Icon.smile()}</button>
+      </div>
     </div>
+    <button class=${`glass circle send-btn ${ready ? 'ready' : ''}`} title=${ready ? 'Отправить' : 'Голосовое сообщение'} onClick=${ready ? submit : soon('Голосовые сообщения')}>
+      <span class=${ready ? 'hide' : ''}>${Icon.mic()}</span>
+      <span class=${ready ? '' : 'hide'}>${Icon.send(22)}</span>
+    </button>
   </div>`;
 }
 
@@ -183,7 +188,7 @@ function PlayerBar() {
   const owner = S.chats.get(p.chatId);
   const goto = () => { if (p.chatId !== S.currentChatId) selectChat(p.chatId); else document.querySelector(`[data-mid="${p.msgId}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }); };
   const seek = e => { const r = e.currentTarget.getBoundingClientRect(); player.seek((e.clientX - r.left) / r.width); };
-  return html`<div class="player-bar">
+  return html`<div class="player-bar glass">
     <button class="icon-btn" onClick=${player.toggle}>${p.playing ? Icon.pause(18) : Icon.play(18)}</button>
     <div class="pb-info" onClick=${goto}>
       <div class="pb-title">${p.performer ? html`<b>${p.performer}</b> — ` : ''}${p.title}</div>
