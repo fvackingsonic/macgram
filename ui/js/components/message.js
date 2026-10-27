@@ -1,6 +1,7 @@
 import { html, useEffect, useLayoutEffect, useState, useRef, memo } from '../lib.js';
 import { insertAtBottom } from '../mac-anim.js';
 import { openLink } from '../links.js';
+import { InlineKeyboard } from './keyboards.js';
 import { S, changed, useTick, jumpTo, download, fileUrl, fileOf, senderName, senderId, openMenu, openModal, closeModal, showHud, deleteMessages, isGroup, isChannel, chatUser } from '../store.js';
 import { send, shell } from '../td.js';
 import { Icon } from '../icons.js';
@@ -482,6 +483,8 @@ function MessageRowView({ msg, chat, first, last }) {
     }
     if (text) items.push({ label: 'Копировать текст', icon: Icon.copy(), action: () => navigator.clipboard.writeText(text).then(() => showHud('Скопировано')) });
     if (msg.can_be_forwarded !== false) items.push({ label: 'Переслать', icon: Icon.forward(), action: () => openForward(chat.id, [msg.id]) });
+    if (chat.type?.['@type'] === 'chatTypeSupergroup') items.push({ label: 'Копировать ссылку', icon: Icon.menu('menu_copy_link'), action: () => send({ '@type': 'getMessageLink', chat_id: chat.id, message_id: msg.id, media_timestamp: 0, for_album: false, in_message_thread: false })
+      .then(r => navigator.clipboard.writeText(r.link)).then(() => showHud('Ссылка скопирована')).catch(err => showHud(err.message)) });
     items.push(msg.is_pinned
       ? { label: 'Открепить', icon: Icon.menu('menu_unpin'), action: () => send({ '@type': 'unpinChatMessage', chat_id: chat.id, message_id: msg.id }).catch(err => showHud(err.message)) }
       : { label: 'Закрепить', icon: Icon.menu('menu_pin'), action: () => send({ '@type': 'pinChatMessage', chat_id: chat.id, message_id: msg.id, disable_notification: false, only_for_self: false }).then(() => showHud('Сообщение закреплено')).catch(err => showHud(err.message?.includes('RIGHT') || err.message?.includes('ADMIN') ? 'Нет прав закреплять сообщения' : err.message)) });
@@ -499,13 +502,14 @@ function MessageRowView({ msg, chat, first, last }) {
   const senderChat = msg.sender_id?.chat_id ? S.chats.get(msg.sender_id.chat_id) : null;
   const selecting = S.selection?.chatId === chat.id;
   const selected = selecting && S.selection.ids.has(msg.id);
+  const kb = msg.reply_markup?.['@type'] === 'replyMarkupInlineKeyboard' ? html`<${InlineKeyboard} msg=${msg}/>` : null;
   return html`<div data-mid=${msg.id}
       class=${`msg-row ${out ? 'out' : 'in'} ${first ? 'first' : ''} ${last ? 'last' : ''} ${fresh ? 'fresh' : ''} ${S.highlight === msg.id ? 'highlight' : ''} ${selecting ? 'selecting' : ''} ${selected ? 'selected' : ''}`}
       onClickCapture=${e => { if (selecting) { e.stopPropagation(); e.preventDefault(); toggleSelected(msg.id); } }}
       onContextMenu=${e => { if (selecting) { e.preventDefault(); return; } onContext(e); }} onDblClick=${() => { if (!selecting && canReply(chat)) { S.reply = msg; changed(); focusComposer(); } }}>
     ${selecting && html`<span class=${`sel-check ${selected ? 'on' : ''}`}>${selected && Icon.check(12)}</span>`}
     ${showAvatar && html`<div class="av-slot">${last && (sender || senderChat) && html`<${Avatar} user=${sender} chat=${senderChat} size=${34}/>`}</div>`}
-    ${reacts ? html`<div class="with-reactions">${content}<${Reactions} msg=${msg}/></div>` : content}
+    ${reacts ? html`<div class="with-reactions">${content}<${Reactions} msg=${msg}/>${kb}</div>` : kb ? html`<div class="with-kb">${content}${kb}</div>` : content}
   </div>`;
 }
 

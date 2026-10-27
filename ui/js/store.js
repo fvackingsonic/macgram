@@ -498,7 +498,7 @@ export async function parseText(text) {
   try { return await send({ '@type': 'parseMarkdown', text: plain }); } catch { return plain; }
 }
 
-export async function sendText(chatId, text) {
+export async function sendText(chatId, text, opts = {}) {
   const body = text.replace(/\s+$/, '');
   if (!body.trim()) return;
   const editing = S.editing, reply = S.reply;
@@ -510,7 +510,13 @@ export async function sendText(chatId, text) {
     } else {
       const req = { '@type': 'sendMessage', chat_id: chatId, input_message_content: content };
       if (reply) req.reply_to = { '@type': 'inputMessageReplyToMessage', message_id: reply.id };
+      // «Без звука» и «Отложить» — как в меню кнопки отправки в Telegram для macOS.
+      if (opts.silent || opts.sendAt) {
+        req.options = { '@type': 'messageSendOptions', disable_notification: !!opts.silent };
+        if (opts.sendAt) req.options.scheduling_state = { '@type': 'messageSchedulingStateSendAtDate', send_date: opts.sendAt };
+      }
       const m = await send(req);
+      if (opts.sendAt) { showHud('Сообщение отложено'); return; }
       putMessage(m, { fresh: true }); changed();
     }
   } catch (e) {
@@ -699,7 +705,7 @@ onUpdate(u => {
     }
     case 'updateMessageEdited': {
       const h = S.history.get(u.chat_id), m = h?.byId.get(u.message_id);
-      if (m) putMessage({ ...m, edit_date: u.edit_date });
+      if (m) putMessage({ ...m, edit_date: u.edit_date, reply_markup: u.reply_markup });
       break;
     }
     case 'updateMessageInteractionInfo': {
@@ -711,6 +717,7 @@ onUpdate(u => {
       if (u.chat_id === S.currentChatId) loadPinned(u.chat_id);
       { const h = S.history.get(u.chat_id), m = h?.byId.get(u.message_id); if (m) putMessage({ ...m, is_pinned: u.is_pinned }); }
       break;
+    case 'updateChatReplyMarkup': patchChat(u.chat_id, c => { c.reply_markup_message_id = u.reply_markup_message_id; }); break;
     case 'updateDeleteMessages': {
       if (u.from_cache) break;
       // Как удаление строки в TableView (macOS): сообщение гаснет и схлопывается за 0.2 с,

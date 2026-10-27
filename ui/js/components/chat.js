@@ -1,7 +1,7 @@
 import { html, useRef, useEffect, useState, useLayoutEffect } from '../lib.js';
 import {
   S, changed, useTick, loadHistory, loadNewer, resetToLatest, jumpTo, sendText, selectChat, isMuted, chatTitle, chatUser, isSaved, isGroup, isChannel, typingText, senderName,
-  openMenu, showHud, markRead,
+  openMenu, showHud, markRead, openModal, closeModal,
 } from '../store.js';
 import { send } from '../td.js';
 import { Icon } from '../icons.js';
@@ -11,6 +11,7 @@ import { MessageRow, AlbumRow, msgDeps, canReply, focusComposer, isServiceType }
 import { ProfileScreen } from './profile.js';
 import { pickAndSend, pasteImage } from './attach.js';
 import { MediaPanel } from './media-panel.js';
+import { ReplyKeyboard } from './keyboards.js';
 import { PlayPauseAnim } from './tgs.js';
 import { MI } from '../mac-icons.js';
 import { SelectionBar } from './forward.js';
@@ -155,11 +156,34 @@ function Messages({ chat }) {
     </button>`;
 }
 
+// Выбор даты для отложенного сообщения.
+function pickSchedule(done) {
+  const d = new Date(Date.now() + 3600e3); d.setSeconds(0, 0);
+  const pad = n => String(n).padStart(2, '0');
+  let val = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  openModal({
+    title: 'Отправить в…',
+    body: html`<input class="dt-input" type="datetime-local" value=${val} onInput=${e => { val = e.target.value; }}/>`,
+    buttons: [
+      { label: 'Запланировать', action: () => { const t = new Date(val); if (!(t > new Date())) { showHud('Выберите время в будущем'); return; } closeModal(); done(t); } },
+      { label: 'Отмена', kind: 'second', action: closeModal },
+    ],
+  });
+}
+
 const drafts = new Map();
+
+// Черновик синхронизируется с Telegram (виден на других устройствах и в списке чатов).
+function saveDraft(chatId, text) {
+  const t = (text || '').trim() ? text : '';
+  send({ '@type': 'setChatDraftMessage', chat_id: chatId, message_thread_id: 0, draft_message: t
+    ? { '@type': 'draftMessage', date: 0, input_message_text: { '@type': 'inputMessageText', text: { '@type': 'formattedText', text: t, entities: [] } } }
+    : null }).catch(() => {});
+}
 
 function Composer({ chat }) {
   const ref = useRef();
-  const [text, setText] = useState(drafts.get(chat.id) || '');
+  const [text, setText] = useState(() => drafts.get(chat.id) ?? chat.draft_message?.input_message_text?.text?.text ?? '');
   const [panel, setPanel] = useState(false);
   const insertEmoji = e => {
     const el = ref.current; if (!el) return;
@@ -171,7 +195,12 @@ function Composer({ chat }) {
   const resize = () => { const el = ref.current; if (!el) return; el.style.height = 'auto'; el.style.height = `${Math.min(200, el.scrollHeight)}px`; };
   useLayoutEffect(resize, [text]);
   useEffect(() => { ref.current?.focus(); }, []);
-  useEffect(() => () => { drafts.set(chat.id, ref.current?.value || ''); }, []);
+  useEffect(() => () => {
+    const v = ref.current?.value || '';
+    const before = chat.draft_message?.input_message_text?.text?.text || '';
+    drafts.set(chat.id, v);
+    if (v !== before && !S.editing) saveDraft(chat.id, v);
+  }, []);
 
   const lastTyping = useRef(0);
   const onInput = e => {
@@ -188,10 +217,25 @@ function Composer({ chat }) {
     e.preventDefault();
     files.forEach(f => pasteImage(f).catch(err => showHud(String(err))));
   };
-  const submit = () => {
+  const submit = (opts = {}) => {
     if (!text.trim()) return;
-    sendText(chat.id, text);
+    sendText(chat.id, text, opts);
     setText(''); drafts.delete(chat.id);
+    if (chat.draft_message) saveDraft(chat.id, '');
+  };
+  // Правый клик по кнопке отправки: без звука / отложить (как в macOS).
+  const sendMenu = e => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    const at = (d) => Math.floor(d.getTime() / 1000);
+    const tomorrow9 = new Date(); tomorrow9.setDate(tomorrow9.getDate() + 1); tomorrow9.setHours(9, 0, 0, 0);
+    const saved = chat.id === S.myId;
+    openMenu(e.clientX, e.clientY, [
+      ...(saved ? [] : [{ label: 'Отправить без звука', icon: Icon.menu('menu_mute'), action: () => submit({ silent: true }) }]),
+      { label: saved ? 'Напомнить через час' : 'Отправить через час', icon: Icon.menu('menu_select_messages'), action: () => submit({ sendAt: at(new Date(Date.now() + 3600e3)) }) },
+      { label: saved ? 'Напомнить завтра в 9:00' : 'Отправить завтра в 9:00', icon: Icon.menu('menu_select_messages'), action: () => submit({ sendAt: at(tomorrow9) }) },
+      { label: saved ? 'Напомнить…' : 'Отложить…', icon: Icon.menu('menu_select_messages'), action: () => pickSchedule(d => submit({ sendAt: at(d) })) },
+    ]);
   };
   const wrapSel = mark => {
     const el = ref.current; if (!el) return;
@@ -241,6 +285,7 @@ function Composer({ chat }) {
     </div>`;
   }
   return html`<div class="composer-wrap">
+    <${ReplyKeyboard} chat=${chat}/>
     ${panel && html`<${MediaPanel} chatId=${chat.id} onEmoji=${insertEmoji} onClose=${() => setPanel(false)}/>`}
     <button class="glass circle" title="Прикрепить файл" onClick=${() => pickAndSend(false)}>${Icon.attach()}</button>
     <div class="composer glass">
@@ -255,7 +300,7 @@ function Composer({ chat }) {
         <button class=${`icon-btn emoji-btn ${panel ? 'active' : ''}`} title="Эмодзи и стикеры" onClick=${() => setPanel(!panel)}>${Icon.smile()}</button>
       </div>
     </div>
-    <button class=${`glass circle send-btn ${ready ? 'ready' : ''}`} title=${ready ? 'Отправить' : 'Голосовое сообщение'} onClick=${ready ? submit : () => startRecording(chat.id)}>
+    <button class=${`glass circle send-btn ${ready ? 'ready' : ''}`} title=${ready ? 'Отправить (правая кнопка — без звука или отложить)' : 'Голосовое сообщение'} onClick=${ready ? () => submit() : () => startRecording(chat.id)} onContextMenu=${sendMenu}>
       <span class=${ready ? 'hide' : ''}>${Icon.mic()}</span>
       <span class=${ready ? '' : 'hide'}>${Icon.send(22)}</span>
     </button>

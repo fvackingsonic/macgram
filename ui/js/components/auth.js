@@ -3,6 +3,7 @@ import { S, changed } from '../store.js';
 import { send, shell } from '../td.js';
 import { AppLogo, Icon } from '../icons.js';
 import { Traffic, Spinner, dragHandlers } from './common.js';
+import { qrSvg } from '../qr.js';
 
 const ERRORS = {
   PHONE_NUMBER_INVALID: 'Неверный номер телефона',
@@ -100,7 +101,28 @@ function Phone() {
       <div class="err-text">${f.error}</div>
       <button class="btn" disabled=${f.busy || phone.replace(/\D/g, '').length < 7}>${f.busy ? html`<${Spinner}/>` : 'Далее'}</button>
     </form>
+    <button class="link-btn" type="button" onClick=${() => { S.authByPhone = false; changed(); if (S.auth?.['@type'] !== 'authorizationStateWaitOtherDeviceConfirmation') f.run(() => send({ '@type': 'requestQrCodeAuthentication', other_user_ids: [] })); }}>Быстрый вход по QR-коду</button>
     <div class="hint">Вход выполняется напрямую через серверы Telegram.<br/>Код придёт в приложение Telegram на другом устройстве или по SMS.<br/><span style="opacity:.7">macgram — неофициальный клиент Telegram.</span></div>
+  </${Shell}>`;
+}
+
+// Вход по QR-коду (как на первом экране Telegram для macOS): ссылку-токен TDLib обновляет сама.
+function QrLogin({ link }) {
+  const dark = document.documentElement.dataset.palette === 'night';
+  let svg = '';
+  try { svg = qrSvg(link, { size: 220, color: dark ? '#fff' : '#000' }); } catch {}
+  return html`<${Shell}>
+    <div class="qr-box">
+      <div class="qr-img" dangerouslySetInnerHTML=${{ __html: svg }}/>
+      <div class="qr-logo"><${AppLogo} size=${34}/></div>
+    </div>
+    <h1>Вход по QR-коду</h1>
+    <ol class="qr-steps">
+      <li>Откройте Telegram на телефоне</li>
+      <li>Откройте <b>Настройки</b> → <b>Устройства</b> → <b>Подключить устройство</b></li>
+      <li>Наведите камеру телефона на этот код</li>
+    </ol>
+    <button class="link-btn" onClick=${() => { S.authByPhone = true; changed(); }}>Войти по номеру телефона</button>
   </${Shell}>`;
 }
 
@@ -206,6 +228,7 @@ export function Auth() {
     if (S.credsReady === false) return html`<${Credentials}/>`;
     return html`<${Loading} text="Подготовка…"/>`;
   }
+  if (t === 'authorizationStateWaitOtherDeviceConfirmation' && !S.authByPhone) return html`<${QrLogin} link=${st.link}/>`;
   if (t === 'authorizationStateWaitPhoneNumber' || t === 'authorizationStateWaitOtherDeviceConfirmation') return html`<${Phone}/>`;
   if (t === 'authorizationStateWaitCode') return html`<${Code} state=${st}/>`;
   if (t === 'authorizationStateWaitPassword') return html`<${Password} state=${st}/>`;
