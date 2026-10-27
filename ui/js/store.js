@@ -190,7 +190,11 @@ function putMessage(m, { fresh = false } = {}) {
   const h = S.history.get(m.chat_id);
   if (!h) return;
   const exists = h.byId.has(m.id);
-  if (!exists && h.hasNewer) return; // новое сообщение «вне» загруженного отрезка
+  if (!exists && h.hasNewer) {
+    // Своё новое сообщение — возвращаемся к концу переписки, чтобы его было видно.
+    if (m.is_outgoing && fresh) resetToLatest(m.chat_id).then(() => document.querySelector('.messages')?.scrollTo({ top: 0 }));
+    return;
+  }
   h.byId.set(m.id, m);
   if (exists) { h.list = h.list.map(x => (x.id === m.id ? m : x)); return; }
   if (!h.list.length || h.list[h.list.length - 1].id < m.id) h.list = [...h.list, m];
