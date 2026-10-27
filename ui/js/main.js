@@ -13,6 +13,8 @@ import { SendDialog, DropOverlay } from './components/attach.js';
 import { ForwardDialog } from './components/forward.js';
 import { StoryViewer } from './components/stories.js';
 import { NewChatDialog } from './components/new-chat.js';
+import { LockScreen } from './components/lock.js';
+import { initPasscode } from './passcode.js';
 
 function App() {
   useStore();
@@ -42,6 +44,8 @@ function App() {
   }, []);
 
   const ready = S.auth?.['@type'] === 'authorizationStateReady';
+  // Заблокировано код-паролем — ничего из переписки не рисуем вообще.
+  if (S.locked) return html`<div class=${`window ${focused ? '' : 'blurred'}`}><${LockScreen}/><${Modal}/></div>`;
   return html`<div class=${`window ${focused ? '' : 'blurred'}`}>
     ${ready ? html`<${Wallpaper}/><${Sidebar}/><${Main}/>` : html`<${Auth}/>`}
     <${DropOverlay}/>
@@ -57,7 +61,8 @@ function App() {
 }
 
 applyPrefs();
-render(html`<${App}/>`, document.getElementById('app'));
+// Сначала узнаём, включён ли код-пароль, и только потом рисуем окно — чтобы переписка не мелькнула.
+initPasscode().catch(() => {}).finally(() => render(html`<${App}/>`, document.getElementById('app')));
 startTd().catch(e => {
   console.error(e);
   document.getElementById('app').insertAdjacentHTML('beforeend',

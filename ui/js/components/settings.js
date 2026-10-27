@@ -3,6 +3,7 @@ import { html, useState, useEffect } from '../lib.js';
 import { S, changed, setPref, showHud, openModal, closeModal, logOut } from '../store.js';
 import { send, shell } from '../td.js';
 import { Icon } from '../icons.js';
+import { setPasscode, lockNow } from '../passcode.js';
 
 // Версия из сборки (tauri.conf.json → CI подставляет номер), в демо-режиме — заглушка.
 let version = '';
@@ -207,6 +208,7 @@ function Privacy() {
       <${Row} icon=${MI('Icon_PrivacySettings_Blocked', 24)} label="Заблокированные" value=${blocked == null ? '…' : blocked}/>
       <${Row} icon=${MI('Icon_PrivacySettings_TwoStep', 24)} label="Облачный пароль" value=${pw == null ? '…' : pw.has_password ? 'Вкл.' : 'Выкл.'}/>
     </div>
+    <${PasscodeSection}/>
     <div class="pane-sec">Кто может видеть</div>
     <div class="group">
       ${PRIVACY.map(([k, label]) => html`<div key=${k}>
@@ -219,6 +221,36 @@ function Privacy() {
     </div>
     <div class="sp-hint" style="padding:0 18px">Исключения для отдельных людей сохраняются в Telegram; при смене варианта здесь они сбрасываются.</div>
   </${Page}>`;
+}
+
+// Код-пароль: блокирует macgram на этом компьютере (данные в Telegram он не меняет).
+function PasscodeSection() {
+  const [mode, setMode] = useState(null); // 'set' | null
+  const [a, setA] = useState(''); const [b, setB] = useState(''); const [err, setErr] = useState('');
+  const save = async e => {
+    e.preventDefault();
+    if (a.length < 4) { setErr('Минимум 4 символа'); return; }
+    if (a !== b) { setErr('Коды не совпадают'); return; }
+    try { await setPasscode(a); setMode(null); setA(''); setB(''); setErr(''); showHud('Код-пароль включён'); } catch (x) { setErr(String(x.message || x)); }
+  };
+  const AUTO = [[1, '1 мин'], [5, '5 мин'], [60, '1 час'], [300, '5 часов'], [0, 'Никогда']];
+  return html`<div class="pane-sec">Код-пароль</div>
+    <div class="group">
+      ${mode === 'set' ? html`<form class="pc-form" onSubmit=${save}>
+          <input type="password" placeholder="Новый код-пароль" value=${a} onInput=${e => setA(e.target.value)} autofocus autocomplete="new-password"/>
+          <input type="password" placeholder="Повторите код-пароль" value=${b} onInput=${e => setB(e.target.value)} autocomplete="new-password"/>
+          ${err && html`<div class="err-text">${err}</div>`}
+          <div class="pc-btns"><button class="btn" type="submit">Сохранить</button><button class="btn second" type="button" onClick=${() => { setMode(null); setErr(''); }}>Отмена</button></div>
+        </form>`
+      : S.hasPasscode ? html`
+        <${Row} icon=${MI('menu_lock', 22)} label="Сменить код-пароль" onClick=${() => setMode('set')}/>
+        <div class="item"><span class="lbl">Автоблокировка</span><span class="choice inline">${AUTO.map(([m, l]) => html`<button class=${(S.prefs.autoLock ?? 60) === m ? 'on' : ''} onClick=${() => setPref('autoLock', m)}>${l}</button>`)}</span></div>
+        <div class="item"><span class="lbl">Блокировать при сворачивании</span><${Switch} on=${!!S.prefs.lockOnHide} onChange=${v => setPref('lockOnHide', v)}/></div>
+        <${Row} label="Заблокировать сейчас (Ctrl+L)" onClick=${lockNow}/>
+        <${Row} label="Выключить код-пароль" danger onClick=${() => setPasscode(null).then(() => showHud('Код-пароль выключен'))}/>`
+      : html`<${Row} icon=${MI('menu_lock', 22)} label="Включить код-пароль" onClick=${() => setMode('set')}/>`}
+    </div>
+    <div class="sp-hint" style="padding:0 18px">Код-пароль закрывает macgram на этом компьютере. Хранится только его проверочный отпечаток в «Диспетчере учётных данных» Windows. Если забудете код, на экране блокировки можно выйти из аккаунта и войти заново.</div>`;
 }
 
 function Sessions() {

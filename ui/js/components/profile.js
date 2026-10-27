@@ -3,6 +3,7 @@ import { S, changed, isMuted, chatTitle, chatUser, isSaved, isChannel, showHud, 
 import { send, shell } from '../td.js';
 import { Icon } from '../icons.js';
 import { MI } from '../mac-icons.js';
+import { openLink } from '../links.js';
 import { userStatus, count, renderFormatted, duration, avatarGradient, peerIndex } from '../format.js';
 import { fileOf } from '../store.js';
 import { useRef } from '../lib.js';
@@ -104,7 +105,7 @@ export function ProfileScreen({ chat }) {
           ${username && html`<button class="ps-row" onClick=${() => copy(`@${username}`, 'Username')}><div><small>Имя пользователя</small><div>@${username}</div></div>${Icon.copy(17)}</button>`}
           ${user?.phone_number && html`<button class="ps-row" onClick=${() => copy(`+${user.phone_number}`, 'Номер')}><div><small>номер телефона</small><div>+${user.phone_number}</div></div>${Icon.copy(17)}</button>`}
           ${bday && html`<div class="ps-row"><div><small>день рождения</small><div>${bday.day} ${MONTHS[bday.month - 1]}${bday.year ? ` ${bday.year}` : ''}</div></div></div>`}
-          ${aboutText && html`<div class="ps-row selectable"><div><small>${user ? 'о себе' : 'описание'}</small><div style="white-space:pre-wrap">${typeof about === 'string' ? about : renderFormatted(about, url => shell.openUrl(url))}</div></div></div>`}
+          ${aboutText && html`<div class="ps-row selectable"><div><small>${user ? 'о себе' : 'описание'}</small><div style="white-space:pre-wrap">${typeof about === 'string' ? about : renderFormatted(about, (url, t) => openLink(url, t))}</div></div></div>`}
           ${info && !username && !user?.phone_number && !aboutText && !bday && html`<div class="ps-row" style="color:var(--gray-text)">Нет дополнительной информации</div>`}
         </div>
         <div class="ps-card">

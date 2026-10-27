@@ -54,6 +54,8 @@ export function send(req) {
 
 // Возможности оболочки (окно, ключи, файлы).
 export const shell = {
+  passcodeGet: () => T ? T.core.invoke('passcode_get') : Promise.resolve(localStorage.getItem('mockPass') || null),
+  passcodeSet: verifier => T ? T.core.invoke('passcode_set', { verifier }) : Promise.resolve(verifier ? localStorage.setItem('mockPass', verifier) : localStorage.removeItem('mockPass')),
   hasCredentials: () => T ? T.core.invoke('creds_status') : Promise.resolve(mock?.hasCreds ?? true),
   saveCredentials: (apiId, apiHash) => T ? T.core.invoke('creds_save', { apiId, apiHash }) : Promise.resolve(mock && (mock.hasCreds = true)),
   setParameters: lang => T ? T.core.invoke('td_set_parameters', { lang }) : send({ '@type': 'setTdlibParameters' }),

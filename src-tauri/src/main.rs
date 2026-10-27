@@ -121,7 +121,7 @@ fn td_send(app: AppHandle, td: State<Td>, request: String) -> Result<(), String>
     let parsed: Value = serde_json::from_str(&request).map_err(|_| "неверный запрос")?;
     let kind = parsed.get("@type").and_then(Value::as_str).unwrap_or("");
     // Параметры базы и ключ шифрования задаёт только Rust-часть.
-    if matches!(kind, "setTdlibParameters" | "setDatabaseEncryptionKey" | "setLogStream") {
+    if matches!(kind, "setTdlibParameters" | "setDatabaseEncryptionKey" | "setLogStream" | "setLogVerbosityLevel" | "setLogTagVerbosityLevel") {
         return Err("запрос запрещён".into());
     }
     let l = lib(&app, &td)?;
@@ -160,6 +160,24 @@ fn creds_save(app: AppHandle, api_id: i64, api_hash: String) -> Result<(), Strin
     let dir = data_dir(&app)?;
     secrets::set(&dir, "api-id", &api_id.to_string())?;
     secrets::set(&dir, "api-hash", &hash)
+}
+
+/// Код-пароль: храним только проверочный хэш (PBKDF2, считается в интерфейсе) в «Диспетчере
+/// учётных данных». Сам код нигде не сохраняется.
+#[tauri::command]
+fn passcode_get(app: AppHandle) -> Result<Option<String>, String> {
+    let dir = data_dir(&app)?;
+    Ok(secrets::get(&dir, "passcode").filter(|v| !v.is_empty()))
+}
+
+#[tauri::command]
+fn passcode_set(app: AppHandle, verifier: Option<String>) -> Result<(), String> {
+    let dir = data_dir(&app)?;
+    let v = verifier.unwrap_or_default();
+    if !v.is_empty() && (!v.starts_with("pbkdf2$") || v.len() > 300) {
+        return Err("неверный формат".into());
+    }
+    secrets::set(&dir, "passcode", &v)
 }
 
 #[tauri::command]
@@ -228,6 +246,8 @@ fn main() {
             td_set_parameters,
             creds_status,
             creds_save,
+            passcode_get,
+            passcode_set,
             desktop::pick_files,
             desktop::pick_font,
             desktop::save_paste,

@@ -171,7 +171,7 @@ export function renderFormatted(ft, onLink) {
 }
 
 function wrap(type, child, full, onLink) {
-  const link = url => html`<a href=${url} title=${url} onClick=${ev => { ev.preventDefault(); ev.stopPropagation(); onLink?.(url); }}>${child}</a>`;
+  const link = url => html`<a href=${url} title=${url} onClick=${ev => { ev.preventDefault(); ev.stopPropagation(); onLink?.(url, full); }}>${child}</a>`;
   switch (type['@type']) {
     case 'textEntityTypeBold': return html`<b>${child}</b>`;
     case 'textEntityTypeItalic': return html`<i>${child}</i>`;
@@ -181,7 +181,7 @@ function wrap(type, child, full, onLink) {
     case 'textEntityTypePre': case 'textEntityTypePreCode': return html`<pre>${child}</pre>`;
     case 'textEntityTypeBlockQuote': case 'textEntityTypeExpandableBlockQuote': return html`<blockquote>${child}</blockquote>`;
     case 'textEntityTypeSpoiler': return html`<span class="spoiler" onClick=${e => { e.stopPropagation(); e.currentTarget.classList.add('shown'); }}>${child}</span>`;
-    case 'textEntityTypeTextUrl': return link(type.url);
+    case 'textEntityTypeTextUrl': { const a = link(type.url); return a; }
     case 'textEntityTypeUrl': return link(/^[a-z]+:\/\//i.test(full) ? full : `https://${full}`);
     case 'textEntityTypeEmailAddress': return link(`mailto:${full}`);
     case 'textEntityTypeMention': return link(`https://t.me/${full.slice(1)}`);

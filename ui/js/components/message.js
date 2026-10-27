@@ -1,5 +1,6 @@
 import { html, useEffect, useLayoutEffect, useState, useRef, memo } from '../lib.js';
 import { insertAtBottom } from '../mac-anim.js';
+import { openLink } from '../links.js';
 import { S, changed, useTick, jumpTo, download, fileUrl, fileOf, senderName, senderId, openMenu, openModal, closeModal, showHud, deleteMessages, isGroup, isChannel, chatUser } from '../store.js';
 import { send, shell } from '../td.js';
 import { Icon } from '../icons.js';
@@ -9,7 +10,7 @@ import { Avatar } from './common.js';
 import { player, progress } from '../player.js';
 import { Tgs } from './tgs.js';
 
-const onLink = url => shell.openUrl(url);
+const onLink = (url, text) => openLink(url, text);
 
 // ── цитата ответа ──
 const replyCache = new Map();

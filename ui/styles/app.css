@@ -1130,3 +1130,19 @@ html.lite .nav-prev, html.lite .nav-next { transition: none !important; animatio
 .story-vol-pop::after { content: ''; position: absolute; top: 0; bottom: 0; right: -12px; width: 14px; }
 .story-vol:hover .story-vol-pop { opacity: 1; visibility: visible; transform: translateY(-50%) scaleX(1); transition: opacity .15s, transform .25s cubic-bezier(.2, 1.2, .35, 1), visibility 0s; }
 .story-vol-pop input { width: 90px; accent-color: #fff; display: block; cursor: pointer; }
+.link-check { word-break: break-all; color: var(--accent); font-size: 13px; margin: 4px 0 8px; user-select: text; }
+
+/* ───────── экран блокировки и код-пароль ───────── */
+.lock { position: fixed; inset: 0; display: grid; place-items: center; background: var(--bg); animation: fade-in .25s ease-out; }
+.lock .auth-top { position: absolute; top: 0; left: 0; right: 0; }
+.lock-card { width: 300px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.lock-card h2 { margin: 6px 0 4px; font: 600 18px/1.2 var(--font-display, var(--font)); }
+.lock-card .field, .lock-card .btn { width: 100%; }
+.lock-card .field input { text-align: center; letter-spacing: .2em; }
+.lock-forgot { color: var(--accent); font-size: 13px; margin-top: 6px; }
+.pc-form { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+.pc-form input { height: 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--input-bg, transparent); color: var(--text); padding: 0 10px; font: inherit; }
+.pc-btns { display: flex; gap: 8px; }
+.choice.inline { display: inline-flex; gap: 4px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+.choice.inline button { padding: 3px 8px; border-radius: 6px; font-size: 12px; background: var(--glass-sel); color: var(--text); }
+.choice.inline button.on { background: var(--accent); color: #fff; }

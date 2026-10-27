@@ -15,6 +15,8 @@ onUpdate(u => {
   const text = contentSummary(m.content, id => userName(S.users.get(id)));
   const who = isGroup(chat) ? senderName(m.sender_id) : '';
   const body = S.prefs.notifyPreview === false ? 'Новое сообщение' : who ? `${who}: ${text}` : text;
+  // Заблокировано код-паролем — не показываем ни имя, ни текст.
+  if (S.locked) { shell.notify('macgram', 'Новое сообщение'); return; }
   shell.notify(chatTitle(chat), body);
 });
 
