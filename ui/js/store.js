@@ -206,6 +206,8 @@ export function useStore() {
 export const listKey = l => !l ? 'main' : l['@type'] === 'chatListMain' ? 'main' : l['@type'] === 'chatListArchive' ? 'archive' : `f${l.chat_folder_id}`;
 export const listOf = key => key === 'main' ? { '@type': 'chatListMain' } : key === 'archive' ? { '@type': 'chatListArchive' } : { '@type': 'chatListFolder', chat_folder_id: Number(key.slice(1)) };
 export const position = (chat, key) => chat.positions?.find(p => listKey(p.list) === key);
+// Чат действительно в списке: позиция с order «0» означает, что TDLib убрал его из списка.
+export const inList = (chat, key) => { const p = position(chat, key); return !!p && p.order !== '0'; };
 
 // Отсортированные списки кэшируются до следующего изменения чатов.
 const sortedCache = new Map();

@@ -1,5 +1,5 @@
 // Уведомления Windows и счётчик непрочитанных на значке в панели задач.
-import { S, chatTitle, senderName, isGroup, position, isMuted } from './store.js';
+import { S, chatTitle, senderName, isGroup, inList, isMuted } from './store.js';
 import { onUpdate, shell } from './td.js';
 import { contentSummary, userName } from './format.js';
 
@@ -39,7 +39,7 @@ export function updateBadge() {
   // Как в macOS: считать чаты или сообщения, учитывать ли чаты без звука.
   const withMuted = S.prefs.badgeMuted === true, byMessages = S.prefs.badgeMode === 'messages';
   for (const c of S.chats.values()) {
-    if (!position(c, 'main') || (!withMuted && isMuted(c))) continue;
+    if (!inList(c, 'main') || (!withMuted && isMuted(c))) continue;
     if (c.unread_count > 0 || c.is_marked_as_unread) n += byMessages ? Math.max(1, c.unread_count) : 1;
   }
   if (S.prefs.badge === false) n = 0;

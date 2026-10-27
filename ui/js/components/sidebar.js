@@ -1,7 +1,7 @@
 import { html, useRef, useLayoutEffect, useState, useEffect, memo } from '../lib.js';
 import {
   S, changed, sortedChats, selectChat, chatTitle, chatUser, isSaved, isGroup, isChannel, senderName, typingText,
-  search, loadContacts, isMuted, fileUrl, openPrivate, openMenu, openModal, closeModal, setPref, logOut, showHud, position,
+  search, loadContacts, isMuted, fileUrl, openPrivate, openMenu, openModal, closeModal, setPref, logOut, showHud, position, inList,
 } from '../store.js';
 import { send } from '../td.js';
 import { Counter } from '../mac-anim.js';
@@ -73,7 +73,8 @@ function TabBar() {
   const ref = useRef();
   const [g, setG] = useState(null); // { start, center, pos, dragging, index }
   const idx = tabs().findIndex(t => t.id === S.tab);
-  const unread = [...S.chats.values()].reduce((n, c) => n + (position(c, 'main') && !isMuted(c) && c.unread_count > 0 ? 1 : 0), 0);
+  // Считаем только чаты, которые реально есть в списке (иначе «висит» единица от убранного чата).
+  const unread = [...S.chats.values()].reduce((n, c) => n + (inList(c, 'main') && !isMuted(c) && c.unread_count > 0 ? 1 : 0), 0);
   const pick = id => {
     if (id === S.tab && id === 'chats') document.querySelector('.list')?.scrollTo({ top: 0, behavior: 'smooth' });
     S.tab = id;
