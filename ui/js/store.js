@@ -33,6 +33,7 @@ export const S = {
   viewer: null,
   pinned: new Map(),
   recording: null,
+  settingsPage: null,
   forward: null,
   unreadMark: new Map(),
   chatSearch: null,

@@ -14,7 +14,8 @@ onUpdate(u => {
   if (document.hasFocus() && S.currentChatId === m.chat_id) return;
   const text = contentSummary(m.content, id => userName(S.users.get(id)));
   const who = isGroup(chat) ? senderName(m.sender_id) : '';
-  shell.notify(chatTitle(chat), who ? `${who}: ${text}` : text);
+  const body = S.prefs.notifyPreview === false ? 'Новое сообщение' : who ? `${who}: ${text}` : text;
+  shell.notify(chatTitle(chat), body);
 });
 
 let lastBadge = -1;
@@ -34,6 +35,7 @@ function badgePng(n) {
 export function updateBadge() {
   let n = 0;
   for (const c of S.chats.values()) if (position(c, 'main') && !isMuted(c) && (c.unread_count > 0 || c.is_marked_as_unread)) n++;
+  if (S.prefs.badge === false) n = 0;
   if (n === lastBadge) return;
   lastBadge = n;
   shell.setBadge(n ? badgePng(n) : null);

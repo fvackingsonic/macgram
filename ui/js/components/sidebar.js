@@ -7,6 +7,7 @@ import { send } from '../td.js';
 import { Icon } from '../icons.js';
 import { listTime, contentSummary, userStatus, userName } from '../format.js';
 import { Avatar, Traffic, TypingDots, Spinner, dragHandlers } from './common.js';
+import { SettingsPane } from './settings.js';
 
 const CONN = {
   connectionStateWaitingForNetwork: 'Ожидание сети…',
@@ -49,6 +50,7 @@ function TabBar() {
   const pick = id => {
     if (id === S.tab && id === 'chats') document.querySelector('.list')?.scrollTo({ top: 0, behavior: 'smooth' });
     S.tab = id;
+    if (id === 'settings' && S.tab === id) S.settingsPage = null;
     if (id === 'contacts' && !S.contacts) loadContacts();
     changed();
   };
@@ -222,38 +224,3 @@ function CallsPane() {
     <div class="list"><div class="empty">${Icon.calls(40)}<br/>Звонки появятся в одном из следующих этапов.</div></div>`;
 }
 
-// ── настройки ──
-function SettingsPane() {
-  const me = S.users.get(S.myId);
-  const confirmLogout = () => openModal({
-    icon: html`<div style="display:flex;justify-content:center;color:var(--red)">${Icon.logout(40)}</div>`,
-    title: 'Выйти из аккаунта?',
-    text: 'Локальная зашифрованная база будет удалена с этого компьютера.',
-    buttons: [
-      { label: 'Выйти', kind: 'danger', action: () => { closeModal(); logOut().catch(e => showHud(e.message)); } },
-      { label: 'Отмена', kind: 'second', action: closeModal },
-    ],
-  });
-  const seg = (key, opts) => html`<div class="seg">${opts.map(([v, l]) => html`
-    <button class=${S.prefs[key] === v ? 'on' : ''} onClick=${() => setPref(key, v)}>${l}</button>`)}</div>`;
-  return html`<div class="list list-anim">
-    <div class="profile">
-      ${me && html`<${Avatar} user=${me} size=${84}/>`}
-      <div class="pname">${userName(me)}</div>
-      <div class="psub">${me?.phone_number ? `+${me.phone_number}` : ''}${me?.usernames?.active_usernames?.[0] ? ` · @${me.usernames.active_usernames[0]}` : ''}</div>
-    </div>
-    <div class="group">
-      <div class="item"><span class="ic" style="background:#5856d6">${Icon.moon(14)}</span><span class="lbl">Тема</span>
-        ${seg('theme', [['auto', 'Авто'], ['classic', 'Classic'], ['day', 'День'], ['night', 'Ночь']])}</div>
-      <div class="item"><span class="ic" style="background:#ff9500">${Icon.textSize(14)}</span><span class="lbl">Текст</span>
-        ${seg('fontSize', [[13, '13'], [14, '14'], [15, '15'], [16, '16']])}</div>
-    </div>
-    <div class="group">
-      <div class="item"><span class="ic" style="background:#34c759">${Icon.lock(14)}</span><span class="lbl">Локальная база</span><span class="val">зашифрована</span></div>
-      <div class="item"><span class="ic" style="background:#007aff">${Icon.key(14)}</span><span class="lbl">Ключи</span><span class="val">в Windows</span></div>
-    </div>
-    <div class="group">
-      <button class="item danger" style="width:100%" onClick=${confirmLogout}><span class="ic" style="background:var(--red)">${Icon.logout(14)}</span><span class="lbl" style="text-align:left">Выйти</span></button>
-    </div>
-  </div>`;
-}
