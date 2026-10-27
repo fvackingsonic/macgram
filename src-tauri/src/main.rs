@@ -4,6 +4,7 @@ mod desktop;
 mod secrets;
 mod tdjson;
 mod updater;
+mod shell;
 
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -239,6 +240,10 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .on_window_event(desktop::on_window_event)
+        .setup(|app| {
+            let _ = shell::setup_tray(app.handle());
+            Ok(())
+        })
         .manage(Td::default())
         .invoke_handler(tauri::generate_handler![
             td_start,
@@ -254,6 +259,11 @@ fn main() {
             desktop::save_paste,
             desktop::notify,
             updater::update_install,
+            shell::shell_prefs,
+            shell::toast_show,
+            shell::toast_hide,
+            shell::toast_last,
+            shell::toast_open,
             desktop::set_badge
         ])
         .run(tauri::generate_context!())

@@ -162,6 +162,8 @@ export function applyPrefs() {
   root.dataset.palette = palette();
   root.style.setProperty('--fs-msg', `${S.prefs.fontSize}px`);
   if (S.prefs.sidebarW) root.style.setProperty('--sidebar-w', `${S.prefs.sidebarW}px`); else root.style.removeProperty('--sidebar-w');
+  // Трей: закрывать в трей и галочка «Уведомления» в меню значка.
+  window.__TAURI__?.core.invoke('shell_prefs', { closeToTray: S.prefs.closeToTray !== false, notify: S.prefs.notifyAll !== false }).catch(() => {});
   // Цвет акцента (Оформление): кнопки, ссылки, выделение, счётчики.
   if (S.prefs.accent) {
     root.style.setProperty('--accent', S.prefs.accent);
@@ -682,6 +684,8 @@ onUpdate(u => {
     case 'updateChatLastMessage': patchChat(u.chat_id, c => { c.last_message = u.last_message; setPositions(c, u.positions); }); break;
     case 'updateChatPosition': patchChat(u.chat_id, c => setPositions(c, [u.position])); break;
     case 'updateChatDraftMessage': patchChat(u.chat_id, c => { c.draft_message = u.draft_message; setPositions(c, u.positions); }); break;
+    // Точные счётчики непрочитанного от TDLib (их же используют официальные клиенты).
+    case 'updateUnreadChatCount': S.unreadChats = { ...(S.unreadChats || {}), [listKey(u.chat_list)]: u }; break;
     case 'updateChatReadInbox': patchChat(u.chat_id, c => { c.last_read_inbox_message_id = u.last_read_inbox_message_id; c.unread_count = u.unread_count; }); break;
     case 'updateChatReadOutbox': patchChat(u.chat_id, c => { c.last_read_outbox_message_id = u.last_read_outbox_message_id; }); break;
     case 'updateChatUnreadMentionCount': patchChat(u.chat_id, c => { c.unread_mention_count = u.unread_mention_count; }); break;

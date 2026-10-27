@@ -21,7 +21,7 @@ const back = () => go(null);
 
 function Page({ title, children }) {
   return html`<div class="list settings-page" key=${title}>
-    <div class="sp-head"><button class="sp-back" onClick=${back}>${Icon.back(13)} Настройки</button><span class="sp-title">${title}</span></div>
+    <div class="sp-head"><button class="sp-back" onClick=${back}>${Icon.back(13)}<span class="sp-back-text">Настройки</span></button><span class="sp-title">${title}</span></div>
     ${children}
   </div>`;
 }
@@ -173,6 +173,10 @@ function Notifications() {
     send({ '@type': 'setScopeNotificationSettings', scope: { '@type': scope }, notification_settings: ns }).catch(e => showHud(e.message));
   };
   return html`<${Page} title="Уведомления">
+    <div class="group">
+      <${Toggle} k="notifyAll" label="Уведомления" hint="Выключить все уведомления на этом компьютере (также в меню значка в трее)"/>
+      <div class="item wrap"><span class="lbl">Вид уведомлений</span>${seg('notifyStyle', [['macgram', 'macgram (как на Mac)'], ['windows', 'Windows']], 'macgram')}</div>
+    </div>
     <div class="pane-sec">Уведомления о сообщениях</div>
     <div class="group">
       ${SCOPES.map(([scope, label, icon]) => html`<div class="item">${MI(icon, 24)}<span class="lbl">${label}</span>
@@ -181,7 +185,11 @@ function Notifications() {
     <div class="pane-sec">Звук</div>
     <div class="group">
       <div class="item"><span class="lbl">Звук уведомления</span><${Switch} on=${S.prefs.notifySound !== false} onChange=${v => setPref('notifySound', v)}/></div>
-      ${S.prefs.notifySound !== false && html`<div class="item wrap"><span class="lbl">Мелодия</span><div class="seg">${SOUND_NAMES.map(([k, l]) => html`<button class=${(S.prefs.notifyTone || 'note') === k ? 'on' : ''} onClick=${() => { setPref('notifyTone', k); playTone(k); }}>${l}</button>`)}</div></div>`}
+      ${S.prefs.notifySound !== false && html`<div class="item"><span class="lbl">Мелодия</span>
+        <select class="sel" value=${S.prefs.notifyTone || 'in_app'} onChange=${e => { setPref('notifyTone', e.target.value); playTone(e.target.value); }}>
+          ${SOUND_NAMES.map(([k, l]) => html`<option value=${k}>${l}</option>`)}
+        </select>
+        <button class="sel-btn" onClick=${() => playTone(S.prefs.notifyTone || 'in_app')}>▶</button></div>`}
     </div>
     <div class="pane-sec">На этом компьютере</div>
     <div class="group">
@@ -349,6 +357,8 @@ function General() {
     <div class="pane-sec">Интерфейс</div>
     <div class="group">
       <${Toggle} k="callsTab" label="Вкладка «Звонки»"/>
+      <${Toggle} k="smoothScroll" label="Плавная прокрутка" hint="Выключите, если привычнее системная прокрутка Windows"/>
+      <${Toggle} k="closeToTray" label="Закрывать в трей" hint="Крестик прячет macgram к часам; выйти — правой кнопкой по значку"/>
       <div class="item"><span class="lbl">Ширина списка чатов</span><button class="sel-btn" onClick=${() => setPref('sidebarW', null)}>Сбросить</button></div>
     </div>
     <div class="sp-hint" style="padding:0 18px">Ширину списка чатов можно менять, потянув за его правый край.</div>

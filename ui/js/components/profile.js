@@ -135,18 +135,24 @@ function SharedList({ chat, kind, filter }) {
   })}</div>`;
 }
 
+// Ячейка сетки медиа: превью качается, только когда ячейка видна; размытая миниатюра —
+// только пока нет превью (без CSS-размытия — оно тормозило при десятках ячеек).
+const cellIO = 'IntersectionObserver' in window ? new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.__show?.(); cellIO.unobserve(e.target); } }), { rootMargin: '300px' }) : null;
 function MediaThumb({ msg }) {
   const c = msg.content;
   const photo = c.photo;
+  const ref = useRef();
+  const [vis, setVis] = useState(!cellIO);
+  useEffect(() => { const el = ref.current; if (!el || !cellIO) return; el.__show = () => setVis(true); cellIO.observe(el); return () => cellIO.unobserve(el); }, []);
   const thumbFile = photo ? [...photo.sizes].sort((a, b) => a.width - b.width).find(s => s.width >= 200)?.photo || photo.sizes[0]?.photo
     : c.video?.thumbnail?.format?.['@type'] === 'thumbnailFormatJpeg' ? c.video.thumbnail.file : null;
-  useEffect(() => { if (thumbFile) download(thumbFile, 1); }, [thumbFile?.id]);
-  const url = thumbFile ? fileUrl(thumbFile) : '';
+  useEffect(() => { if (thumbFile && vis) download(thumbFile, 1); }, [thumbFile?.id, vis]);
+  const url = thumbFile && vis ? fileUrl(thumbFile) : '';
   const mini = (photo || c.video)?.minithumbnail?.data;
-  const open = () => { if (photo) { S.viewer = { photo }; changed(); } };
-  return html`<button class="media-cell" onClick=${open}>
-    ${mini && html`<img decoding="async" class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
-    ${url && html`<img decoding="async" src=${url} alt="" onError=${e => e.target.remove()}/>`}
+  const open = () => { if (photo) S.viewer = { photo }; else if (c.video) S.viewer = { video: c.video }; else return; changed(); };
+  return html`<button class="media-cell" ref=${ref} onClick=${open}>
+    ${mini && !url && html`<img decoding="async" class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
+    ${url && html`<img decoding="async" loading="lazy" src=${url} alt="" onError=${e => e.target.remove()}/>`}
     ${c.video && html`<span class="dur-badge" style="top:auto;bottom:4px;left:4px">▶</span>`}
   </button>`;
 }

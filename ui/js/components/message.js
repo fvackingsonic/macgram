@@ -66,7 +66,7 @@ function Photo({ photo, overlay }) {
   const url = size ? fileUrl(size.photo) : '';
   const mini = photo.minithumbnail?.data;
   const open = e => { e.stopPropagation(); if (!want && !url) { setWant(true); return; } S.viewer = { photo, url }; changed(); };
-  return html`<div class="photo" style=${`width:${W}px;height:${H}px;cursor:zoom-in`} onClick=${open}>
+  return html`<div class="photo" style=${`width:${W}px;height:${H}px`} onClick=${open}>
     ${!want && !url && html`<div class="play-badge"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M10 3v10m0 0l-4-4m4 4l4-4M4 16h12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`}
     ${mini && html`<img decoding="async" class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
     ${url && html`<img decoding="async" class="full" src=${url} alt="" draggable="false"/>`}
@@ -516,6 +516,8 @@ function MessageRowView({ msg, chat, first, last }) {
   const selecting = S.selection?.chatId === chat.id;
   const selected = selecting && S.selection.ids.has(msg.id);
   const kb = msg.reply_markup?.['@type'] === 'replyMarkupInlineKeyboard' ? html`<${InlineKeyboard} msg=${msg}/>` : null;
+  // Кнопка «Переслать» рядом с постом канала — как в Telegram для macOS.
+  const share = isChannel(chat) && !selecting && msg.can_be_forwarded !== false;
   return html`<div data-mid=${msg.id}
       class=${`msg-row ${out ? 'out' : 'in'} ${first ? 'first' : ''} ${last ? 'last' : ''} ${fresh ? 'fresh' : ''} ${S.highlight === msg.id ? 'highlight' : ''} ${selecting ? 'selecting' : ''} ${selected ? 'selected' : ''}`}
       onClickCapture=${e => { if (selecting) { e.stopPropagation(); e.preventDefault(); toggleSelected(msg.id); } }}
@@ -523,6 +525,7 @@ function MessageRowView({ msg, chat, first, last }) {
     ${selecting && html`<span class=${`sel-check ${selected ? 'on' : ''}`}>${selected && Icon.check(12)}</span>`}
     ${showAvatar && html`<div class="av-slot">${last && (sender || senderChat) && html`<${Avatar} user=${sender} chat=${senderChat} size=${34}/>`}</div>`}
     ${reacts ? html`<div class="with-reactions">${content}<${Reactions} msg=${msg}/>${kb}</div>` : kb ? html`<div class="with-kb">${content}${kb}</div>` : content}
+    ${share && html`<button class="share-btn glass" title="Переслать" onClick=${e => { e.stopPropagation(); openForward(chat.id, [msg.id]); }}>${Icon.forward(16)}</button>`}
   </div>`;
 }
 

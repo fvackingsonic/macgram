@@ -1,5 +1,7 @@
 // Уведомления Windows и счётчик непрочитанных на значке в панели задач.
-import { S, chatTitle, senderName, isGroup, inList, isMuted } from './store.js';
+import { S, chatTitle, senderName, isGroup, inList, isMuted, fileUrl, selectChat, setPref } from './store.js';
+import { initials, peerIndex, avatarGradient } from './format.js';
+import { lockNow } from './passcode.js';
 import { onUpdate, shell } from './td.js';
 import { contentSummary, userName } from './format.js';
 import { playTone } from './sound.js';
@@ -11,16 +13,35 @@ onUpdate(u => {
   if (Date.now() / 1000 - m.date > 60) return; // старые сообщения при синхронизации не показываем
   const chat = S.chats.get(m.chat_id);
   if (!chat) return;
+  if (S.prefs.notifyAll === false) return;
   if (isMuted(chat) && !m.contains_unread_mention) return;
   if (document.hasFocus() && (S.currentChatId === m.chat_id || S.prefs.notifyActive === false)) return;
   const text = contentSummary(m.content, id => userName(S.users.get(id)));
   const who = isGroup(chat) ? senderName(m.sender_id) : '';
   const body = S.prefs.notifyPreview === false ? 'Новое сообщение' : who ? `${who}: ${text}` : text;
   // Заблокировано код-паролем — не показываем ни имя, ни текст.
-  if (S.locked) { shell.notify('macgram', 'Новое сообщение'); return; }
-  shell.notify(S.prefs.notifyName === false ? 'macgram' : chatTitle(chat), body);
-  if (S.prefs.notifySound !== false) playTone(S.prefs.notifyTone || 'note');
+  if (S.prefs.notifySound !== false) playTone(S.prefs.notifyTone);
+  if (S.locked) { show(null, 'macgram', 'Новое сообщение'); return; }
+  show(chat, S.prefs.notifyName === false ? 'macgram' : chatTitle(chat), body);
 });
+
+// Всплывающее уведомление: своё окно macgram в углу экрана (по щелчку открывает чат)
+// или системное уведомление Windows — смотря что выбрано в настройках.
+function show(chat, title, body) {
+  if (S.prefs.notifyStyle === 'windows' || !window.__TAURI__) { shell.notify(title, body); return; }
+  const photo = chat && S.prefs.notifyName !== false ? fileUrl(chat.photo?.small) : '';
+  const payload = { chatId: chat?.id || 0, title, body,
+    initials: chat ? initials(chatTitle(chat)) : 'm', color: chat ? avatarGradient(peerIndex(chat.id)) : '', photo };
+  window.__TAURI__.core.invoke('toast_show', { payload }).catch(() => shell.notify(title, body));
+}
+
+// События из трея и из окна уведомления.
+if (window.__TAURI__) {
+  const ev = window.__TAURI__.event;
+  ev.listen('open-chat', e => { if (e.payload) selectChat(e.payload); });
+  ev.listen('tray-notify', e => setPref('notifyAll', !!e.payload));
+  ev.listen('tray-lock', () => lockNow());
+}
 
 let lastBadge = -1;
 function badgePng(n) {
@@ -40,6 +61,9 @@ export function updateBadge() {
   let n = 0;
   // Как в macOS: считать чаты или сообщения, учитывать ли чаты без звука.
   const withMuted = S.prefs.badgeMuted === true, byMessages = S.prefs.badgeMode === 'messages';
+  const tdl = S.unreadChats?.main;
+  if (tdl && !byMessages) { n = withMuted ? tdl.unread_count : tdl.unread_unmuted_count; }
+  else
   for (const c of S.chats.values()) {
     if (!inList(c, 'main') || (!withMuted && isMuted(c))) continue;
     if (c.unread_count > 0 || c.is_marked_as_unread) n += byMessages ? Math.max(1, c.unread_count) : 1;

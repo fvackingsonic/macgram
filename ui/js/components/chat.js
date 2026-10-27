@@ -143,7 +143,9 @@ function Messages({ chat }) {
   for (let i = 0; i < units.length; i++) {
     const u = units[i], prev = units[i - 1], next = units[i + 1];
     const m = head(u);
-    if (!prev || !sameDay(tail(prev).date, m.date)) days.push({ key: `d${m.id}`, date: m.date, rows: [] });
+    // Ключ дня — сама дата, а не первое сообщение: иначе при подгрузке старых сообщений
+    // весь день пересоздавался и ленту «дёргало».
+    if (!prev || !sameDay(tail(prev).date, m.date)) days.push({ key: `d${new Date(m.date * 1000).toDateString()}`, date: m.date, rows: [] });
     const rows = days[days.length - 1].rows;
     if (!sepDone && m.id > mark && !m.is_outgoing) { sepDone = true; rows.push(html`<div class="unread-sep" key="unread"><span>Непрочитанные сообщения</span></div>`); }
     const first = !same(prev && tail(prev), m), lastInGroup = !same(tail(u), next && head(next));

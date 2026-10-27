@@ -1,25 +1,17 @@
-// Звук уведомления (как «Звук» в настройках уведомлений Telegram для macOS). Звуки синтезируются
-// здесь же через WebAudio — без чужих аудиофайлов.
-const TONES = {
-  note: [[880, 0, .09], [1318.5, .09, .16]],
-  glass: [[1567.98, 0, .22], [2093, .05, .25]],
-  pop: [[660, 0, .06]],
-  chime: [[1046.5, 0, .14], [1318.5, .12, .14], [1568, .24, .2]],
-};
-export const SOUND_NAMES = [['note', 'Нота'], ['glass', 'Стекло'], ['pop', 'Хлопок'], ['chime', 'Колокольчик']];
-let ctx = null;
-export function playTone(name = 'note', volume = .35) {
+// Звуки уведомлений Telegram (из Telegram для macOS, Resources/notifies, GPL-2.0).
+export const SOUND_NAMES = [['in_app', 'Telegram'], ['100', 'Note'], ['101', 'Aurora'], ['102', 'Bamboo'], ['103', 'Chord'], ['104', 'Circles'],
+  ['105', 'Complete'], ['106', 'Hello'], ['107', 'Input'], ['108', 'Keys'], ['109', 'Popcorn'], ['110', 'Pulse'], ['111', 'Synth']];
+const cache = new Map();
+let last = 0;
+export function playTone(name, volume = .8) {
+  const key = SOUND_NAMES.some(([k]) => k === name) ? name : 'in_app';
+  const now = Date.now();
+  if (now - last < 900) return; // пачка сообщений — один звук
+  last = now;
   try {
-    ctx = ctx || new AudioContext();
-    const t0 = ctx.currentTime + .01;
-    for (const [f, at, dur] of TONES[name] || TONES.note) {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.type = 'sine'; o.frequency.value = f;
-      g.gain.setValueAtTime(0, t0 + at);
-      g.gain.linearRampToValueAtTime(volume, t0 + at + .008);
-      g.gain.exponentialRampToValueAtTime(.0001, t0 + at + dur);
-      o.connect(g).connect(ctx.destination);
-      o.start(t0 + at); o.stop(t0 + at + dur + .02);
-    }
+    let a = cache.get(key);
+    if (!a) { a = new Audio(`sounds/${key}.ogg`); cache.set(key, a); }
+    a.volume = volume; a.currentTime = 0;
+    a.play().catch(() => {});
   } catch {}
 }

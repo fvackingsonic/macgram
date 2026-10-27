@@ -3,7 +3,7 @@ name: Сборка для Windows
 on:
   push:
     branches: [main]
-    paths-ignore: ['promo/**', 'docs/**', '.github/workflows/promo-voice.yml', '.github/ISSUE_TEMPLATE/**']
+    paths-ignore: ['docs/**', '.github/ISSUE_TEMPLATE/**', 'README.md']
   workflow_dispatch:
 
 permissions:

@@ -1,0 +1,21 @@
+name: Ошибка
+description: Что-то работает не так
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: Что случилось
+      description: Что произошло и что вы ожидали.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Как повторить
+      description: По шагам, если знаете. Скриншот или видео очень помогают.
+  - type: input
+    attributes:
+      label: Версия macgram
+      description: Настройки → О macgram
+  - type: markdown
+    attributes:
+      value: "Не прикладывайте скриншоты с личной перепиской, номером телефона или кодами входа."

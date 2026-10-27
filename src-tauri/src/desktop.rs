@@ -156,6 +156,14 @@ pub fn set_badge(app: AppHandle, png: Option<String>) -> Result<(), String> {
 
 /// Перетаскивание файлов в окно.
 pub fn on_window_event(window: &Window, event: &WindowEvent) {
+    // Закрытие главного окна прячет macgram в трей (выйти — через меню значка в трее).
+    if let WindowEvent::CloseRequested { api, .. } = event {
+        if window.label() == "main" && crate::shell::close_to_tray() {
+            api.prevent_close();
+            let _ = window.hide();
+            return;
+        }
+    }
     if let WindowEvent::DragDrop(e) = event {
         let app = window.app_handle();
         match e {

@@ -58,6 +58,12 @@ export function Sidebar() {
   </aside>`;
 }
 
+// «Прочитать все» в списке (папке): TDLib readChatList снимает и непрочитанное, и пометки.
+export function readAll(key = 'main') {
+  const list = key === 'main' ? { '@type': 'chatListMain' } : key === 'archive' ? { '@type': 'chatListArchive' } : { '@type': 'chatListFolder', chat_folder_id: Number(key.slice(1)) };
+  send({ '@type': 'readChatList', chat_list: list }).then(() => showHud('Все чаты прочитаны')).catch(err => showHud(err.message));
+}
+
 // ── вкладки внизу ──
 const TABS = [
   { id: 'contacts', icon: () => Icon.tabContacts(), title: 'Контакты' },
@@ -73,12 +79,18 @@ function TabBar() {
   const ref = useRef();
   const [g, setG] = useState(null); // { start, center, pos, dragging, index }
   const idx = tabs().findIndex(t => t.id === S.tab);
-  // Считаем только чаты, которые реально есть в списке (иначе «висит» единица от убранного чата).
-  const unread = [...S.chats.values()].reduce((n, c) => n + (inList(c, 'main') && !isMuted(c) && c.unread_count > 0 ? 1 : 0), 0);
+  // Счётчик от TDLib (как в официальных клиентах); если его ещё нет — считаем сами по видимым чатам.
+  const tdl = S.unreadChats?.main;
+  const unread = tdl ? tdl.unread_unmuted_count : [...S.chats.values()].reduce((n, c) => n + (inList(c, 'main') && !isMuted(c) && c.unread_count > 0 ? 1 : 0), 0);
   const pick = id => {
-    if (id === S.tab && id === 'chats') document.querySelector('.list')?.scrollTo({ top: 0, behavior: 'smooth' });
+    // Повторный щелчок по открытой вкладке ничего не «переоткрывает»: в чатах — наверх списка,
+    // в настройках — назад к главной странице настроек.
+    if (id === S.tab) {
+      if (id === 'chats') document.querySelector('.list')?.scrollTo({ top: 0, behavior: 'smooth' });
+      if (id === 'settings' && S.settingsPage) { S.settingsPage = null; changed(); }
+      return;
+    }
     S.tab = id;
-    if (id === 'settings' && S.tab === id) S.settingsPage = null;
     if (id === 'contacts' && !S.contacts) loadContacts();
     changed();
   };
@@ -114,7 +126,15 @@ function TabBar() {
   const lifted = !!g;
   const sel = `width:calc((100% - 8px) / ${tabs().length});transform:translateX(${pos * 100}%)`;
   const lensIndex = Math.round(pos);
-  return html`<nav ref=${ref} class=${`tabbar ${lifted ? 'lifted' : ''} ${g?.dragging ? 'dragging' : ''}`}
+  // Правый клик по вкладке «Чаты» — «Прочитать все», как в Telegram для macOS.
+  const ctx = e => {
+    e.preventDefault();
+    const { left, w } = metrics();
+    const t = tabs()[Math.max(0, Math.min(tabs().length - 1, Math.floor((e.clientX - left) / w)))];
+    if (t?.id !== 'chats') return;
+    openMenu(e.clientX, e.clientY - 60, [{ label: 'Прочитать все', icon: Icon.menu('menu_read'), action: readAll }]);
+  };
+  return html`<nav ref=${ref} class=${`tabbar ${lifted ? 'lifted' : ''} ${g?.dragging ? 'dragging' : ''}`} onContextMenu=${ctx}
       onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${() => setG(null)}>
     <div class="tab-sel" style=${sel}><i class="tab-lens"/></div>
     ${tabs().map((t, i) => html`<div class=${`tab ${(g ? lensIndex === i : S.tab === t.id) ? 'on' : ''} ${g && lensIndex === i ? 'grow' : ''}`} title=${t.title}>
@@ -162,13 +182,28 @@ function Folders() {
   useLayoutEffect(() => {
     const el = ref.current?.querySelector('.folder.on');
     if (el) setInd({ x: el.offsetLeft + 6, w: el.offsetWidth - 12 });
+    el?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
   }, [S.folder, S.folders.length]);
   if (!S.folders.length) return null;
   const unreadIn = key => sortedChats(key).filter(({ chat }) => chat.unread_count > 0 && !isMuted(chat)).length;
-  return html`<div class="folders" ref=${ref}>
+  // Папок много — листаем колесом мыши (вертикальное колесо двигает ленту вбок) и перетаскиванием.
+  const onWheel = e => {
+    const el = ref.current; if (!el || el.scrollWidth <= el.clientWidth) return;
+    e.preventDefault();
+    el.scrollBy({ left: (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY), behavior: 'auto' });
+  };
+  const onDown = e => {
+    const el = ref.current; if (!el || e.button !== 0) return;
+    const x0 = e.clientX, s0 = el.scrollLeft; let moved = false;
+    const mv = ev => { const dx = ev.clientX - x0; if (Math.abs(dx) > 4) moved = true; el.scrollLeft = s0 - dx; };
+    const upf = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', upf); if (moved) { const stop = ev => { ev.stopPropagation(); ev.preventDefault(); }; el.addEventListener('click', stop, { capture: true, once: true }); } };
+    window.addEventListener('pointermove', mv); window.addEventListener('pointerup', upf);
+  };
+  return html`<div class="folders" ref=${ref} onWheel=${onWheel} onPointerDown=${onDown}>
     ${items.map(f => {
       const n = f.key === 'main' ? 0 : unreadIn(f.key);
-      return html`<button class=${`folder ${S.folder === f.key ? 'on' : ''}`} onClick=${() => { S.folder = f.key; changed(); }}>
+      return html`<button class=${`folder ${S.folder === f.key ? 'on' : ''}`} onClick=${() => { S.folder = f.key; changed(); }}
+        onContextMenu=${e => { e.preventDefault(); openMenu(e.clientX, e.clientY, [{ label: 'Прочитать все', icon: Icon.menu('menu_read'), action: () => readAll(f.key) }]); }}>
         ${f.title}<${Counter} value=${n} show=${n > 0}/>
       </button>`;
     })}
