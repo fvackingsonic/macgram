@@ -83,6 +83,12 @@
   --sheet-bg: #ececec;
   --scroll: rgba(0, 0, 0, .25);
 
+  --glass-bg: rgba(255, 255, 255, .62);
+  --glass-edge: rgba(0, 0, 0, .1);
+  --glass-hi: rgba(255, 255, 255, .7);
+  --glass-shadow: 0 8px 28px rgba(0, 0, 0, .12);
+  --glass-sel: rgba(0, 0, 0, .08);
+
   --peer-0: #fc5c51; --peer-1: #fa790f; --peer-2: #895dd5; --peer-3: #0fb297;
   --peer-4: #00c1a6; --peer-5: #3ca5ec; --peer-6: #3d72ed;
 }
@@ -141,6 +147,11 @@
     --modal-veil: rgba(0, 0, 0, .45);
     --sheet-bg: #1f2b38;
     --scroll: rgba(255, 255, 255, .22);
+    --glass-bg: rgba(30, 42, 55, .62);
+    --glass-edge: rgba(255, 255, 255, .1);
+    --glass-hi: rgba(255, 255, 255, .08);
+    --glass-shadow: 0 8px 28px rgba(0, 0, 0, .4);
+    --glass-sel: rgba(255, 255, 255, .12);
   }
 }
 
@@ -197,4 +208,9 @@
   --modal-veil: rgba(0, 0, 0, .45);
   --sheet-bg: #1f2b38;
   --scroll: rgba(255, 255, 255, .22);
+  --glass-bg: rgba(30, 42, 55, .62);
+  --glass-edge: rgba(255, 255, 255, .1);
+  --glass-hi: rgba(255, 255, 255, .08);
+  --glass-shadow: 0 8px 28px rgba(0, 0, 0, .4);
+  --glass-sel: rgba(255, 255, 255, .12);
 }

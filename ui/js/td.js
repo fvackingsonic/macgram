@@ -61,7 +61,7 @@ export const shell = {
   fileUrl: path => !path ? '' : T ? T.core.convertFileSrc(path) : path,
   openUrl: url => {
     if (!/^(https?:|mailto:|tg:)/i.test(url)) return;
-    return T ? T.opener.openUrl(url) : window.open(url, '_blank', 'noopener');
+    return T ? T.core.invoke('plugin:opener|open_url', { url }) : window.open(url, '_blank', 'noopener');
   },
   minimize: () => T?.window.getCurrentWindow().minimize(),
   toggleMaximize: () => T?.window.getCurrentWindow().toggleMaximize(),

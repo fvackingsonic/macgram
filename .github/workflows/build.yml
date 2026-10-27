@@ -42,7 +42,7 @@ jobs:
             const out = path.resolve('../../src-tauri/lib');
             fs.mkdirSync(out, { recursive: true });
             for (const f of fs.readdirSync(dir)) if (/\.dll$/i.test(f)) fs.copyFileSync(path.join(dir, f), path.join(out, f));
-            console.log('TDLib', require('prebuilt-tdlib/package.json').version, fs.readdirSync(out));
+            console.log('::notice title=TDLib::prebuilt-tdlib ' + require('prebuilt-tdlib/package.json').version + ' → ' + fs.readdirSync(out).join(', '));
           "
 
       - name: Скачать шрифт Inter
@@ -59,14 +59,23 @@ jobs:
 
       - name: Собрать приложение
         shell: bash
-        run: npx --yes @tauri-apps/cli@2 build
+        run: |
+          set -o pipefail
+          npx --yes @tauri-apps/cli@2 build 2>&1 | tee build.log
+
+      - name: Показать ошибки сборки
+        if: failure()
+        shell: bash
+        run: |
+          grep -E "^(error|warning)(\[|:)" -A 6 build.log | head -80 | while IFS= read -r l; do echo "::error::$l"; done
+          tail -30 build.log | while IFS= read -r l; do echo "::notice::$l"; done
 
       - name: Проверить, что TDLib загружается
         shell: bash
         run: |
           export MACTELE_TDJSON="$PWD/src-tauri/lib/tdjson.dll"
           ./src-tauri/target/release/mactele.exe --selftest selftest.txt || true
-          cat selftest.txt
+          head -c 300 selftest.txt | tr '\n' ' ' | sed 's/^/::notice title=Selftest::/'; echo
           grep -q '^OK' selftest.txt
 
       - name: Сохранить установщик

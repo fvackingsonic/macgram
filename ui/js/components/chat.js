@@ -1,0 +1,152 @@
+import { html, useRef, useEffect, useState, useLayoutEffect } from '../lib.js';
+import {
+  S, changed, loadHistory, sendText, chatTitle, chatUser, isSaved, isGroup, isChannel, typingText, senderName,
+  openMenu, showHud, markRead,
+} from '../store.js';
+import { send } from '../td.js';
+import { Icon } from '../icons.js';
+import { userStatus, count, dayLabel, sameDay, contentSummary, userName } from '../format.js';
+import { Avatar, Spinner, TypingDots, dragHandlers } from './common.js';
+import { MessageRow, canReply, focusComposer, isServiceType } from './message.js';
+
+export function Main() {
+  const chat = S.chats.get(S.currentChatId);
+  if (!chat) return html`<main class="main"><div class="drag" style=${`height:var(--titlebar-h)`} ...${dragHandlers()}/>
+    <div class="main-empty"><span>Выберите чат, чтобы начать общение</span></div></main>`;
+  return html`<main class="main"><${Chat} key=${chat.id} chat=${chat}/></main>`;
+}
+
+function status(chat) {
+  const typing = typingText(chat.id);
+  if (typing) return { text: html`<${TypingDots}/>${typing}`, cls: 'typing' };
+  if (isSaved(chat)) return { text: '' };
+  const user = chatUser(chat);
+  if (user) {
+    const t = userStatus(user);
+    return { text: t, cls: t === 'в сети' ? 'online' : '' };
+  }
+  if (chat.type['@type'] === 'chatTypeBasicGroup') {
+    const g = S.basicGroups.get(chat.type.basic_group_id);
+    return { text: g ? count(g.member_count, 'участник', 'участника', 'участников') : '' };
+  }
+  if (chat.type['@type'] === 'chatTypeSupergroup') {
+    const g = S.supergroups.get(chat.type.supergroup_id);
+    if (!g?.member_count) return { text: chat.type.is_channel ? 'канал' : 'группа' };
+    return { text: chat.type.is_channel ? count(g.member_count, 'подписчик', 'подписчика', 'подписчиков') : count(g.member_count, 'участник', 'участника', 'участников') };
+  }
+  return { text: '' };
+}
+
+function Chat({ chat }) {
+  const st = status(chat);
+  const muted = (chat.notification_settings?.mute_for || 0) > 0;
+  const toggleMute = () => send({ '@type': 'setChatNotificationSettings', chat_id: chat.id, notification_settings: { ...(chat.notification_settings || {}), '@type': 'chatNotificationSettings', use_default_mute_for: false, mute_for: muted ? 0 : 2147483647 } })
+    .then(() => showHud(muted ? 'Уведомления включены' : 'Уведомления выключены')).catch(e => showHud(e.message));
+  const more = e => {
+    const r = e.currentTarget.getBoundingClientRect();
+    openMenu(r.right - 200, r.bottom + 4, [
+      { label: muted ? 'Включить уведомления' : 'Выключить уведомления', icon: Icon.muted(15), action: toggleMute },
+      { label: 'Обновить историю', icon: Icon.reply(15), action: () => { S.history.delete(chat.id); loadHistory(chat.id); } },
+    ]);
+  };
+  return html`<div class="chat">
+    <header class="chat-header" ...${dragHandlers()}>
+      <${Avatar} chat=${chat} size=${36}/>
+      <div class="titles">
+        <div class="title">${chatTitle(chat)}${muted && html`<span style="color:var(--gray-icon)">${Icon.muted()}</span>`}</div>
+        ${st.text && html`<div class=${`status ${st.cls || ''}`}>${st.text}</div>`}
+      </div>
+      <div class="actions">
+        <button class="icon-btn gray" title="Ещё" onClick=${more}>${Icon.more()}</button>
+      </div>
+    </header>
+    <${Messages} chat=${chat}/>
+    ${canReply(chat) ? html`<${Composer} chat=${chat}/>` : html`<div class="composer"><button class="readonly-bar" style="width:100%" onClick=${toggleMute}>${muted ? 'Включить звук' : 'Выключить звук'}</button></div>`}
+  </div>`;
+}
+
+function Messages({ chat }) {
+  const ref = useRef();
+  const h = S.history.get(chat.id);
+  const list = h?.list || [];
+  const onScroll = () => {
+    const el = ref.current; if (!el) return;
+    // column-reverse: scrollTop отрицательный, 0 — у самого низа
+    if (el.scrollHeight - el.clientHeight + el.scrollTop < 600) loadHistory(chat.id, true);
+    if (el.scrollTop > -40) markRead(chat.id);
+  };
+  useEffect(() => { onScroll(); }, [list.length]);
+
+  const items = [];
+  for (let i = 0; i < list.length; i++) {
+    const m = list[i], prev = list[i - 1], next = list[i + 1];
+    if (!prev || !sameDay(prev.date, m.date)) items.push(html`<div class="date-sep" key=${`d${m.date}`}><span>${dayLabel(m.date)}</span></div>`);
+    const same = (a, b) => a && b && !isServiceType(a.content) && !isServiceType(b.content) && sameDay(a.date, b.date)
+      && JSON.stringify(a.sender_id) === JSON.stringify(b.sender_id) && Math.abs(a.date - b.date) < 300 && a.is_outgoing === b.is_outgoing;
+    items.push(html`<${MessageRow} key=${m.id} msg=${m} chat=${chat} first=${!same(prev, m)} last=${!same(m, next)}/>`);
+  }
+  return html`<div class="messages" ref=${ref} onScroll=${onScroll}>
+    <div class="messages-inner">
+      ${h?.loading && html`<div class="loader-top" style="color:var(--gray-text)"><${Spinner}/></div>`}
+      ${!h?.loading && !list.length && html`<div class="main-empty" style="padding:40px"><span>Сообщений пока нет</span></div>`}
+      ${items}
+    </div>
+  </div>`;
+}
+
+const drafts = new Map();
+
+function Composer({ chat }) {
+  const ref = useRef();
+  const [text, setText] = useState(drafts.get(chat.id) || '');
+  const resize = () => { const el = ref.current; if (!el) return; el.style.height = 'auto'; el.style.height = `${Math.min(200, el.scrollHeight)}px`; };
+  useLayoutEffect(resize, [text]);
+  useEffect(() => { ref.current?.focus(); }, []);
+  useEffect(() => () => { drafts.set(chat.id, ref.current?.value || ''); }, []);
+
+  const lastTyping = useRef(0);
+  const onInput = e => {
+    setText(e.target.value);
+    const now = Date.now();
+    if (e.target.value && now - lastTyping.current > 4000) {
+      lastTyping.current = now;
+      send({ '@type': 'sendChatAction', chat_id: chat.id, message_thread_id: 0, action: { '@type': 'chatActionTyping' } }).catch(() => {});
+    }
+  };
+  const submit = () => {
+    if (!text.trim()) return;
+    sendText(chat.id, text);
+    setText(''); drafts.delete(chat.id);
+  };
+  const onKey = e => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); submit(); }
+    else if (e.key === 'Escape' && (S.reply || S.editing)) {
+      if (S.editing) setText('');
+      S.reply = null; S.editing = null; changed();
+    } else if (e.key === 'ArrowUp' && !text) {
+      const mine = [...(S.history.get(chat.id)?.list || [])].reverse().find(m => m.is_outgoing && m.content['@type'] === 'messageText');
+      if (mine) { e.preventDefault(); S.editing = mine; S.reply = null; changed(); setText(mine.content.text.text); focusComposer(); }
+    }
+  };
+  const bar = S.editing ? { title: 'Редактирование', text: contentSummary(S.editing.content), icon: Icon.edit(18) }
+    : S.reply ? { title: `Ответ ${senderName(S.reply.sender_id) || chatTitle(chat)}`, text: contentSummary(S.reply.content, id => userName(S.users.get(id))), icon: Icon.reply(18) } : null;
+  const ready = !!text.trim();
+  const soon = what => () => showHud(`${what} — в следующем обновлении`);
+  return html`<div class="composer">
+    ${bar && html`<div class="compose-bar" key=${S.editing?.id || S.reply?.id}>
+      <span style="color:var(--accent)">${bar.icon}</span>
+      <div class="bar-body"><div class="bar-title">${bar.title}</div><div class="bar-text">${bar.text}</div></div>
+      <button class="icon-btn gray" onClick=${() => { if (S.editing) setText(''); S.reply = null; S.editing = null; changed(); }}>${Icon.close(14)}</button>
+    </div>`}
+    <div class="compose-row">
+      <button class="icon-btn" title="Прикрепить" onClick=${soon('Отправка файлов')}>${Icon.attach()}</button>
+      <textarea ref=${ref} class="compose-input" rows="1" placeholder=${isChannel(chat) ? 'Публикация…' : 'Сообщение'} value=${text}
+        onInput=${onInput} onKeyDown=${onKey}/>
+      <button class="icon-btn" title="Эмодзи и стикеры" onClick=${soon('Панель стикеров')}>${Icon.smile()}</button>
+      <button class=${`icon-btn send-btn ${ready ? 'ready' : ''}`} title=${ready ? 'Отправить' : 'Голосовое сообщение'} onClick=${ready ? submit : soon('Голосовые сообщения')}>
+        <span class=${ready ? 'hide' : ''} style="position:absolute;inset:0;display:grid;place-items:center;transition:transform .22s var(--spring),opacity .15s">${Icon.mic()}</span>
+        <span class=${ready ? '' : 'hide'} style="position:absolute;inset:0;display:grid;place-items:center;transition:transform .22s var(--spring),opacity .15s">${Icon.sendCircle(28)}</span>
+      </button>
+    </div>
+  </div>`;
+}
