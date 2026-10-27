@@ -19,7 +19,7 @@ onUpdate(u => {
   }
 });
 
-function fillCss(fill, fallback) {
+export function fillCss(fill, fallback) {
   if (!fill) return freeform(fallback);
   switch (fill['@type']) {
     case 'backgroundFillSolid': return hex(fill.color);

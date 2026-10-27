@@ -9,6 +9,7 @@ import { openLink } from '../links.js';
 import { playTone, SOUND_NAMES } from '../sound.js';
 import { FoldersSettings, FolderEdit } from './folders.js';
 import { openAvatar } from './profile.js';
+import { Appearance, AutoNight, NameColor, WallpaperSettings } from './appearance.js';
 
 // Версия из сборки (tauri.conf.json → CI подставляет номер), в демо-режиме — заглушка.
 let version = '';
@@ -21,9 +22,9 @@ import { Avatar, Spinner } from './common.js';
 const go = page => { S.settingsPage = page; changed(); };
 const back = () => go(null);
 
-function Page({ title, children }) {
+function Page({ title, back: to = null, children }) {
   return html`<div class="list settings-page" key=${title}>
-    <div class="sp-head"><button class="sp-back" onClick=${back}>${Icon.back(13)}<span class="sp-back-text">Настройки</span></button><span class="sp-title">${title}</span></div>
+    <div class="sp-head"><button class="sp-back" onClick=${() => go(to)}>${Icon.back(13)}<span class="sp-back-text">${to === 'appearance' ? 'Оформление' : 'Настройки'}</span></button><span class="sp-title">${title}</span></div>
     ${children}
   </div>`;
 }
@@ -41,6 +42,10 @@ export function SettingsPane() {
     case 'privacy': return html`<${Privacy}/>`;
     case 'sessions': return html`<${Sessions}/>`;
     case 'appearance': return html`<${Appearance}/>`;
+    case 'autonight': return html`<${AutoNight}/>`;
+    case 'namecolor': return html`<${NameColor}/>`;
+    case 'wallpaper': return html`<${WallpaperSettings}/>`;
+    case 'fonts': return html`<${Fonts}/>`;
     case 'storage': return html`<${Storage}/>`;
     case 'general': return html`<${General}/>`;
     case 'power': return html`<${PowerSaving}/>`;
@@ -392,24 +397,9 @@ function PowerSaving() {
   </${Page}>`;
 }
 
-function Appearance() {
-  const seg = (key, opts) => html`<div class="seg">${opts.map(([v, l]) => html`
-    <button class=${S.prefs[key] === v ? 'on' : ''} onClick=${() => setPref(key, v)}>${l}</button>`)}</div>`;
-  const THEMES = [['auto', 'Авто', '#eeffde', '#ffffff'], ['classic', 'Classic', '#eeffde', '#ffffff'], ['day', 'День', '#5097cb', '#f7f7fa'], ['night', 'Ночь', '#416ead', '#1e2c3b']];
-  return html`<${Page} title="Оформление">
-    <div class="pane-sec">Тема</div>
-    <div class="theme-grid">${THEMES.map(([v, l, out, inc]) => html`<button class=${`theme-tile ${S.prefs.theme === v ? 'on' : ''}`} onClick=${() => setPref('theme', v)}>
-      <div class="tt-prev" style=${v === 'night' ? 'background:#0e1621' : v === 'day' ? 'background:#fff' : 'background:linear-gradient(135deg,#dbddbb,#88b884)'}>
-        <i style=${`background:${inc};align-self:flex-start`}/><i style=${`background:${out};align-self:flex-end`}/>
-      </div><span>${l}</span></button>`)}</div>
-    <div class="pane-sec">Цвет акцента</div>
-    <div class="accent-row">${ACCENTS.map(c => html`<button class=${`accent-dot ${(S.prefs.accent || null) === c ? 'on' : ''}`} style=${`background:${c || 'linear-gradient(135deg,#2481cc,#2ea6ff)'}`} title=${c ? '' : 'Как в теме'} onClick=${() => setPref('accent', c)}/>`)}</div>
-    <div class="group"><div class="item"><span class="lbl">Эффекты стекла и анимации</span><span class=${`switch ${S.prefs.glass !== false ? 'on' : ''}`} onClick=${() => setPref('glass', S.prefs.glass === false)}><i/></span></div></div>
-    <div class="sp-hint" style="padding:0 18px;margin-bottom:10px">Если программа тормозит на слабом компьютере — выключите.</div>
-    <div class="pane-sec">Размер текста сообщений</div>
-    <div class="group"><div class="item"><span class="lbl">Размер</span>${seg('fontSize', [[13, '13'], [14, '14'], [15, '15'], [16, '16'], [17, '17']])}</div></div>
-    <div class="sp-hint" style="padding:0 18px">«Авто» переключает Day Classic и Ночь вместе с темой Windows. Обои берутся из вашего аккаунта Telegram.</div>
-    <div class="pane-sec" style="margin-top:12px">Свои шрифты</div>
+function Fonts() {
+  return html`<${Page} title="Свои шрифты" back="appearance">
+    <div class="pane-sec">Шрифты</div>
     <div class="group">
       ${[['customFont', 'ui', 'Шрифт интерфейса', 'Aa'], ['customEmoji', 'emoji', 'Смайлики', '😀']].map(([key, kind, label, sample]) => html`
         <div class="item font-item">

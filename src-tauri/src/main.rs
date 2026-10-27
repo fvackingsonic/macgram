@@ -265,6 +265,7 @@ fn main() {
             shell::toast_last,
             shell::toast_reply_mode,
             shell::toast_send,
+            shell::set_app_icon,
             shell::toast_open,
             desktop::set_badge
         ])

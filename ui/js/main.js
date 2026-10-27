@@ -18,6 +18,18 @@ import { ForwardDialog } from './components/forward.js';
 import { StoryViewer } from './components/stories.js';
 import { NewChatDialog } from './components/new-chat.js';
 import { FolderChatsPicker } from './components/folders.js';
+import { closeThread } from './components/thread.js';
+
+// Кнопка «назад» на мыши (боковая) — шаг назад, как жест «назад» в Telegram для macOS.
+const SETTINGS_PARENT = { autonight: 'appearance', namecolor: 'appearance', wallpaper: 'appearance', fonts: 'appearance', 'folder-edit': 'folders' };
+window.addEventListener('mouseup', e => {
+  if (e.button !== 3) return;
+  e.preventDefault();
+  if (S.viewer || S.modal || S.menu) return;
+  if (S.thread) { closeThread(); return; }
+  if (S.profile) { S.profileClosing = true; changed(); setTimeout(() => { S.profile = false; S.profileClosing = false; changed(); }, 380); return; }
+  if (S.tab === 'settings' && S.settingsPage) { S.settingsPage = SETTINGS_PARENT[S.settingsPage] || null; changed(); }
+});
 import { LockScreen } from './components/lock.js';
 import { initPasscode } from './passcode.js';
 

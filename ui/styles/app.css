@@ -1345,3 +1345,52 @@ body.resizing .sidebar.card, body.resizing .main { transition: none !important; 
 /* список участников листается: карточки не сжимаются под высоту окна */
 .ps-sub-body { min-height: 0; }
 .ps-sub-body > * { flex-shrink: 0; }
+
+/* ── кнопка «назад» в настройках: большая зона нажатия, подсветка, как в macOS ── */
+.sp-head { height: 34px; padding: 0 8px 8px; }
+.sp-back { height: 30px; min-width: 44px; padding: 0 10px 0 6px; margin-left: -2px; border-radius: 9px; gap: 3px; transition: background .15s, transform .15s; }
+.sp-back:hover { background: var(--accent-soft); }
+.sp-back:active { transform: scale(.96); }
+
+/* ── Оформление ── */
+.ap-card { padding: 0; overflow: hidden; }
+.ap-preview { padding: 12px 10px; display: flex; flex-direction: column; gap: 6px; background: var(--wall, linear-gradient(135deg,#dbddbb,#88b884)); }
+.ap-msg { display: flex; }
+.ap-msg.out { justify-content: flex-end; }
+.ap-bubble { max-width: 80%; padding: 6px 10px; border-radius: 15px; font-size: var(--fs-msg); line-height: 1.35; position: relative; }
+.ap-msg.in .ap-bubble { background: var(--in-bg); color: var(--in-text); box-shadow: inset 0 0 0 .5px var(--in-border); }
+.ap-msg.out .ap-bubble { background: var(--out-bg); color: var(--out-text); }
+.ap-time { font-size: 11px; opacity: .55; margin-left: 8px; float: right; margin-top: 5px; display: inline-flex; gap: 2px; align-items: center; }
+.ap-reply, .ap-link { border-left: 3px solid var(--nc); background: color-mix(in srgb, var(--nc) 12%, transparent); border-radius: 5px; padding: 3px 8px; margin-bottom: 4px; font-size: 12.5px; display: flex; flex-direction: column; }
+.ap-reply b, .ap-link b { color: var(--nc); }
+.ap-link { margin-top: 2px; }
+.ap-dot { width: 16px; height: 16px; border-radius: 50%; flex: none; }
+.accent-dot.big { width: 34px; height: 34px; }
+.ap-size { gap: 10px; }
+.ap-size input[type=range] { flex: 1; accent-color: var(--accent); }
+.ap-size-val { width: 22px; text-align: right; }
+.ap-time-in { border: 0; background: var(--gray-bg); color: var(--text); border-radius: 6px; padding: 2px 6px; font: inherit; }
+.icon-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 12px 8px; }
+.icon-tile { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: 12px; font-size: var(--fs-short); transition: background .15s; }
+.icon-tile:hover { background: var(--row-hover); }
+.icon-tile img { filter: drop-shadow(0 2px 4px rgba(0,0,0,.18)); transition: transform .25s var(--spring); }
+.icon-tile:hover img { transform: scale(1.06); }
+.icon-tile.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.wp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 12px 12px; }
+.wp-tile { aspect-ratio: .75; border-radius: 10px; overflow: hidden; padding: 0; box-shadow: inset 0 0 0 1px var(--border); transition: transform .2s var(--spring), box-shadow .15s; }
+.wp-tile:hover { transform: scale(1.03); }
+.wp-tile.on { box-shadow: 0 0 0 2px var(--accent); }
+.wp-tile-in { width: 100%; height: 100%; display: grid; place-items: center; position: relative; }
+.wp-tile-in img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+/* ── режим без пузырей (Bubbles выкл.): сообщения списком, как в классическом Telegram для Mac ── */
+html.no-bubbles .msg-row.out { justify-content: flex-start; flex-direction: row; }
+html.no-bubbles .msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo) { background: transparent !important; box-shadow: none !important; color: var(--text) !important; padding-left: 4px; max-width: 100%; }
+html.no-bubbles .msg-row .bubble a { color: var(--link) !important; }
+html.no-bubbles .msg-row .with-comments { background: transparent; box-shadow: none; }
+html.no-bubbles .msg-row.out .bubble .meta-inline, html.no-bubbles .msg-row.out .bubble .meta-inline * { color: var(--gray-text) !important; }
+html.no-bubbles .messages { --msg-gap: 2px; }
+.ap-preview { background: linear-gradient(135deg, #dbddbb, #88b884); }
+:root[data-palette="day"] .ap-preview { background: #f1f1f4; }
+:root[data-palette="night"] .ap-preview { background: linear-gradient(135deg, #1b2836, #111820); }
+:root[data-palette="night"][data-variant="dark"] .ap-preview { background: #000; }

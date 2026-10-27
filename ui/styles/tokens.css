@@ -179,3 +179,42 @@
   --scroll: rgba(255, 255, 255, .22);
   --wall: #0e1621;
 }
+
+/* ── Ночь (нейтральная, как «Night» в Telegram для macOS; «синяя» — обычная night) ── */
+:root[data-palette="night"][data-variant="dark"] {
+  --accent: #3e88f7;
+  --accent-select: #2f5f9e;
+  --accent-soft: rgba(62, 136, 247, .16);
+  --bg: #1c1c1d;
+  --gray-text: #8e8e93;
+  --dark-gray-text: #d1d1d6;
+  --link: #3e88f7;
+  --border: #2c2c2e;
+  --gray-bg: #2c2c2e;
+  --gray-fg: #2c2c2e;
+  --gray-icon: #8e8e93;
+  --gray-ui: #232325;
+  --badge: #3e88f7;
+  --badge-muted: #636366;
+  --list-bg: #111112;
+  --sidebar-bg: #1c1c1d;
+  --chat-bg: #1c1c1d;
+  --row-active: #3e88f7;
+  --in-bg: #262628;
+  --in-border: #303033;
+  --in-gray: #8e8e93;
+  --in-link: #3e88f7;
+  --in-reply: #3e88f7;
+  --in-ic-bg: #3e88f7;
+  --out-bg: #313131;
+  --out-border: #3a3a3c;
+  --out-gray: rgba(255, 255, 255, .6);
+  --out-link: #6aa8ff;
+  --out-reply: #6aa8ff;
+  --out-ic-bg: #3e88f7;
+  --out-ic-fg: #ffffff;
+  --card-bg: rgba(28, 28, 29, .92);
+  --glass-bg: rgba(40, 40, 42, .55);
+  --menu-bg: rgba(44, 44, 46, .88);
+}
+:root[data-palette="night"][data-variant="dark"] .sidebar.card { background: rgba(28, 28, 29, .97); }

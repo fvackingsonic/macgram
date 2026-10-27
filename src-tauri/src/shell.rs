@@ -170,3 +170,25 @@ pub fn toast_open(app: AppHandle, chat_id: i64) {
     show_main(&app);
     let _ = app.emit_to("main", "open-chat", chat_id);
 }
+
+/// Значок приложения (как «Значок в Dock» в Telegram для macOS): меняет значок окна,
+/// панели задач и трея. Ярлык на рабочем столе остаётся прежним.
+#[tauri::command]
+pub fn set_app_icon(app: AppHandle, name: String) -> Result<(), String> {
+    let bytes: &[u8] = match name.as_str() {
+        "dark" => include_bytes!("../icons/alt/dark.png"),
+        "light" => include_bytes!("../icons/alt/light.png"),
+        "purple" => include_bytes!("../icons/alt/purple.png"),
+        "green" => include_bytes!("../icons/alt/green.png"),
+        "sunset" => include_bytes!("../icons/alt/sunset.png"),
+        _ => include_bytes!("../icons/alt/blue.png"),
+    };
+    let img = tauri::image::Image::from_bytes(bytes).map_err(|e| e.to_string())?;
+    if let Some(w) = app.get_webview_window("main") {
+        w.set_icon(img.clone()).map_err(|e| e.to_string())?;
+    }
+    if let Some(t) = app.tray_by_id("tray") {
+        let _ = t.set_icon(Some(img));
+    }
+    Ok(())
+}

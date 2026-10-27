@@ -58,14 +58,29 @@ export function setPref(k, v) {
   applyPrefs();
   changed();
 }
-// Тема: auto (Day Classic днём / Night при тёмной теме Windows), classic, day, night.
+// Тема как в Telegram для macOS: дневная (classic/day) или ночная (night — синяя, dark — нейтральная),
+// плюс «Автоночь»: по системе Windows, по расписанию или выключена.
 const darkQuery = window.matchMedia?.('(prefers-color-scheme: dark)');
+const LEGACY = { light: 'classic', dark: 'night', auto: 'classic' };
+export const baseTheme = () => LEGACY[S.prefs.theme] || S.prefs.theme || 'classic';
+export const autoNightMode = () => S.prefs.autoNight ?? (S.prefs.theme === 'auto' || !S.prefs.theme ? 'system' : 'off');
+const toMin = t => { const [h, m] = String(t || '0:0').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+function inSchedule() {
+  const now = new Date(), cur = now.getHours() * 60 + now.getMinutes();
+  const a = toMin(S.prefs.nightFrom || '22:00'), b = toMin(S.prefs.nightTo || '07:00');
+  return a <= b ? cur >= a && cur < b : cur >= a || cur < b;
+}
+// Итоговая тема с учётом автоночи: 'classic' | 'day' | 'night' | 'dark'.
+export function effectiveTheme() {
+  const base = baseTheme();
+  if (base === 'night' || base === 'dark') return base;
+  const an = autoNightMode();
+  if ((an === 'system' && darkQuery?.matches) || (an === 'schedule' && inSchedule())) return S.prefs.nightTheme || 'night';
+  return base;
+}
 export function palette() {
-  const t = S.prefs.theme;
-  if (t === 'classic' || t === 'day' || t === 'night') return t;
-  if (t === 'light') return 'classic';
-  if (t === 'dark') return 'night';
-  return darkQuery?.matches ? 'night' : 'classic';
+  const t = effectiveTheme();
+  return t === 'dark' ? 'night' : t;
 }
 const BASE_FONT = '"SF Pro Text", "Inter var", "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui';
 const BASE_EMOJI = '"Apple Color Emoji", "Segoe UI Emoji", sans-serif';
@@ -156,10 +171,19 @@ export async function applyFonts() {
   root.style.setProperty('--font-display', disp);
   root.style.setProperty('--font-emoji', emojiStack);
 }
+// Автоночь по расписанию — проверяем раз в минуту.
+let lastTheme = '', appliedIcon = '';
+setInterval(() => { if (autoNightMode() === 'schedule') { const t = effectiveTheme(); if (t !== lastTheme) { lastTheme = t; applyPrefs(); changed(); } } }, 60e3);
 export function applyPrefs() {
+  lastTheme = effectiveTheme();
   const root = document.documentElement;
   root.classList.toggle('lite', S.prefs.glass === false);
   root.dataset.palette = palette();
+  root.dataset.variant = effectiveTheme() === 'dark' ? 'dark' : '';
+  root.classList.toggle('no-bubbles', S.prefs.bubbles === false);
+  const icon = S.prefs.appIcon || 'blue';
+  if (icon !== appliedIcon && (appliedIcon || icon !== 'blue')) window.__TAURI__?.core.invoke('set_app_icon', { name: icon }).catch(() => {});
+  appliedIcon = icon;
   root.style.setProperty('--fs-msg', `${S.prefs.fontSize}px`);
   if (S.prefs.sidebarW) root.style.setProperty('--sidebar-w', `${S.prefs.sidebarW}px`); else root.style.removeProperty('--sidebar-w');
   // Трей: закрывать в трей и галочка «Уведомления» в меню значка.
