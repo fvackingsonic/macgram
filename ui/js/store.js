@@ -247,6 +247,8 @@ export function isMuted(chat) {
   if (ns.use_default_mute_for) return (S.scopes[scopeOf(chat)]?.mute_for || 0) > 0;
   return (ns.mute_for || 0) > 0;
 }
+// Открыта ветка комментариев или тема форума в этом чате — отправлять туда.
+export const topicFor = chatId => (S.thread && !S.thread.closing && S.thread.chatId === chatId ? S.thread.topic || null : null);
 export const isSaved = chat => chat && chat.id === S.myId;
 export const isChannel = chat => chat?.type?.['@type'] === 'chatTypeSupergroup' && chat.type.is_channel;
 export const isGroup = chat => chat?.type?.['@type'] === 'chatTypeBasicGroup' || (chat?.type?.['@type'] === 'chatTypeSupergroup' && !chat.type.is_channel);
@@ -467,7 +469,7 @@ export async function selectChat(chatId, opts = {}) {
   const prev = S.currentChatId;
   if (prev) send({ '@type': 'closeChat', chat_id: prev }).catch(() => {});
   S.currentChatId = chatId;
-  S.reply = null; S.editing = null; S.highlight = null; S.profile = false; S.profileClosing = false; S.chatSearch = null; S.selection = null;
+  S.reply = null; S.editing = null; S.highlight = null; S.profile = false; S.profileClosing = false; S.thread = null; S.chatSearch = null; S.selection = null;
   changed();
   if (!chatId) return;
   send({ '@type': 'openChat', chat_id: chatId }).catch(() => {});
@@ -491,6 +493,8 @@ export function markRead(chatId = S.currentChatId) {
     const chat = S.chats.get(chatId);
     const h = S.history.get(chatId);
     if (!chat || !h || document.hidden || chatId !== S.currentChatId) return;
+    // Форум показан списком тем — читаем по темам, а не весь чат сразу.
+    if (chat.type?.['@type'] === 'chatTypeSupergroup' && S.supergroups.get(chat.type.supergroup_id)?.is_forum && !S.forumAsChat?.has(chatId)) return;
     const ids = h.list.slice(-50).map(m => m.id);
     if (!ids.length) return;
     if (chat.unread_count > 0 || chat.unread_mention_count > 0 || chat.is_marked_as_unread) {
@@ -525,6 +529,8 @@ export async function sendText(chatId, text, opts = {}) {
     } else {
       const req = { '@type': 'sendMessage', chat_id: chatId, input_message_content: content };
       if (reply) req.reply_to = { '@type': 'inputMessageReplyToMessage', message_id: reply.id };
+      // Сообщение в ветку комментариев или в тему форума.
+      if (opts.topic) req.topic_id = opts.topic;
       // «Без звука» и «Отложить» — как в меню кнопки отправки в Telegram для macOS.
       if (opts.silent || opts.sendAt) {
         req.options = { '@type': 'messageSendOptions', disable_notification: !!opts.silent };
@@ -533,6 +539,7 @@ export async function sendText(chatId, text, opts = {}) {
       const m = await send(req);
       if (opts.sendAt) { showHud('Сообщение отложено'); return; }
       putMessage(m, { fresh: true }); changed();
+      opts.onSent?.(m);
     }
   } catch (e) {
     showHud(e.message || 'Не удалось отправить');
@@ -628,8 +635,13 @@ export function typingText(chatId) {
   return verb;
 }
 
+// Доп. обработчики обновлений (ветки комментариев, темы форумов): возвращают true, если что-то изменили.
+export const updateHooks = new Set();
+
 onUpdate(u => {
   const ut = u['@type'];
+  let hooked = false;
+  for (const f of updateHooks) { try { if (f(u)) hooked = true; } catch (e) { console.warn(e); } }
   if (ut === 'updateNewChat' || ut.startsWith('updateChat') || ut === 'updateScopeNotificationSettings') S.chatsVer++;
   switch (ut) {
     case 'updateAuthorizationState': {
@@ -697,7 +709,7 @@ onUpdate(u => {
     case 'updateChatIsMarkedAsUnread': patchChat(u.chat_id, c => { c.is_marked_as_unread = u.is_marked_as_unread; }); break;
     case 'updateChatFolders': case 'updateChatFilters': {
       const arr = u.chat_folders || u.chat_filters || [];
-      S.folders = arr.map(f => ({ id: f.id, title: f.name?.text?.text ?? f.title ?? 'Папка' }));
+      S.folders = arr.map(f => ({ id: f.id, title: f.name?.text?.text ?? f.title ?? 'Папка', icon: f.icon?.name, color: f.color_id }));
       for (const f of S.folders) loadChats(`f${f.id}`);
       if (S.folder !== 'main' && !S.folders.some(f => `f${f.id}` === S.folder)) S.folder = 'main';
       break;
@@ -758,7 +770,7 @@ onUpdate(u => {
     case 'updateChatAction': setTyping(u.chat_id, u.sender_id, u.action); break;
     case 'updateProfileAccentColors': S.profileColors = Object.fromEntries((u.colors || []).map(c => [c.id, c])); break;
     case 'updateScopeNotificationSettings': S.scopes[u.scope['@type']] = u.notification_settings; break;
-    default: return;
+    default: if (hooked) changed(); return;
   }
   changed();
 });

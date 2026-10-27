@@ -7,6 +7,7 @@ import { setPasscode, lockNow } from '../passcode.js';
 import { checkUpdates, showUpdate, REPO } from '../updates.js';
 import { openLink } from '../links.js';
 import { playTone, SOUND_NAMES } from '../sound.js';
+import { FoldersSettings, FolderEdit } from './folders.js';
 
 // Версия из сборки (tauri.conf.json → CI подставляет номер), в демо-режиме — заглушка.
 let version = '';
@@ -45,6 +46,8 @@ export function SettingsPane() {
     case 'about': return html`<${About}/>`;
     case 'stickers': return html`<${StickersSettings}/>`;
     case 'proxy': return html`<${ProxySettings}/>`;
+    case 'folders': return html`<${FoldersSettings}/>`;
+    case 'folder-edit': return html`<${FolderEdit}/>`;
     default: return html`<${Main}/>`;
   }
 }
@@ -88,6 +91,7 @@ function Main() {
       <${Row} icon=${Square('#5856d6', MI('menu_moon', 15))} label="Оформление" onClick=${() => go('appearance')}/>
       <${Row} icon=${MI('Icon_SettingsStorage', 24)} label="Данные и память" onClick=${() => go('storage')}/>
       <${Row} icon=${MI('Icon_SettingsStickers', 24)} label="Стикеры и эмодзи" onClick=${() => go('stickers')}/>
+      <${Row} icon=${MI('Icon_SettingsFilters', 24)} label="Папки" value=${S.folders.length || null} onClick=${() => go('folders')}/>
       <${Row} icon=${Square('#ff9500', MI('menu_select_messages', 15))} label="Энергосбережение" onClick=${() => go('power')}/>
       <${Row} icon=${Square('#34aadc', MI('menu_link', 15))} label="Прокси" onClick=${() => go('proxy')}/>
       <${Row} icon=${MI('Icon_SettingsLanguage', 24)} label="Язык" value="Русский"/>

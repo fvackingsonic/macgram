@@ -63,10 +63,25 @@ export function createMock(dispatch) {
       msg(-100, 307, 13, 'Договорились', now - 20 * 60),
     ],
     [-200]: [
-      msg(-200, 401, -200, 'Новости недели: вышло крупное обновление. Рассказываем, что изменилось и как этим пользоваться.', now - 5 * H, { interaction_info: { view_count: 12400 } }),
-      msg(-200, 402, -200, 'Опрос: какую тему разобрать в следующем выпуске?', now - 2 * H, { interaction_info: { view_count: 8300 } }),
+      msg(-200, 401, -200, 'Новости недели: вышло крупное обновление. Рассказываем, что изменилось и как этим пользоваться.', now - 5 * H, { interaction_info: { view_count: 12400, reply_info: { reply_count: 3, recent_replier_ids: [{ '@type': 'messageSenderUser', user_id: 11 }, { '@type': 'messageSenderUser', user_id: 14 }, { '@type': 'messageSenderUser', user_id: 13 }], last_message_id: 8003, last_read_inbox_message_id: 8001 } } }),
+      msg(-200, 402, -200, 'Опрос: какую тему разобрать в следующем выпуске?', now - 2 * H, { interaction_info: { view_count: 8300, reply_info: { reply_count: 0, recent_replier_ids: [], last_message_id: 0, last_read_inbox_message_id: 0 } } }),
     ],
     [ME]: [msg(ME, 501, ME, 'Заметка: купить молоко', now - 4 * D)],
+    // обсуждение канала: ветки комментариев к постам 401 (ветка 8000) и 402 (ветка 8100)
+    [-201]: [
+      msg(-201, 8000, -200, 'Новости недели: вышло крупное обновление.', now - 5 * H),
+      msg(-201, 8001, 11, 'Наконец-то! Давно ждала', now - 4 * H, { topic_id: { '@type': 'messageTopicThread', message_thread_id: 8000 } }),
+      msg(-201, 8002, 14, 'А тёмная тема стала лучше?', now - 3 * H, { topic_id: { '@type': 'messageTopicThread', message_thread_id: 8000 } }),
+      msg(-201, 8003, 13, 'Да, и шрифты поправили 👍', now - 2 * H, { topic_id: { '@type': 'messageTopicThread', message_thread_id: 8000 }, reply_to: { '@type': 'messageReplyToMessage', chat_id: -201, message_id: 8002 } }),
+      msg(-201, 8100, -200, 'Опрос: какую тему разобрать?', now - 2 * H),
+    ],
+    [-300]: [
+      msg(-300, 9001, 12, 'Всем привет! Это общий чат клуба', now - 2 * D, { topic_id: { '@type': 'messageTopicForum', forum_topic_id: 1 } }),
+      msg(-300, 9002, 14, 'Новые иконки для настроек — посмотрите, пожалуйста', now - 3 * H, { topic_id: { '@type': 'messageTopicForum', forum_topic_id: 2 } }),
+      msg(-300, 9003, 11, 'Мне нравятся, только тени чуть мягче бы', now - 2 * H, { topic_id: { '@type': 'messageTopicForum', forum_topic_id: 2 } }),
+      msg(-300, 9004, 13, 'Версия 0.6 собрана, можно тестировать', now - 50 * 60, { topic_id: { '@type': 'messageTopicForum', forum_topic_id: 3 } }),
+      msg(-300, 9005, 15, 'При перетаскивании папок иногда мигает', now - 15 * 60, { topic_id: { '@type': 'messageTopicForum', forum_topic_id: 4 } }),
+    ],
     13: [msg(13, 601, 13, 'Скинул файлы в облако', now - 3 * D)],
     16: [msg(16, 701, 16, 'Сегодня +18°, без осадков ☀️', now - 6 * H)],
   };
@@ -80,6 +95,7 @@ export function createMock(dispatch) {
     { id: 16, title: 'Погода Бот', type: { '@type': 'chatTypePrivate', user_id: 16 }, unread_count: 0 },
     { id: ME, title: 'Алекс', type: { '@type': 'chatTypePrivate', user_id: ME }, unread_count: 0 },
     { id: 13, title: 'Олег', type: { '@type': 'chatTypePrivate', user_id: 13 }, unread_count: 0, last_read_outbox_message_id: 0 },
+    { id: -300, title: 'Клуб разработчиков', type: { '@type': 'chatTypeSupergroup', supergroup_id: 300, is_channel: false }, unread_count: 3, accent_color_id: 2 },
   ].map(c => {
     const list = hist[c.id] || [];
     const last = list[list.length - 1];
@@ -94,6 +110,13 @@ export function createMock(dispatch) {
   });
 
   const emit = u => setTimeout(() => dispatch(u), 0);
+  const folderTpl = title => ({ name: { '@type': 'chatFolderName', text: { '@type': 'formattedText', text: title, entities: [] } }, icon: null, color_id: -1, pinned_chat_ids: [], included_chat_ids: [], excluded_chat_ids: [],
+    exclude_muted: false, exclude_read: false, exclude_archived: false, include_contacts: false, include_non_contacts: false, include_bots: false, include_groups: false, include_channels: false });
+  const folders = { 1: { ...folderTpl('Личное'), include_contacts: true, include_non_contacts: true }, 2: { ...folderTpl('Работа'), included_chat_ids: [12, -100, -300] } };
+  let folderOrder = [1, 2];
+  const emitFolders = () => emit({ '@type': 'updateChatFolders', chat_folders: folderOrder.map(id => ({ id, name: folders[id].name })) });
+  const topic = (id, name, color, extra = {}) => ({ info: { chat_id: -300, forum_topic_id: id, name, icon: { color, custom_emoji_id: '0' }, is_general: id === 1, is_closed: false, ...extra }, order: String(100 - id), unread_count: 0, unread_mention_count: 0, last_read_inbox_message_id: 0 });
+  const topics = [topic(1, 'Общий', 0), { ...topic(2, 'Дизайн', 0xFF93B2), unread_count: 2 }, topic(3, 'Релизы', 0x6FB9F0, { is_closed: true }), { ...topic(4, 'Баги', 0xFB6F5F), unread_count: 1 }];
   const setAuth = s => { auth = s; emit({ '@type': 'updateAuthorizationState', authorization_state: s }); };
 
   function populate() {
@@ -101,10 +124,14 @@ export function createMock(dispatch) {
     users.forEach(user => emit({ '@type': 'updateUser', user }));
     emit({ '@type': 'updateBasicGroup', basic_group: { id: 100, member_count: 4 } });
     emit({ '@type': 'updateSupergroup', supergroup: { id: 200, member_count: 48200, is_channel: true, status: { '@type': 'chatMemberStatusMember' } } });
+    emit({ '@type': 'updateSupergroup', supergroup: { id: 201, member_count: 950, is_channel: false, status: { '@type': 'chatMemberStatusMember' } } });
+    emit({ '@type': 'updateSupergroup', supergroup: { id: 300, member_count: 312, is_channel: false, is_forum: true, status: { '@type': 'chatMemberStatusAdministrator', can_be_edited: false, rights: { can_change_info: true, can_restrict_members: true, can_invite_users: true, can_pin_messages: true, can_promote_members: false } } } });
+    emit({ '@type': 'updateBasicGroup', basic_group: { id: 100, member_count: 4, status: { '@type': 'chatMemberStatusCreator', is_member: true } } });
+    emit({ '@type': 'updateNewChat', chat: { '@type': 'chat', id: -201, title: 'Новости технологий — чат', type: { '@type': 'chatTypeSupergroup', supergroup_id: 201, is_channel: false }, positions: [], permissions: { can_send_basic_messages: true }, accent_color_id: 4, notification_settings: { use_default_mute_for: true } } });
     chats.forEach(chat => emit({ '@type': 'updateNewChat', chat }));
-    emit({ '@type': 'updateChatFolders', chat_folders: [{ id: 1, name: { text: { text: 'Личное' } } }, { id: 2, name: { text: { text: 'Работа' } } }] });
+    emitFolders();
     chats.filter(c => c.type['@type'] === 'chatTypePrivate').forEach(c => emit({ '@type': 'updateChatPosition', chat_id: c.id, position: { ...c.positions[0], list: { '@type': 'chatListFolder', chat_folder_id: 1 } } }));
-    [12, -100].forEach(id => { const c = chats.find(x => x.id === id); emit({ '@type': 'updateChatPosition', chat_id: id, position: { ...c.positions[0], list: { '@type': 'chatListFolder', chat_folder_id: 2 } } }); });
+    [12, -100, -300].forEach(id => { const c = chats.find(x => x.id === id); emit({ '@type': 'updateChatPosition', chat_id: id, position: { ...c.positions[0], list: { '@type': 'chatListFolder', chat_folder_id: 2 } } }); });
     emit({ '@type': 'updateChatActiveStories', active_stories: { chat_id: 12, list: { '@type': 'storyListMain' }, order: '100', max_read_story_id: 0, stories: [{ story_id: 1, date: now - 3600 }, { story_id: 2, date: now - 1800 }] } });
     emit({ '@type': 'updateChatActiveStories', active_stories: { chat_id: 13, list: { '@type': 'storyListMain' }, order: '90', max_read_story_id: 5, stories: [{ story_id: 5, date: now - 7200 }] } });
     emit({ '@type': 'updateChatActiveStories', active_stories: { chat_id: 11, list: { '@type': 'storyListMain' }, order: '95', max_read_story_id: 0, stories: [{ story_id: 9, date: now - 600, is_for_close_friends: true }] } });
@@ -149,6 +176,49 @@ export function createMock(dispatch) {
           ok();
           return setTimeout(() => { setAuth({ '@type': 'authorizationStateReady' }); populate(); }, 300);
         case 'getMe': return reply(users[0]);
+        // ── ветки комментариев и темы форума ──
+        case 'getMessageThread': {
+          const tid = q.message_id === 401 ? 8000 : 8100;
+          const post = hist[-200].find(m => m.id === q.message_id);
+          return reply({ '@type': 'messageThreadInfo', chat_id: -201, message_thread_id: tid, reply_info: post?.interaction_info?.reply_info, unread_message_count: 0, messages: [hist[-201].find(m => m.id === tid)] }, 120);
+        }
+        case 'getMessageThreadHistory': {
+          const list = hist[-201].filter(m => m.topic_id?.message_thread_id === q.message_id && (!q.from_message_id || m.id < q.from_message_id)).reverse();
+          return reply({ '@type': 'messages', total_count: list.length, messages: list }, 150);
+        }
+        case 'getForumTopics': return reply({ '@type': 'forumTopics', total_count: topics.length, topics: topics.map(tp => {
+          const ms = hist[-300].filter(m => m.topic_id?.forum_topic_id === tp.info.forum_topic_id);
+          return { ...tp, last_message: ms[ms.length - 1] };
+        }) }, 150);
+        case 'getForumTopicHistory': {
+          const list = hist[-300].filter(m => m.topic_id?.forum_topic_id === q.forum_topic_id && (!q.from_message_id || m.id < q.from_message_id)).reverse();
+          return reply({ '@type': 'messages', total_count: list.length, messages: list }, 150);
+        }
+        // ── папки ──
+        case 'getChatFolder': return folders[q.chat_folder_id] ? reply({ '@type': 'chatFolder', ...folders[q.chat_folder_id] }) : err(400, 'CHAT_FOLDER_NOT_FOUND');
+        case 'createChatFolder': { const id = Math.max(0, ...Object.keys(folders).map(Number)) + 1; folders[id] = q.folder; folderOrder.push(id); emitFolders(); return reply({ '@type': 'chatFolderInfo', id, name: q.folder.name }); }
+        case 'editChatFolder': folders[q.chat_folder_id] = q.folder; emitFolders(); return reply({ '@type': 'chatFolderInfo', id: q.chat_folder_id, name: q.folder.name });
+        case 'deleteChatFolder': delete folders[q.chat_folder_id]; folderOrder = folderOrder.filter(x => x !== q.chat_folder_id); emitFolders(); return ok();
+        case 'reorderChatFolders': folderOrder = q.chat_folder_ids.slice(); emitFolders(); return ok();
+        case 'getRecommendedChatFolders': return reply({ '@type': 'recommendedChatFolders', chat_folders: [
+          { folder: { ...folderTpl('Новые'), include_contacts: true, include_non_contacts: true, include_groups: true, include_channels: true, include_bots: true, exclude_read: true }, description: 'Новые сообщения из всех чатов' },
+          { folder: { ...folderTpl('Каналы'), include_channels: true }, description: 'Сообщения из каналов' },
+        ] }, 200);
+        // ── группы и каналы ──
+        case 'getBasicGroupFullInfo': return reply({ '@type': 'basicGroupFullInfo', description: 'Планируем встречи по субботам', creator_user_id: ME,
+          invite_link: { invite_link: 'https://t.me/+DemoInviteLink123' },
+          members: [ME, 13, 14, 15].map(id => ({ member_id: { '@type': 'messageSenderUser', user_id: id }, status: id === ME ? { '@type': 'chatMemberStatusCreator' } : id === 13 ? { '@type': 'chatMemberStatusAdministrator', can_be_edited: true, rights: {} } : { '@type': 'chatMemberStatusMember' } })) }, 150);
+        case 'getSupergroupFullInfo': return reply({ '@type': 'supergroupFullInfo', description: q.supergroup_id === 300 ? 'Клуб разработчиков: дизайн, релизы, баги' : 'Главное о технологиях за неделю', member_count: q.supergroup_id === 300 ? 312 : 48200, administrator_count: 3, can_get_members: true,
+          invite_link: q.supergroup_id === 300 ? { invite_link: 'https://t.me/+ClubDemo42' } : null, linked_chat_id: q.supergroup_id === 200 ? -201 : 0 }, 150);
+        case 'getSupergroupMembers': {
+          const all = users.map((u, i) => ({ member_id: { '@type': 'messageSenderUser', user_id: u.id }, status: i === 1 ? { '@type': 'chatMemberStatusCreator' } : i < 3 ? { '@type': 'chatMemberStatusAdministrator', can_be_edited: i === 2, rights: {} } : { '@type': 'chatMemberStatusMember' } }));
+          const f = q.filter?.['@type'];
+          let list = f === 'supergroupMembersFilterAdministrators' ? all.filter(m => m.status['@type'] !== 'chatMemberStatusMember') : all;
+          if (f === 'supergroupMembersFilterSearch') list = list.filter(m => { const u = users.find(x => x.id === m.member_id.user_id); return `${u.first_name} ${u.last_name}`.toLowerCase().includes(q.filter.query.toLowerCase()); });
+          return reply({ '@type': 'chatMembers', total_count: q.supergroup_id === 300 ? 312 : list.length, members: list }, 150);
+        }
+        case 'setChatPermissions': ok(); return emit({ '@type': 'updateChatPermissions', chat_id: q.chat_id, permissions: q.permissions });
+        case 'setChatTitle': ok(); return emit({ '@type': 'updateChatTitle', chat_id: q.chat_id, title: q.title });
         case 'loadChats': return err(404, 'Not Found');
         case 'getChatHistory': {
           const list = (hist[q.chat_id] || []).filter(m => !q.from_message_id || m.id < q.from_message_id).slice(-q.limit).reverse();
@@ -164,7 +234,7 @@ export function createMock(dispatch) {
             return reply(m, 20);
           }
           const m = msg(q.chat_id, ++nextId, ME, q.input_message_content.text.text, Math.floor(Date.now() / 1000),
-            { sending_state: { '@type': 'messageSendingStatePending' }, reply_to: q.reply_to ? { '@type': 'messageReplyToMessage', chat_id: q.chat_id, message_id: q.reply_to.message_id } : undefined });
+            { sending_state: { '@type': 'messageSendingStatePending' }, topic_id: q.topic_id || undefined, reply_to: q.reply_to ? { '@type': 'messageReplyToMessage', chat_id: q.chat_id, message_id: q.reply_to.message_id } : undefined });
           reply(m, 20);
           setTimeout(() => {
             const done = { ...m, id: ++nextId, sending_state: undefined };

@@ -10,6 +10,8 @@ import { Icon } from '../icons.js';
 import { listTime, contentSummary, userStatus, userName } from '../format.js';
 import { Avatar, Traffic, TypingDots, Spinner, dragHandlers } from './common.js';
 import { SettingsPane } from './settings.js';
+import { MI } from '../mac-icons.js';
+import { editFolder, confirmDeleteFolder, addToFolderMenu } from './folders.js';
 import { StoriesRow } from './stories.js';
 import { composeMenu } from './new-chat.js';
 
@@ -203,7 +205,13 @@ function Folders() {
     ${items.map(f => {
       const n = f.key === 'main' ? 0 : unreadIn(f.key);
       return html`<button class=${`folder ${S.folder === f.key ? 'on' : ''}`} onClick=${() => { S.folder = f.key; changed(); }}
-        onContextMenu=${e => { e.preventDefault(); openMenu(e.clientX, e.clientY, [{ label: 'Прочитать все', icon: Icon.menu('menu_read'), action: () => readAll(f.key) }]); }}>
+        onContextMenu=${e => { e.preventDefault(); openMenu(e.clientX, e.clientY, f.key === 'main'
+          ? [{ label: 'Прочитать все', icon: Icon.menu('menu_read'), action: () => readAll(f.key) }, '-', { label: 'Настроить папки', icon: MI('menu_folder', 18), action: () => { S.tab = 'settings'; S.settingsPage = 'folders'; changed(); } }]
+          : [{ label: 'Прочитать все', icon: Icon.menu('menu_read'), action: () => readAll(f.key) },
+            { label: 'Изменить папку', icon: Icon.menu('menu_edit'), action: () => editFolder(Number(f.key.slice(1))) },
+            { label: 'Добавить чаты', icon: MI('menu_add_to_folder', 18), action: () => editFolder(Number(f.key.slice(1))) },
+            '-',
+            { label: 'Удалить папку', icon: Icon.trash(), danger: true, action: () => confirmDeleteFolder(Number(f.key.slice(1)), f.title) }]); }}>
         ${f.title}<${Counter} value=${n} show=${n > 0}/>
       </button>`;
     })}
@@ -311,6 +319,26 @@ function rowDeps(chat) {
   };
 }
 const ChatRow = memo(ChatRowView);
+// «Удалить чат» / «Покинуть группу» / «Покинуть канал» — с подтверждением, как в macOS.
+function leaveItem(chat) {
+  const t = chat.type?.['@type'];
+  const channel = isChannel(chat), group = isGroup(chat);
+  const label = channel ? 'Покинуть канал' : group ? 'Покинуть группу' : isSaved(chat) ? 'Очистить Избранное' : 'Удалить чат';
+  const run = () => {
+    closeModal();
+    const p = channel || group
+      ? send({ '@type': 'leaveChat', chat_id: chat.id }).then(() => send({ '@type': 'deleteChatHistory', chat_id: chat.id, remove_from_chat_list: true, revoke: false }).catch(() => {}))
+      : send({ '@type': 'deleteChatHistory', chat_id: chat.id, remove_from_chat_list: !isSaved(chat), revoke: false });
+    p.then(() => { if (S.currentChatId === chat.id && !isSaved(chat)) selectChat(null); showHud(channel || group ? 'Вы покинули чат' : 'Чат удалён'); }).catch(err => showHud(err.message));
+  };
+  return { label, icon: Icon.menu(channel || group ? 'menu_leave' : 'menu_delete'), danger: true, action: () => openModal({
+    icon: html`<div style="display:flex;justify-content:center;color:var(--red)">${MI(channel || group ? 'menu_leave' : 'menu_delete', 36)}</div>`,
+    title: `${label}?`,
+    text: channel || group ? `Вы выйдете из «${chatTitle(chat)}». Вернуться можно по ссылке или приглашению.` : t === 'chatTypeSecret' ? 'Секретный чат будет удалён с этого устройства.' : 'История переписки будет удалена у вас. Собеседник её сохранит.',
+    buttons: [{ label: channel || group ? 'Покинуть' : 'Удалить', kind: 'danger', action: run }, { label: 'Отмена', kind: 'second', action: closeModal }],
+  }) };
+}
+
 function ChatRowView({ chat, pinned, compact }) {
   const on = S.currentChatId === chat.id;
   const user = chatUser(chat);
@@ -324,12 +352,19 @@ function ChatRowView({ chat, pinned, compact }) {
 
   const onContext = e => {
     e.preventDefault();
+    const x = e.clientX, y = e.clientY;
     openMenu(e.clientX, e.clientY, [
       { label: pinned ? 'Открепить' : 'Закрепить', icon: Icon.menu(pinned ? 'menu_unpin' : 'menu_pin'), action: () => send({ '@type': 'toggleChatIsPinned', chat_list: { '@type': 'chatListMain' }, chat_id: chat.id, is_pinned: !pinned }).catch(err => showHud(err.message)) },
       { label: muted ? 'Включить уведомления' : 'Выключить уведомления', icon: Icon.menu(muted ? 'menu_unmuted' : 'menu_mute'), action: () => send({ '@type': 'setChatNotificationSettings', chat_id: chat.id, notification_settings: { ...(chat.notification_settings || {}), '@type': 'chatNotificationSettings', use_default_mute_for: false, mute_for: muted ? 0 : 2147483647 } }).catch(err => showHud(err.message)) },
       unread
         ? { label: 'Отметить как прочитанное', icon: Icon.menu('menu_read'), action: () => m && send({ '@type': 'viewMessages', chat_id: chat.id, message_ids: [m.id], force_read: true }).then(() => chat.is_marked_as_unread && send({ '@type': 'toggleChatIsMarkedAsUnread', chat_id: chat.id, is_marked_as_unread: false })).catch(() => {}) }
         : { label: 'Отметить как непрочитанное', icon: Icon.menu('menu_unread'), action: () => send({ '@type': 'toggleChatIsMarkedAsUnread', chat_id: chat.id, is_marked_as_unread: true }).catch(() => {}) },
+      { label: 'Добавить в папку', icon: MI('menu_add_to_folder', 18), action: () => setTimeout(() => addToFolderMenu(x, y, chat), 220) },
+      ...(isSaved(chat) ? [] : [inList(chat, 'archive')
+        ? { label: 'Вернуть из архива', icon: Icon.menu('menu_unarchive'), action: () => send({ '@type': 'addChatToList', chat_id: chat.id, chat_list: { '@type': 'chatListMain' } }).then(() => showHud('Чат возвращён из архива')).catch(err => showHud(err.message)) }
+        : { label: 'В архив', icon: Icon.menu('menu_archive'), action: () => send({ '@type': 'addChatToList', chat_id: chat.id, chat_list: { '@type': 'chatListArchive' } }).then(() => showHud('Чат перемещён в архив')).catch(err => showHud(err.message)) }]),
+      '-',
+      leaveItem(chat),
     ]);
   };
 

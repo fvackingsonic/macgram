@@ -10,6 +10,7 @@ import { useRef } from '../lib.js';
 import { Avatar, Spinner, dragHandlers } from './common.js';
 import { startSecretChat } from './new-chat.js';
 import { openStories } from './stories.js';
+import { GroupSub, myRights, leaveChat, copyInvite, resetInvite } from './group-admin.js';
 
 // Экран профиля — как в новом Telegram для macOS: цветная шапка, 4 кнопки, карточка данных, вкладки медиа.
 const TABS = [
@@ -34,6 +35,8 @@ function heroColors(chat, user) {
 export function ProfileScreen({ chat }) {
   const [info, setInfo] = useState(null);
   const [tab, setTab] = useState('media');
+  const [sub, setSub] = useState(null);
+  const [ver, setVer] = useState(0);
   const user = chatUser(chat);
   const t = chat.type['@type'];
 
@@ -43,7 +46,10 @@ export function ProfileScreen({ chat }) {
     else if (t === 'chatTypeSupergroup') req = { '@type': 'getSupergroupFullInfo', supergroup_id: chat.type.supergroup_id };
     else if (t === 'chatTypeBasicGroup') req = { '@type': 'getBasicGroupFullInfo', basic_group_id: chat.type.basic_group_id };
     if (req) send(req).then(setInfo).catch(() => setInfo({})); else setInfo({});
-    const esc = e => { if (e.key === 'Escape' && !S.viewer && !S.menu) close(); };
+  }, [chat.id, ver]);
+  const subRef = useRef(sub); subRef.current = sub;
+  useEffect(() => {
+    const esc = e => { if (e.key !== 'Escape' || S.viewer || S.menu || S.modal) return; if (subRef.current) setSub(null); else close(); };
     window.addEventListener('keydown', esc);
     return () => window.removeEventListener('keydown', esc);
   }, [chat.id]);
@@ -64,10 +70,18 @@ export function ProfileScreen({ chat }) {
       ...(username ? [{ label: 'Скопировать ссылку', icon: Icon.menu('menu_copy_link'), action: () => copy(`https://t.me/${username}`, 'Ссылка') }] : []),
       ...(user && !isSaved(chat) && chat.type['@type'] === 'chatTypePrivate' && user.type?.['@type'] !== 'userTypeBot' ? [{ label: 'Начать секретный чат', icon: Icon.menu('menu_secret_chat'), action: () => startSecretChat(user.id) }] : []),
       ...(S.stories.has(chat.id) ? [{ label: 'Смотреть истории', icon: Icon.menu('menu_play'), action: () => openStories(chat.id) }] : []),
+      ...(!user && rights?.info ? [{ label: isChannel(chat) ? 'Изменить канал' : 'Изменить группу', icon: Icon.menu('menu_edit'), action: () => setSub('edit') }] : []),
+      ...(!user && rights?.member ? ['-', { label: isChannel(chat) ? 'Покинуть канал' : 'Покинуть группу', icon: Icon.menu('menu_leave'), danger: true, action: () => leaveChat(chat, close) }] : []),
     ]);
   };
 
   const sg = t === 'chatTypeSupergroup' ? S.supergroups.get(chat.type.supergroup_id) : null;
+  const rights = !user && (t === 'chatTypeSupergroup' || t === 'chatTypeBasicGroup') ? myRights(chat) : null;
+  const ch = isChannel(chat);
+  const memberCount = sg?.member_count || info?.member_count || (t === 'chatTypeBasicGroup' ? S.basicGroups.get(chat.type.basic_group_id)?.member_count : 0) || 0;
+  const adminCount = info?.administrator_count ?? (info?.members ? info.members.filter(m => /Creator|Administrator/.test(m.status?.['@type'] || '')).length : null);
+  const inviteLink = info?.invite_link?.invite_link;
+  const reload = arg => { if (arg === 'add') { setSub('add'); return; } setVer(v => v + 1); };
   const bg = t === 'chatTypeBasicGroup' ? S.basicGroups.get(chat.type.basic_group_id) : null;
   const username = user?.usernames?.active_usernames?.[0] || sg?.usernames?.active_usernames?.[0];
   const about = user ? info?.bio : info?.description;
@@ -81,7 +95,7 @@ export function ProfileScreen({ chat }) {
   const soon = what => () => showHud(`${what} — в следующих обновлениях`);
   const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 
-  return html`<div class="pscreen">
+  return html`<div class=${`pscreen ${sub ? 'has-sub' : ''}`}>
     <div class="ps-scroll">
       <div class="ps-hero" style=${`background:radial-gradient(circle at 50% 35%, ${colors[0]}, ${colors[colors.length - 1]})`}>
         <div class="ps-top" ...${dragHandlers()}>
@@ -108,6 +122,16 @@ export function ProfileScreen({ chat }) {
           ${aboutText && html`<div class="ps-row selectable"><div><small>${user ? 'о себе' : 'описание'}</small><div style="white-space:pre-wrap">${typeof about === 'string' ? about : renderFormatted(about, (url, t) => openLink(url, t))}</div></div></div>`}
           ${info && !username && !user?.phone_number && !aboutText && !bday && html`<div class="ps-row" style="color:var(--gray-text)">Нет дополнительной информации</div>`}
         </div>
+        ${rights && (!ch || rights.admin) && html`<div class="ps-card">
+          ${(!ch || rights.admin) && html`<button class="ps-row ps-row-ic" onClick=${() => setSub('members')}><span class="ps-ic">${MI('Icon_ChatMembers', 28)}</span><div style="flex:1">${ch ? 'Подписчики' : 'Участники'}</div><span class="ps-val">${memberCount || ''}</span>${Icon.chevron(11)}</button>`}
+          ${rights.admin && html`<button class="ps-row ps-row-ic" onClick=${() => setSub('admins')}><span class="ps-ic">${MI('Icon_ChatAdmins', 28)}</span><div style="flex:1">Администраторы</div><span class="ps-val">${adminCount ?? ''}</span>${Icon.chevron(11)}</button>`}
+          ${!ch && rights.restrict && html`<button class="ps-row ps-row-ic" onClick=${() => setSub('perms')}><span class="ps-ic">${MI('Icon_ChatPermissions', 28)}</span><div style="flex:1">Разрешения</div>${Icon.chevron(11)}</button>`}
+          ${rights.invite && html`<button class="ps-row ps-row-ic" onClick=${() => copyInvite(chat, info, () => reload())} onContextMenu=${e => { e.preventDefault(); openMenu(e.clientX, e.clientY, [
+              { label: 'Скопировать ссылку', icon: Icon.menu('menu_copy_link'), action: () => copyInvite(chat, info, () => reload()) },
+              { label: 'Сбросить ссылку', icon: Icon.menu('menu_clear_history'), danger: true, action: () => resetInvite(chat, () => reload()) }]); }}>
+            <span class="ps-ic" style="color:var(--accent)">${MI('Icon_InviteViaLink', 26)}</span>
+            <div style="flex:1;min-width:0"><small>пригласительная ссылка</small><div class="ps-link">${inviteLink ? inviteLink.replace(/^https?:\/\//, '') : 'Создать ссылку'}</div></div>${Icon.copy(17)}</button>`}
+        </div>`}
         <div class="ps-card">
           <button class="ps-row" onClick=${toggleMute}><div><small>уведомления</small><div>${muted ? 'Выключены' : 'Включены'}</div></div><span class=${`switch ${muted ? '' : 'on'}`}><i/></span></button>
         </div>
@@ -115,6 +139,7 @@ export function ProfileScreen({ chat }) {
         <${SharedList} key=${`${chat.id}-${tab}`} chat=${chat} kind=${tab} filter=${TABS.find(x => x[0] === tab)[2]}/>
       </div>
     </div>
+    ${sub && html`<${GroupSub} key=${sub} kind=${sub} chat=${chat} info=${info} onBack=${() => setSub(null)} onChanged=${reload}/>`}
   </div>`;
 }
 

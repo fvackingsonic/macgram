@@ -11,6 +11,7 @@ import { openForward, startSelection, toggleSelected } from './forward.js';
 import { Avatar } from './common.js';
 import { player, progress } from '../player.js';
 import { Tgs } from './tgs.js';
+import { CommentsBar } from './thread.js';
 
 const onLink = (url, text) => openLink(url, text);
 
@@ -469,7 +470,7 @@ export function msgDeps(m) {
 }
 
 export const MessageRow = memo(MessageRowView, ['chat']);
-function MessageRowView({ msg, chat, first, last }) {
+function MessageRowView({ msg, chat, first, last, inThread }) {
   const c = msg.content;
   const fresh = S.fresh.has(msg.id);
   useEffect(() => { if (fresh) setTimeout(() => S.fresh.delete(msg.id), 600); }, [fresh]);
@@ -507,9 +508,12 @@ function MessageRowView({ msg, chat, first, last }) {
     openMenu(e.clientX, e.clientY, items);
   };
 
-  const content = jumbo
+  const body = jumbo
     ? html`<div class="bubble jumbo">${jumbo}<${Meta} msg=${msg} chat=${chat}/></div>`
     : html`<${Body} msg=${msg} chat=${chat} showName=${group && !out && first}/>`;
+  // Комментарии к посту канала — полоска внизу пузыря, как в Telegram для macOS.
+  const comments = isChannel(chat) && !inThread && !jumbo && msg.interaction_info?.reply_info && S.selection?.chatId !== chat.id;
+  const content = comments ? html`<div class="with-comments">${body}<${CommentsBar} msg=${msg} chat=${chat}/></div>` : body;
   const reacts = reactionList(msg).some(r => r.total_count > 0);
   const sender = S.users.get(msg.sender_id?.user_id);
   const senderChat = msg.sender_id?.chat_id ? S.chats.get(msg.sender_id.chat_id) : null;
@@ -517,7 +521,7 @@ function MessageRowView({ msg, chat, first, last }) {
   const selected = selecting && S.selection.ids.has(msg.id);
   const kb = msg.reply_markup?.['@type'] === 'replyMarkupInlineKeyboard' ? html`<${InlineKeyboard} msg=${msg}/>` : null;
   // Кнопка «Переслать» рядом с постом канала — как в Telegram для macOS.
-  const share = isChannel(chat) && !selecting && msg.can_be_forwarded !== false;
+  const share = isChannel(chat) && !selecting && !inThread && msg.can_be_forwarded !== false;
   return html`<div data-mid=${msg.id}
       class=${`msg-row ${out ? 'out' : 'in'} ${first ? 'first' : ''} ${last ? 'last' : ''} ${fresh ? 'fresh' : ''} ${S.highlight === msg.id ? 'highlight' : ''} ${selecting ? 'selecting' : ''} ${selected ? 'selected' : ''}`}
       onClickCapture=${e => { if (selecting) { e.stopPropagation(); e.preventDefault(); toggleSelected(msg.id); } }}
@@ -541,7 +545,7 @@ export function canReply(chat) {
 
 export function focusComposer(text) {
   setTimeout(() => {
-    const el = document.querySelector('.compose-input');
+    const el = document.querySelector('.nav-next .compose-input') || document.querySelector('.compose-input');
     if (!el) return;
     if (text != null) { el.value = text; el.dispatchEvent(new Event('input', { bubbles: true })); }
     el.focus();

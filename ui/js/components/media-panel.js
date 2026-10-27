@@ -1,6 +1,6 @@
 // Панель эмодзи / стикеров / GIF над полем ввода — как всплывающая панель в Telegram для macOS.
 import { html, memo, useEffect, useRef, useState } from '../lib.js';
-import { download, fileUrl, showHud, useFile } from '../store.js';
+import { download, fileUrl, showHud, useFile, topicFor } from '../store.js';
 import { send } from '../td.js';
 import { Icon } from '../icons.js';
 import { EMOJI } from '../emoji-data.js';
@@ -15,12 +15,12 @@ const pushRecent = e => { try { localStorage.setItem(RECENT_KEY, JSON.stringify(
 const remote = f => ({ '@type': 'inputFileRemote', id: f.remote.id });
 async function sendSticker(chatId, st) {
   try {
-    await send({ '@type': 'sendMessage', chat_id: chatId, input_message_content: { '@type': 'inputMessageSticker', sticker: { '@type': 'inputSticker', sticker: remote(st.sticker), width: st.width, height: st.height }, emoji: st.emoji || '' } });
+    await send({ '@type': 'sendMessage', chat_id: chatId, topic_id: topicFor(chatId), input_message_content: { '@type': 'inputMessageSticker', sticker: { '@type': 'inputSticker', sticker: remote(st.sticker), width: st.width, height: st.height }, emoji: st.emoji || '' } });
   } catch (e) { showHud(e.message?.includes('CHAT_SEND_STICKERS_FORBIDDEN') ? 'В этом чате нельзя отправлять стикеры' : e.message); }
 }
 async function sendGif(chatId, a) {
   try {
-    await send({ '@type': 'sendMessage', chat_id: chatId, input_message_content: { '@type': 'inputMessageAnimation', animation: { '@type': 'inputAnimation', animation: remote(a.animation), duration: a.duration, width: a.width, height: a.height }, caption: { '@type': 'formattedText', text: '', entities: [] } } });
+    await send({ '@type': 'sendMessage', chat_id: chatId, topic_id: topicFor(chatId), input_message_content: { '@type': 'inputMessageAnimation', animation: { '@type': 'inputAnimation', animation: remote(a.animation), duration: a.duration, width: a.width, height: a.height }, caption: { '@type': 'formattedText', text: '', entities: [] } } });
   } catch (e) { showHud(e.message); }
 }
 

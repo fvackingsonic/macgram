@@ -18,6 +18,7 @@ import { SelectionBar } from './forward.js';
 import { startRecording, finishRecording, cancelRecording } from '../voice.js';
 import { player, progress } from '../player.js';
 import { duration } from '../format.js';
+import { ThreadScreen, ForumTopics, isForum } from './thread.js';
 
 export function Main() {
   const chat = S.chats.get(S.currentChatId);
@@ -25,10 +26,16 @@ export function Main() {
     <div class="main-empty"><span class="service-pill">Выберите, кому хотели бы написать</span></div></main>`;
   // Профиль открывается как push в NavigationViewController (macOS): чат уезжает влево на треть
   // и гаснет, профиль въезжает справа (0.4 с, spring); «назад» — обратное движение.
-  const nav = S.profile ? (S.profileClosing ? 'popping' : 'pushed') : '';
+  // Ветка комментариев и тема форума открываются так же, как профиль.
+  const nav = S.profile ? (S.profileClosing ? 'popping' : 'pushed') : S.thread ? (S.thread.closing ? 'popping' : 'pushed') : '';
+  const forum = isForum(chat) && !S.forumAsChat?.has(chat.id);
+  const openProfile = () => { S.profile = true; changed(); };
   return html`<main class=${`main ${nav}`}>
-    <div class="nav-layer nav-prev" key=${`c${chat.id}`}><${Chat} key=${chat.id} chat=${chat}/></div>
+    <div class="nav-layer nav-prev" key=${`c${chat.id}${forum ? 'f' : ''}`}>${forum
+      ? html`<${ForumTopics} chat=${chat} onProfile=${openProfile} onAsChat=${() => { (S.forumAsChat ||= new Set()).add(chat.id); changed(); }}/>`
+      : html`<${Chat} key=${chat.id} chat=${chat}/>`}</div>
     ${S.profile && html`<div class=${`nav-layer nav-next ${S.profileClosing ? 'out' : ''}`} key=${`p${chat.id}`}><${ProfileScreen} chat=${chat}/></div>`}
+    ${!S.profile && S.thread && html`<div class=${`nav-layer nav-next ${S.thread.closing ? 'out' : ''}`} key=${`t${S.thread.sourceChatId || S.thread.chatId}:${S.thread.root?.id || S.thread.topicId}`}><${ThreadScreen}/></div>`}
   </main>`;
 }
 
@@ -63,6 +70,7 @@ function Chat({ chat }) {
     openMenu(r.right - 200, r.bottom + 4, [
       { label: muted ? 'Включить уведомления' : 'Выключить уведомления', icon: Icon.menu(muted ? 'menu_unmuted' : 'menu_mute'), action: toggleMute },
       { label: 'Обновить историю', icon: Icon.menu('menu_select_all'), action: () => { S.history.delete(chat.id); loadHistory(chat.id); } },
+      ...(isForum(chat) ? [{ label: 'Показать темы', icon: MI('Icon_Profile_Topics', 18), action: () => { S.forumAsChat?.delete(chat.id); changed(); } }] : []),
     ]);
   };
   const openProfile = () => { S.profile = true; changed(); };
@@ -194,14 +202,16 @@ const drafts = new Map();
 // Черновик синхронизируется с Telegram (виден на других устройствах и в списке чатов).
 function saveDraft(chatId, text) {
   const t = (text || '').trim() ? text : '';
-  send({ '@type': 'setChatDraftMessage', chat_id: chatId, message_thread_id: 0, draft_message: t
+  send({ '@type': 'setChatDraftMessage', chat_id: chatId, topic_id: null, draft_message: t
     ? { '@type': 'draftMessage', date: 0, input_message_text: { '@type': 'inputMessageText', text: { '@type': 'formattedText', text: t, entities: [] } } }
     : null }).catch(() => {});
 }
 
-function Composer({ chat }) {
+export function Composer({ chat, topic, onSent }) {
   const ref = useRef();
-  const [text, setText] = useState(() => drafts.get(chat.id) ?? chat.draft_message?.input_message_text?.text?.text ?? '');
+  // В ветке комментариев / теме форума свой локальный черновик.
+  const dkey = topic ? `${chat.id}:${topic.message_thread_id || topic.forum_topic_id}` : chat.id;
+  const [text, setText] = useState(() => drafts.get(dkey) ?? (topic ? '' : chat.draft_message?.input_message_text?.text?.text ?? ''));
   const [panel, setPanel] = useState(false);
   const insertEmoji = e => {
     const el = ref.current; if (!el) return;
@@ -216,8 +226,8 @@ function Composer({ chat }) {
   useEffect(() => () => {
     const v = ref.current?.value || '';
     const before = chat.draft_message?.input_message_text?.text?.text || '';
-    drafts.set(chat.id, v);
-    if (v !== before && !S.editing) saveDraft(chat.id, v);
+    drafts.set(dkey, v);
+    if (!topic && v !== before && !S.editing) saveDraft(chat.id, v);
   }, []);
 
   const lastTyping = useRef(0);
@@ -226,7 +236,7 @@ function Composer({ chat }) {
     const now = Date.now();
     if (e.target.value && now - lastTyping.current > 4000) {
       lastTyping.current = now;
-      send({ '@type': 'sendChatAction', chat_id: chat.id, message_thread_id: 0, action: { '@type': 'chatActionTyping' } }).catch(() => {});
+      send({ '@type': 'sendChatAction', chat_id: chat.id, topic_id: topic || null, business_connection_id: '', action: { '@type': 'chatActionTyping' } }).catch(() => {});
     }
   };
   const onPaste = e => {
@@ -237,9 +247,9 @@ function Composer({ chat }) {
   };
   const submit = (opts = {}) => {
     if (!text.trim()) return;
-    sendText(chat.id, text, opts);
-    setText(''); drafts.delete(chat.id);
-    if (chat.draft_message) saveDraft(chat.id, '');
+    sendText(chat.id, text, topic ? { ...opts, topic, onSent } : opts);
+    setText(''); drafts.delete(dkey);
+    if (!topic && chat.draft_message) saveDraft(chat.id, '');
   };
   // Правый клик по кнопке отправки: без звука / отложить (как в macOS).
   const sendMenu = e => {
@@ -276,7 +286,7 @@ function Composer({ chat }) {
       if (S.editing) setText('');
       S.reply = null; S.editing = null; changed();
     } else if (e.key === 'ArrowUp' && !text) {
-      const mine = [...(S.history.get(chat.id)?.list || [])].reverse().find(m => m.is_outgoing && m.content['@type'] === 'messageText');
+      const mine = [...((topic ? S.thread?.list : S.history.get(chat.id)?.list) || [])].reverse().find(m => m.is_outgoing && m.content['@type'] === 'messageText');
       if (mine) { e.preventDefault(); S.editing = mine; S.reply = null; changed(); setText(mine.content.text.text); focusComposer(); }
     }
   };
@@ -307,7 +317,7 @@ function Composer({ chat }) {
   return html`<div class="composer-wrap">
     <${ReplyKeyboard} chat=${chat}/>
     ${panel && html`<${MediaPanel} chatId=${chat.id} onEmoji=${insertEmoji} onClose=${() => setPanel(false)}/>`}
-    <button class="glass circle" title="Прикрепить файл" onClick=${() => pickAndSend(false)}>${Icon.attach()}</button>
+    ${!topic && html`<button class="glass circle" title="Прикрепить файл" onClick=${() => pickAndSend(false)}>${Icon.attach()}</button>`}
     <div class="composer glass">
       ${bar && html`<div class="compose-bar" key=${S.editing?.id || S.reply?.id}>
         <span style="color:var(--accent)">${bar.icon}</span>
@@ -320,9 +330,9 @@ function Composer({ chat }) {
         <button class=${`icon-btn emoji-btn ${panel ? 'active' : ''}`} title="Эмодзи и стикеры" onClick=${() => setPanel(!panel)}>${Icon.smile()}</button>
       </div>
     </div>
-    <button class=${`glass circle send-btn ${ready ? 'ready' : ''}`} title=${ready ? 'Отправить (правая кнопка — без звука или отложить)' : 'Голосовое сообщение'} onClick=${ready ? () => submit() : () => startRecording(chat.id)} onContextMenu=${sendMenu}>
-      <span class=${ready ? 'hide' : ''}>${Icon.mic()}</span>
-      <span class=${ready ? '' : 'hide'}>${Icon.send(22)}</span>
+    <button class=${`glass circle send-btn ${ready ? 'ready' : ''}`} title=${ready ? 'Отправить (правая кнопка — без звука или отложить)' : topic ? 'Отправить' : 'Голосовое сообщение'} onClick=${ready ? () => submit() : topic ? null : () => startRecording(chat.id)} onContextMenu=${sendMenu}>
+      <span class=${ready || topic ? 'hide' : ''}>${Icon.mic()}</span>
+      <span class=${ready || topic ? '' : 'hide'}>${Icon.send(22)}</span>
     </button>
   </div>`;
 }

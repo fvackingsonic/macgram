@@ -17,6 +17,7 @@ import { SendDialog, DropOverlay } from './components/attach.js';
 import { ForwardDialog } from './components/forward.js';
 import { StoryViewer } from './components/stories.js';
 import { NewChatDialog } from './components/new-chat.js';
+import { FolderChatsPicker } from './components/folders.js';
 import { LockScreen } from './components/lock.js';
 import { initPasscode } from './passcode.js';
 
@@ -28,7 +29,7 @@ function App() {
     window.addEventListener('focus', f); window.addEventListener('blur', b);
     const keys = e => {
       if (e.key === 'Escape' && S.selection && !S.modal && !S.forward) { S.selection = null; changed(); return; }
-      if (e.key === 'Escape' && !S.profile && !S.menu && !S.modal && !S.viewer && !S.sendDialog && !S.forward && !S.newChat && !S.storyView && !S.selection && !S.reply && !S.editing && S.currentChatId && document.activeElement?.tagName !== 'INPUT') selectChat(null);
+      if (e.key === 'Escape' && !S.profile && !S.thread && !S.menu && !S.modal && !S.viewer && !S.sendDialog && !S.forward && !S.newChat && !S.storyView && !S.selection && !S.reply && !S.editing && S.currentChatId && document.activeElement?.tagName !== 'INPUT') selectChat(null);
       if ((e.ctrlKey || e.metaKey) && e.code === 'KeyF' && S.currentChatId && !S.profile) {
         e.preventDefault(); S.chatSearch = { chatId: S.currentChatId, q: '', results: [], index: -1, total: 0 }; changed(); return;
       }
@@ -56,6 +57,7 @@ function App() {
     <${SendDialog}/>
     <${ForwardDialog}/>
     <${NewChatDialog}/>
+    <${FolderChatsPicker}/>
     <${StoryViewer}/>
     <${Viewer}/>
     <${ContextMenu}/>
