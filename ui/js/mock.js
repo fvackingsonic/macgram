@@ -39,6 +39,7 @@ export function createMock(dispatch) {
       ]) }),
       msg(11, 107, ME, 'Отлично, гляну вечером', now - 35 * 60, { reply_to: { '@type': 'messageReplyToMessage', chat_id: 11, message_id: 106 } }),
       msg(11, 108, 11, '👍', now - 30 * 60),
+      msg(11, 112, 11, '', now - 26 * 60, { content: { '@type': 'messageVideo', video: { duration: 42, width: 1280, height: 720, video: { id: 79, size: 9000000, local: { is_downloading_completed: false, can_be_downloaded: true, downloaded_size: 3000000 } } }, caption: { text: 'Видео с выходных', entities: [] } } }),
       msg(11, 110, 11, '', now - 25 * 60, { content: { '@type': 'messageVoiceNote', voice_note: { duration: 14, waveform: 'AAAQIEBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygp', voice: { id: 77, size: 20000, local: { is_downloading_completed: false, can_be_downloaded: true } } } } }),
       msg(11, 111, ME, '', now - 20 * 60, { content: { '@type': 'messageAudio', audio: { duration: 187, title: 'Night Drive', performer: 'Demo Artist', file_name: 'night.mp3', audio: { id: 78, size: 4200000, local: { is_downloading_completed: false, can_be_downloaded: true } } }, caption: { text: '', entities: [] } } }),
       msg(11, 109, 11, 'И не забудь про тёмную тему', now - 3 * 60),

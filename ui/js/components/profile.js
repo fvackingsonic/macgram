@@ -2,7 +2,9 @@ import { html, useEffect, useState } from '../lib.js';
 import { S, changed, isMuted, chatTitle, chatUser, isSaved, isChannel, showHud, download, fileUrl } from '../store.js';
 import { send, shell } from '../td.js';
 import { Icon } from '../icons.js';
-import { userStatus, count, renderFormatted } from '../format.js';
+import { userStatus, count, renderFormatted, duration } from '../format.js';
+import { fileOf } from '../store.js';
+import { useRef } from '../lib.js';
 import { Avatar, Spinner } from './common.js';
 
 // Панель профиля справа — как в Telegram для macOS.
@@ -100,9 +102,57 @@ export function Viewer() {
   const close = () => { setClosing(true); setTimeout(() => { S.viewer = null; changed(); }, 180); };
   const url = (best && fileUrl(best.photo)) || v.url;
   const mini = v.photo?.minithumbnail?.data;
+  if (v.video) return html`<div class=${`viewer ${closing ? 'out' : ''}`} onClick=${close}><${VideoPlayer} video=${v.video}/>
+    <button class="viewer-close" onClick=${close}>${Icon.close(18)}</button></div>`;
   return html`<div class=${`viewer ${closing ? 'out' : ''}`} onClick=${close}>
     ${url ? html`<img src=${url} alt="" onClick=${e => e.stopPropagation()}/>`
       : mini ? html`<img src=${`data:image/jpeg;base64,${mini}`} style=${`filter:blur(10px);width:${Math.min(best?.width || 600, innerWidth * .8)}px`} alt=""/>` : html`<${Spinner}/>`}
     <button class="viewer-close" onClick=${close}>${Icon.close(18)}</button>
+  </div>`;
+}
+
+// Видеоплеер со своими кнопками (в духе macOS: полупрозрачная панель снизу).
+function VideoPlayer({ video }) {
+  const ref = useRef();
+  const wrap = useRef();
+  const [st, setSt] = useState({ playing: false, t: 0, d: video.duration || 0, vol: 1, muted: false });
+  const [idle, setIdle] = useState(false);
+  const file = video.video;
+  useEffect(() => { download(file, 32); }, [file.id]);
+  const src = fileUrl(file);
+  const f = fileOf(file);
+  const pct = f?.size ? Math.round(100 * (f.local?.downloaded_size || 0) / f.size) : 0;
+  const thumb = video.thumbnail?.format?.['@type'] === 'thumbnailFormatJpeg' ? fileUrl(video.thumbnail.file) : '';
+  const mini = video.minithumbnail?.data;
+  const [W, H] = (() => { const k = Math.min(innerWidth * .9 / (video.width || 16), innerHeight * .82 / (video.height || 9)); return [Math.round((video.width || 16) * k), Math.round((video.height || 9) * k)]; })();
+  const v = () => ref.current;
+  const toggle = () => { const el = v(); if (!el) return; el.paused ? el.play().catch(() => {}) : el.pause(); };
+  const seek = e => { const el = v(); if (!el || !st.d) return; const r = e.currentTarget.getBoundingClientRect(); el.currentTime = Math.max(0, Math.min(st.d, (e.clientX - r.left) / r.width * st.d)); };
+  const full = () => { if (document.fullscreenElement) document.exitFullscreen(); else wrap.current?.requestFullscreen?.(); };
+  useEffect(() => {
+    let t; const move = () => { setIdle(false); clearTimeout(t); t = setTimeout(() => setIdle(true), 2200); };
+    const key = e => { if (e.key === ' ') { e.preventDefault(); toggle(); } if (e.key === 'ArrowRight' && v()) v().currentTime += 5; if (e.key === 'ArrowLeft' && v()) v().currentTime -= 5; if (e.key.toLowerCase() === 'f') full(); };
+    window.addEventListener('mousemove', move); window.addEventListener('keydown', key); move();
+    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('keydown', key); clearTimeout(t); };
+  }, []);
+  return html`<div class=${`vplayer ${idle && st.playing ? 'idle' : ''}`} ref=${wrap} style=${`width:${W}px;height:${H}px`} onClick=${e => e.stopPropagation()}>
+    ${!src && mini && html`<img class="vp-poster blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
+    ${!src && thumb && html`<img class="vp-poster" src=${thumb} alt=""/>`}
+    ${src && html`<video ref=${ref} src=${src} autoplay playsinline onClick=${toggle} onDblClick=${full}
+      onPlay=${() => setSt(s => ({ ...s, playing: true }))} onPause=${() => setSt(s => ({ ...s, playing: false }))}
+      onTimeUpdate=${e => setSt(s => ({ ...s, t: e.target.currentTime }))}
+      onLoadedMetadata=${e => setSt(s => ({ ...s, d: e.target.duration || s.d }))}/>`}
+    ${!src && html`<div class="vp-loading"><svg width="56" height="56" viewBox="0 0 44 44"><circle cx="22" cy="22" r="20" fill="rgba(0,0,0,.5)"/>
+      <circle cx="22" cy="22" r="16" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-dasharray=${`${Math.max(4, pct) * 1.005} 100.5`} transform="rotate(-90 22 22)" style="transition:stroke-dasharray .3s"/></svg><span>${pct}%</span></div>`}
+    ${src && !st.playing && html`<button class="vp-big" onClick=${toggle}>${Icon.play(30)}</button>`}
+    ${src && html`<div class="vp-bar">
+      <button onClick=${toggle}>${st.playing ? Icon.pause(18) : Icon.play(18)}</button>
+      <span class="vp-time">${duration(Math.floor(st.t))}</span>
+      <div class="vp-track" onClick=${seek}><i style=${`width:${st.d ? st.t / st.d * 100 : 0}%`}/></div>
+      <span class="vp-time">${duration(Math.floor(st.d))}</span>
+      <button onClick=${() => { const el = v(); if (el) { el.muted = !el.muted; setSt(s => ({ ...s, muted: el.muted })); } }}>${st.muted ? Icon.muted(16) : Icon.volume(16)}</button>
+      <input type="range" min="0" max="1" step="0.01" value=${st.muted ? 0 : st.vol} onInput=${e => { const el = v(); const x = Number(e.target.value); if (el) { el.volume = x; el.muted = x === 0; } setSt(s => ({ ...s, vol: x, muted: x === 0 })); }}/>
+      <button onClick=${full} title="Во весь экран">${Icon.expand()}</button>
+    </div>`}
   </div>`;
 }

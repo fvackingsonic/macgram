@@ -10,6 +10,7 @@ import { Avatar, Spinner, TypingDots, dragHandlers } from './common.js';
 import { MessageRow, canReply, focusComposer, isServiceType } from './message.js';
 import { ProfilePanel } from './profile.js';
 import { pickAndSend, pasteImage } from './attach.js';
+import { MediaPanel } from './media-panel.js';
 import { player, progress } from '../player.js';
 import { duration } from '../format.js';
 
@@ -107,6 +108,14 @@ const drafts = new Map();
 function Composer({ chat }) {
   const ref = useRef();
   const [text, setText] = useState(drafts.get(chat.id) || '');
+  const [panel, setPanel] = useState(false);
+  const insertEmoji = e => {
+    const el = ref.current; if (!el) return;
+    const a = el.selectionStart ?? text.length, b = el.selectionEnd ?? text.length;
+    const v = text.slice(0, a) + e + text.slice(b);
+    setText(v);
+    setTimeout(() => { el.focus(); el.setSelectionRange(a + e.length, a + e.length); }, 0);
+  };
   const resize = () => { const el = ref.current; if (!el) return; el.style.height = 'auto'; el.style.height = `${Math.min(200, el.scrollHeight)}px`; };
   useLayoutEffect(resize, [text]);
   useEffect(() => { ref.current?.focus(); }, []);
@@ -146,7 +155,8 @@ function Composer({ chat }) {
     : S.reply ? { title: `Ответ ${senderName(S.reply.sender_id) || chatTitle(chat)}`, text: contentSummary(S.reply.content, id => userName(S.users.get(id))), icon: Icon.reply(18) } : null;
   const ready = !!text.trim();
   const soon = what => () => showHud(`${what} — в следующем обновлении`);
-  return html`<div class="composer">
+  return html`<div class="composer" style="position:relative">
+    ${panel && html`<${MediaPanel} chatId=${chat.id} onEmoji=${insertEmoji} onClose=${() => setPanel(false)}/>`}
     ${bar && html`<div class="compose-bar" key=${S.editing?.id || S.reply?.id}>
       <span style="color:var(--accent)">${bar.icon}</span>
       <div class="bar-body"><div class="bar-title">${bar.title}</div><div class="bar-text">${bar.text}</div></div>
@@ -156,7 +166,7 @@ function Composer({ chat }) {
       <button class="icon-btn" title="Прикрепить файл" onClick=${() => pickAndSend(false)}>${Icon.attach()}</button>
       <textarea ref=${ref} class="compose-input" rows="1" placeholder=${isChannel(chat) ? 'Публикация…' : 'Сообщение'} value=${text}
         onInput=${onInput} onKeyDown=${onKey} onPaste=${onPaste}/>
-      <button class="icon-btn" title="Эмодзи и стикеры" onClick=${soon('Панель стикеров')}>${Icon.smile()}</button>
+      <button class=${`icon-btn emoji-btn ${panel ? 'active' : ''}`} title="Эмодзи и стикеры" onClick=${() => setPanel(!panel)}>${Icon.smile()}</button>
       <button class=${`icon-btn send-btn ${ready ? 'ready' : ''}`} title=${ready ? 'Отправить' : 'Голосовое сообщение'} onClick=${ready ? submit : soon('Голосовые сообщения')}>
         <span class=${ready ? 'hide' : ''} style="position:absolute;inset:0;display:grid;place-items:center;transition:transform .22s var(--spring),opacity .15s">${Icon.mic()}</span>
         <span class=${ready ? '' : 'hide'} style="position:absolute;inset:0;display:grid;place-items:center;transition:transform .22s var(--spring),opacity .15s">${Icon.sendCircle(28)}</span>

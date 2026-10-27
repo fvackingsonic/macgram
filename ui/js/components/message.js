@@ -5,6 +5,7 @@ import { Icon } from '../icons.js';
 import { hm, renderFormatted, contentSummary, fileSize, duration, peerIndex, nameColor, jumboEmoji, userName, serviceText } from '../format.js';
 import { Avatar } from './common.js';
 import { player, progress } from '../player.js';
+import { Tgs } from './tgs.js';
 
 const onLink = url => shell.openUrl(url);
 
@@ -85,7 +86,8 @@ function Video({ video, gif }) {
   const mini = video.minithumbnail?.data;
   const cur = fileOf(file);
   const progress = cur?.size ? Math.round(100 * (cur.local?.downloaded_size || 0) / cur.size) : 0;
-  return html`<div class="photo" style=${`width:${W}px;height:${H}px`} onClick=${() => !gif && setPlay(true)}>
+  const openViewer = e => { e.stopPropagation(); S.viewer = { video }; changed(); };
+  return html`<div class="photo" style=${`width:${W}px;height:${H}px;cursor:pointer`} onClick=${e => !gif && openViewer(e)}>
     ${mini && html`<img class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
     ${tUrl && !src && html`<img class="full" src=${tUrl} alt="" onError=${e => e.target.remove()}/>`}
     ${src && html`<video class="full" src=${src} autoplay loop=${gif} muted=${gif} controls=${!gif} playsinline/>`}
@@ -100,6 +102,7 @@ function Sticker({ sticker }) {
   const url = fileUrl(sticker.sticker);
   if (fmt === 'stickerFormatWebm' && url) return html`<video class="sticker-img" src=${url} autoplay loop muted playsinline/>`;
   if (fmt === 'stickerFormatWebp' && url) return html`<img class="sticker-img" src=${url} alt=${sticker.emoji} draggable="false"/>`;
+  if (fmt === 'stickerFormatTgs') return html`<${Tgs} file=${sticker.sticker} size=${160} fallback=${sticker.emoji || '🙂'}/>`;
   return html`<div class="sticker-emoji">${sticker.emoji || '🙂'}</div>`;
 }
 
@@ -230,8 +233,11 @@ function Body({ msg, showName, chat }) {
     }
     case 'messageSticker':
       return html`<div class="bubble sticker"><${Sticker} sticker=${c.sticker}/><div style="display:flex;justify-content:flex-end"><span class="meta-overlay" style="position:static">${metaInner(msg, chat)}</span></div></div>`;
-    case 'messageAnimatedEmoji':
+    case 'messageAnimatedEmoji': {
+      const st = c.animated_emoji?.sticker;
+      if (st?.format?.['@type'] === 'stickerFormatTgs') return html`<div class="bubble sticker"><${Tgs} file=${st.sticker} size=${112} fallback=${c.emoji}/><div style="display:flex;justify-content:flex-end"><span class="meta-overlay" style="position:static">${metaInner(msg, chat)}</span></div></div>`;
       return html`<div class="bubble jumbo">${c.emoji}${meta}</div>`;
+    }
     case 'messageVideoNote':
       return html`<div class="bubble round"><${ReplyQuote} msg=${msg}/><${VideoNote} note=${c.video_note}/><div><span class="meta-overlay">${metaInner(msg, chat)}</span></div></div>`;
     case 'messageVoiceNote':
