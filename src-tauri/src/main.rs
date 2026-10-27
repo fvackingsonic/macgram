@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod desktop;
 mod secrets;
 mod tdjson;
 
@@ -205,6 +206,9 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
+        .on_window_event(desktop::on_window_event)
         .manage(Td::default())
         .invoke_handler(tauri::generate_handler![
             td_start,
@@ -212,7 +216,11 @@ fn main() {
             td_send,
             td_set_parameters,
             creds_status,
-            creds_save
+            creds_save,
+            desktop::pick_files,
+            desktop::save_paste,
+            desktop::notify,
+            desktop::set_badge
         ])
         .run(tauri::generate_context!())
         .expect("не удалось запустить приложение");
