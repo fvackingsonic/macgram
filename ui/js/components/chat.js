@@ -77,14 +77,17 @@ function Messages({ chat }) {
   };
   useEffect(() => { onScroll(); }, [list.length]);
 
-  const items = [];
+  // Каждый день — отдельная секция, чтобы «липкая» дата не наезжала на соседние.
+  const same = (a, b) => a && b && !isServiceType(a.content) && !isServiceType(b.content) && sameDay(a.date, b.date)
+    && JSON.stringify(a.sender_id) === JSON.stringify(b.sender_id) && Math.abs(a.date - b.date) < 300 && a.is_outgoing === b.is_outgoing;
+  const days = [];
   for (let i = 0; i < list.length; i++) {
     const m = list[i], prev = list[i - 1], next = list[i + 1];
-    if (!prev || !sameDay(prev.date, m.date)) items.push(html`<div class="date-sep" key=${`d${m.date}`}><span>${dayLabel(m.date)}</span></div>`);
-    const same = (a, b) => a && b && !isServiceType(a.content) && !isServiceType(b.content) && sameDay(a.date, b.date)
-      && JSON.stringify(a.sender_id) === JSON.stringify(b.sender_id) && Math.abs(a.date - b.date) < 300 && a.is_outgoing === b.is_outgoing;
-    items.push(html`<${MessageRow} key=${m.id} msg=${m} chat=${chat} first=${!same(prev, m)} last=${!same(m, next)}/>`);
+    if (!prev || !sameDay(prev.date, m.date)) days.push({ key: `d${m.id}`, date: m.date, rows: [] });
+    days[days.length - 1].rows.push(html`<${MessageRow} key=${m.id} msg=${m} chat=${chat} first=${!same(prev, m)} last=${!same(m, next)}/>`);
   }
+  const items = days.map(d => html`<section class="day" key=${d.key}>
+    <div class="date-sep"><span>${dayLabel(d.date)}</span></div>${d.rows}</section>`);
   return html`<div class="messages" ref=${ref} onScroll=${onScroll}>
     <div class="messages-inner">
       ${h?.loading && html`<div class="loader-top" style="color:var(--gray-text)"><${Spinner}/></div>`}

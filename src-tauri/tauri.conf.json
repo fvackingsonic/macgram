@@ -26,20 +26,39 @@
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data: blob:; media-src 'self' asset: http://asset.localhost blob:; font-src 'self' data:; connect-src ipc: http://ipc.localhost",
       "assetProtocol": {
         "enable": true,
-        "scope": ["$APPLOCALDATA/tdlib/files/**"]
+        "scope": [
+          "$APPLOCALDATA/tdlib/files/**",
+          "$APPLOCALDATA/tdlib/db/profile_photos/**",
+          "$APPLOCALDATA/tdlib/db/thumbnails/**",
+          "$APPLOCALDATA/tdlib/db/secret_thumbnails/**",
+          "$APPLOCALDATA/tdlib/db/wallpapers/**"
+        ]
       }
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico", "icons/icon.png"],
-    "resources": ["lib/*"],
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico",
+      "icons/icon.png"
+    ],
+    "resources": [
+      "lib/*"
+    ],
     "shortDescription": "Неофициальный клиент Telegram в стиле macOS",
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["Russian", "English"],
+        "languages": [
+          "Russian",
+          "English"
+        ],
         "displayLanguageSelector": false
       }
     }

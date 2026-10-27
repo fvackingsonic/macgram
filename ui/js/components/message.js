@@ -85,7 +85,7 @@ function Video({ video, gif }) {
   const progress = cur?.size ? Math.round(100 * (cur.local?.downloaded_size || 0) / cur.size) : 0;
   return html`<div class="photo" style=${`width:${W}px;height:${H}px`} onClick=${() => !gif && setPlay(true)}>
     ${mini && html`<img class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
-    ${tUrl && !src && html`<img class="full" src=${tUrl} alt=""/>`}
+    ${tUrl && !src && html`<img class="full" src=${tUrl} alt="" onError=${e => e.target.remove()}/>`}
     ${src && html`<video class="full" src=${src} autoplay loop=${gif} muted=${gif} controls=${!gif} playsinline/>`}
     ${!src && !gif && html`<div class="play-badge">${play ? html`<span style="font-size:11px">${progress}%</span>` : Icon.play(22)}</div>`}
     ${!gif && !src && html`<span class="dur-badge">${duration(video.duration || 0)}</span>`}
@@ -142,6 +142,26 @@ function useWave(b64) {
   } catch { return Array(40).fill(.3); }
 }
 
+function VideoNote({ note }) {
+  const ref = useRef();
+  const [sound, setSound] = useState(false);
+  useEffect(() => { if (note.thumbnail?.file) download(note.thumbnail.file, 2); download(note.video, 1); }, [note.video.id]);
+  const src = fileUrl(note.video);
+  const thumb = note.thumbnail?.format?.['@type'] === 'thumbnailFormatJpeg' ? fileUrl(note.thumbnail.file) : '';
+  const mini = note.minithumbnail?.data;
+  const toggle = () => {
+    const v = ref.current; if (!v) return;
+    if (!sound) { v.muted = false; v.loop = false; v.currentTime = 0; v.play().catch(() => {}); setSound(true); }
+    else { v.muted = true; v.loop = true; setSound(false); }
+  };
+  return html`<div class="video-note" onClick=${toggle}>
+    ${mini && html`<img class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
+    ${thumb && !src && html`<img src=${thumb} alt="" onError=${e => e.target.remove()}/>`}
+    ${src && html`<video ref=${ref} src=${src} autoplay muted loop playsinline onEnded=${() => { const v = ref.current; if (v) { v.muted = true; v.loop = true; v.play().catch(() => {}); } setSound(false); }}/>`}
+    ${!sound && html`<span class="dur-badge" style="left:50%;top:auto;bottom:10px;transform:translateX(-50%)">${duration(note.duration || 0)} ${Icon.muted(11)}</span>`}
+  </div>`;
+}
+
 function Doc({ name, size, icon }) {
   return html`<div class="file"><div class="file-ic">${icon || Icon.file(20)}</div>
     <div style="min-width:0"><div class="fname">${name}</div><div class="fsize">${fileSize(size)}</div></div></div>`;
@@ -171,6 +191,8 @@ function Body({ msg, showName, chat }) {
       return html`<div class="bubble sticker"><${Sticker} sticker=${c.sticker}/><div style="display:flex;justify-content:flex-end"><span class="meta-overlay" style="position:static">${metaInner(msg, chat)}</span></div></div>`;
     case 'messageAnimatedEmoji':
       return html`<div class="bubble jumbo">${c.emoji}${meta}</div>`;
+    case 'messageVideoNote':
+      return html`<div class="bubble round"><${ReplyQuote} msg=${msg}/><${VideoNote} note=${c.video_note}/><div><span class="meta-overlay">${metaInner(msg, chat)}</span></div></div>`;
     case 'messageVoiceNote':
       return html`<div class="bubble">${nameEl}<${ReplyQuote} msg=${msg}/><${Voice} voice=${c.voice_note}/>${meta}</div>`;
     case 'messageDocument':
