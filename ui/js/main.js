@@ -8,6 +8,7 @@ import { ContextMenu, Hud, Modal } from './components/common.js';
 import { Viewer } from './components/profile.js';
 import { Wallpaper } from './components/wallpaper.js';
 import './notify.js';
+import './effects.js';
 import { SendDialog, DropOverlay } from './components/attach.js';
 import { ForwardDialog } from './components/forward.js';
 import { StoryViewer } from './components/stories.js';

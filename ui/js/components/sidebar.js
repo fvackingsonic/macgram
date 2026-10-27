@@ -45,8 +45,12 @@ const TABS = [
   { id: 'chats', icon: () => Icon.tabChats(S.tab === 'chats'), title: 'Чаты' },
   { id: 'settings', icon: () => Icon.tabSettings(), title: 'Настройки' },
 ];
+// Панель вкладок с «линзой» (TabBarView из Telegram для macOS): при нажатии выделение
+// приподнимается (+8px со всех сторон) и следует за курсором, при отпускании защёлкивается
+// пружиной 0.4s на ближайшей вкладке; иконка выбранной вкладки увеличивается до 1.15. Esc — отмена.
 function TabBar() {
-  const [lifted, setLifted] = useState(false);
+  const ref = useRef();
+  const [g, setG] = useState(null); // { start, center, pos, dragging, index }
   const idx = TABS.findIndex(t => t.id === S.tab);
   const unread = [...S.chats.values()].reduce((n, c) => n + (position(c, 'main') && !isMuted(c) && c.unread_count > 0 ? 1 : 0), 0);
   const pick = id => {
@@ -56,14 +60,45 @@ function TabBar() {
     if (id === 'contacts' && !S.contacts) loadContacts();
     changed();
   };
-  useEffect(() => { const up = () => setLifted(false); window.addEventListener('mouseup', up); return () => window.removeEventListener('mouseup', up); }, []);
-  const sel = `width:calc((100% - 8px) / ${TABS.length});transform:translateX(${idx * 100}%) ${lifted ? 'scale(1.12, 1.3)' : ''}`;
-  return html`<nav class=${`tabbar ${lifted ? 'lifted' : ''}`} onMouseDown=${() => setLifted(true)}>
-    <div class="tab-sel" style=${sel}/>
-    ${TABS.map(t => html`<button class=${`tab ${S.tab === t.id ? 'on' : ''}`} title=${t.title} onClick=${() => pick(t.id)}>
+  const metrics = () => { const r = ref.current.getBoundingClientRect(); return { left: r.left + 4, w: (r.width - 8) / TABS.length }; };
+  const down = e => {
+    if (e.button !== 0) return;
+    const { left, w } = metrics();
+    const index = Math.max(0, Math.min(TABS.length - 1, Math.floor((e.clientX - left) / w)));
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setG({ start: e.clientX, center: left + w * (index + 0.5), pos: index, dragging: false, index });
+  };
+  const move = e => {
+    if (!g) return;
+    if (!g.dragging && Math.abs(e.clientX - g.start) < 3) return;
+    const { left, w } = metrics();
+    const x = g.center + e.clientX - g.start;
+    const pos = Math.max(0, Math.min(TABS.length - 1, (x - left) / w - 0.5));
+    setG({ ...g, pos, dragging: true });
+  };
+  const up = () => {
+    if (!g) return;
+    const i = Math.round(g.pos);
+    setG(null);
+    pick(TABS[i].id);
+  };
+  useEffect(() => {
+    if (!g) return;
+    const k = e => { if (e.key === 'Escape') setG(null); };
+    window.addEventListener('keydown', k); window.addEventListener('blur', () => setG(null));
+    return () => window.removeEventListener('keydown', k);
+  }, [!!g]);
+  const pos = g ? g.pos : idx;
+  const lifted = !!g;
+  const sel = `width:calc((100% - 8px) / ${TABS.length});transform:translateX(${pos * 100}%)`;
+  const lensIndex = Math.round(pos);
+  return html`<nav ref=${ref} class=${`tabbar ${lifted ? 'lifted' : ''} ${g?.dragging ? 'dragging' : ''}`}
+      onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${() => setG(null)}>
+    <div class="tab-sel" style=${sel}><i class="tab-lens"/></div>
+    ${TABS.map((t, i) => html`<div class=${`tab ${(g ? lensIndex === i : S.tab === t.id) ? 'on' : ''} ${g && lensIndex === i ? 'grow' : ''}`} title=${t.title}>
       ${t.id === 'settings' && S.users.get(S.myId) ? html`<span class="tab-avatar"><${Avatar} user=${S.users.get(S.myId)} size=${26}/></span>` : t.icon()}
       ${t.id === 'chats' && unread > 0 && html`<span class="badge">${unread > 99 ? '99+' : unread}</span>`}
-    </button>`)}
+    </div>`)}
   </nav>`;
 }
 

@@ -134,7 +134,7 @@ svg { display: block; flex: none; }
   position: absolute; top: 4px; bottom: 4px; left: 4px; border-radius: 20px; background: var(--glass-sel);
   transition: transform .4s var(--spring), width .4s var(--spring), box-shadow .25s; pointer-events: none;
 }
-.tabbar.lifted .tab-sel { transform-origin: center; box-shadow: 0 6px 18px rgba(0,0,0,.18), inset 0 0 0 .5px var(--glass-edge); }
+
 .tab { flex: 1; display: grid; place-items: center; color: var(--gray-icon); position: relative; transition: color .2s; z-index: 1; }
 .tab:hover { color: var(--dark-gray-text); }
 .tab.on { color: var(--accent); }
@@ -749,8 +749,8 @@ img.mi { background: none; }
 .top-bars { position: absolute; top: calc(var(--gap) + 56px); left: 0; right: var(--gap); z-index: 3; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
 .top-bars > * { pointer-events: auto; }
 .top-bars .player-bar.glass { position: relative; top: auto; left: auto; right: auto; }
-.chat.bars-1 .messages { padding-top: 114px; }
-.chat.bars-2 .messages { padding-top: 164px; }
+.chat.bars-1 .messages { padding-top: 122px; }
+.chat.bars-2 .messages { padding-top: 172px; }
 .pinned-bar.glass { height: 44px; border-radius: 22px; display: flex; align-items: center; gap: 10px; padding: 0 6px 0 16px; cursor: pointer; animation: bar-in .25s var(--ease-out); }
 .pin-lines { display: flex; flex-direction: column; gap: 2px; height: 30px; justify-content: center; }
 .pin-lines i { width: 2px; flex: 1; max-height: 30px; border-radius: 1px; background: var(--accent); opacity: .3; }
@@ -976,3 +976,53 @@ html.lite .glass, html.lite .tabbar, html.lite .media-panel, html.lite .ctx, htm
 html.lite .glass, html.lite .tabbar { background: var(--bg); }
 html.lite .media-panel, html.lite .ctx { background: var(--bg); }
 html.lite *, html.lite *::before, html.lite *::after { animation-duration: .001s !important; transition-duration: .001s !important; }
+
+/* ═══ Плеер как в Telegram для macOS (InlineAudioPlayerView) ═══ */
+.top-bars .player-bar.glass {
+  height: 52px; border-radius: 20px; display: block; padding: 0; overflow: visible;
+  transition: height .25s cubic-bezier(0, 0, .2, 1); animation: bar-in .25s var(--ease-out);
+}
+.top-bars .player-bar.glass.expanded { height: 66px; }
+.pb-row { height: 40px; display: flex; align-items: center; gap: 5px; padding: 6px 12px 0 10px; box-sizing: content-box; }
+.pb-btn { width: 30px; height: 30px; display: grid; place-items: center; color: var(--text); border-radius: 8px; transition: transform .2s var(--spring), opacity .15s; flex: none; position: relative; }
+.pb-btn:hover { background: var(--glass-sel); }
+.pb-btn:active { transform: scale(.9); }
+.pb-btn[disabled], .pb-btn.dim { color: var(--gray-text); }
+.pb-btn[disabled] { opacity: .45; pointer-events: none; }
+.pb-btn.on { color: var(--accent); }
+.pb-play { width: 34px; height: 34px; }
+.pb-play span { position: absolute; inset: 0; display: grid; place-items: center; transition: transform .25s var(--spring), opacity .15s; }
+.pb-play span.hide { transform: scale(.4) rotate(-90deg); opacity: 0; }
+.pb-info { flex: 1; min-width: 0; margin-left: 15px; cursor: pointer; display: flex; flex-direction: column; justify-content: center; }
+.pb-title { font-size: var(--fs-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pb-sub { font-size: var(--fs-text); color: var(--dark-gray-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player-bar .pb-rate { background: none; color: var(--text); font-weight: 600; font-size: 12px; min-width: 0; padding: 4px 6px; border-radius: 8px; border: 1.5px solid currentColor; line-height: 1; margin: 0 4px; }
+.player-bar .pb-rate.dim { color: var(--gray-text); }
+.player-bar .pb-vol { position: relative; display: flex; color: inherit; gap: 0; }
+.pb-vol-pop { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%) scale(.9); opacity: 0; pointer-events: none; padding: 8px 10px; border-radius: 12px; background: var(--menu-bg); backdrop-filter: blur(20px); box-shadow: var(--menu-shadow); transition: opacity .15s, transform .2s var(--spring); z-index: 5; }
+.pb-vol:hover .pb-vol-pop, .pb-vol:focus-within .pb-vol-pop { opacity: 1; transform: translateX(-50%) scale(1); pointer-events: auto; }
+.pb-vol-pop input { width: 110px; accent-color: var(--accent); }
+.pb-track { position: absolute; left: 20px; right: 20px; bottom: 0; height: 10px; cursor: pointer; display: flex; align-items: flex-end; padding-bottom: 4px; transition: height .25s cubic-bezier(0, 0, .2, 1); }
+.player-bar.expanded .pb-track { height: 22px; align-items: center; padding-bottom: 0; }
+.pb-line { position: relative; width: 100%; height: 2px; border-radius: 3px; background: transparent; overflow: hidden; transition: height .25s cubic-bezier(0, 0, .2, 1), background .25s; }
+.player-bar.expanded .pb-line { height: 6px; background: color-mix(in srgb, var(--gray-icon) 20%, transparent); }
+.pb-line i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; }
+.pb-fill { background: var(--accent); transition: width .2s linear; }
+.pb-preview { background: color-mix(in srgb, var(--text) 25%, transparent); }
+.pb-tip { position: absolute; top: calc(100% + 4px); transform: translateX(12px); height: 24px; padding: 0 10px; border-radius: 12px; background: var(--bg); box-shadow: 0 2px 8px rgba(0,0,0,.2); display: flex; align-items: center; gap: 6px; font-size: var(--fs-text); white-space: nowrap; color: var(--gray-text); pointer-events: none; z-index: 5; animation: fade-in .15s; }
+.pb-tip b { color: var(--text); font-weight: 500; }
+.chat.bars-1 .messages, .chat.bars-2 .messages { transition: padding-top .25s; }
+
+/* ── «линза» панели вкладок ── */
+.tabbar { touch-action: none; user-select: none; }
+.tab-sel { background: transparent !important; transition: transform .4s var(--spring), width .4s var(--spring) !important; }
+.tabbar.dragging .tab-sel { transition: none !important; }
+.tab-lens { position: absolute; inset: 0; border-radius: 20px; background: var(--glass-sel); transition: inset .4s var(--spring), border-radius .4s var(--spring), background .25s, box-shadow .25s, backdrop-filter .25s; }
+.tabbar.lifted .tab-lens {
+  inset: -8px; border-radius: 28px; background: color-mix(in srgb, var(--bg) 35%, transparent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .18), inset 0 0 0 .5px var(--glass-edge), inset 0 1px 0 var(--glass-hi);
+  backdrop-filter: blur(4px) saturate(1.6);
+}
+.tab { pointer-events: none; }
+.tab svg, .tab .mi, .tab .tab-avatar { transition: transform .4s var(--spring); }
+.tab.grow svg, .tab.grow .mi, .tab.grow .tab-avatar { transform: scale(1.15); }

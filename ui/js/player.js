@@ -20,7 +20,7 @@ export const player = {
       performer: isVoice ? '' : (c.audio.performer || ''),
       duration: isVoice ? c.voice_note.duration : c.audio.duration,
       time: 0, playing: false, loading: true,
-      rate: S.player?.rate || 1, volume: S.player?.volume ?? 1,
+      rate: S.player?.rate || 1, volume: S.player?.volume ?? 1, repeat: S.player?.repeat || 'none',
     };
     audio.pause();
     pendingFile = file.id;
@@ -47,6 +47,22 @@ export const player = {
     changed();
   },
   toggle: () => toggle(),
+  // Соседние треки того же вида в этом чате (как «назад/вперёд» в плеере Mac).
+  neighbor(dir) {
+    const p = S.player; if (!p || p.kind === 'note') return null;
+    const type = p.kind === 'voice' ? 'messageVoiceNote' : 'messageAudio';
+    const list = (S.history.get(p.chatId)?.list || []).filter(m => m.content['@type'] === type);
+    const i = list.findIndex(m => m.id === p.msgId);
+    return i < 0 ? null : list[i + dir] || null;
+  },
+  next() { const m = player.neighbor(1); if (m) player.play(m); },
+  prev() {
+    const m = media();
+    if (m.currentTime > 3 || !player.neighbor(-1)) { m.currentTime = 0; return; }
+    player.play(player.neighbor(-1));
+  },
+  setRepeat(r) { if (S.player) { S.player.repeat = r; changed(); } },
+  toggleMute() { if (!S.player) return; const m = media(); m.muted = !m.muted; S.player.muted = m.muted; changed(); },
   seek(fraction) {
     if (!S.player) return;
     const m = media();
@@ -104,6 +120,7 @@ audio.addEventListener('loadedmetadata', () => { if (S.player && audio.duration 
 audio.addEventListener('ended', () => {
   const p = S.player;
   if (!p) return;
+  if (p.repeat === 'one') { audio.currentTime = 0; audio.play().catch(() => {}); return; }
   // Как на Mac: после голосового сразу включается следующее голосовое в этом чате.
   const list = S.history.get(p.chatId)?.list || [];
   const next = list.find(m => m.id > p.msgId && m.content['@type'] === (p.kind === 'voice' ? 'messageVoiceNote' : 'messageAudio'));

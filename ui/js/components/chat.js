@@ -11,6 +11,7 @@ import { MessageRow, AlbumRow, msgDeps, canReply, focusComposer, isServiceType }
 import { ProfileScreen } from './profile.js';
 import { pickAndSend, pasteImage } from './attach.js';
 import { MediaPanel } from './media-panel.js';
+import { MI } from '../mac-icons.js';
 import { SelectionBar } from './forward.js';
 import { startRecording, finishRecording, cancelRecording } from '../voice.js';
 import { player, progress } from '../player.js';
@@ -256,25 +257,56 @@ function Composer({ chat }) {
   </div>`;
 }
 
-// Полоска плеера под шапкой чата (как в macOS).
-const RATES = [1, 1.5, 2];
+// Плеер как InlineAudioPlayerView из Telegram для macOS: стеклянная карточка 52px (радиус 20),
+// «назад / пауза / вперёд», название и исполнитель, повтор, скорость, громкость, закрыть;
+// тонкая полоска прогресса снизу, при наведении — толще, карточка растёт до 66px, подсказка времени.
+const RATES = [0.5, 1, 1.25, 1.5, 1.75, 2];
 function PlayerBar() {
   useTick();
   const p = S.player;
+  const [hover, setHover] = useState(null);
+  const [expanded, setExpanded] = useState(false);
   if (!p) return null;
   const owner = S.chats.get(p.chatId);
-  const goto = () => { if (p.chatId !== S.currentChatId) selectChat(p.chatId); else document.querySelector(`[data-mid="${p.msgId}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }); };
-  const seek = e => { const r = e.currentTarget.getBoundingClientRect(); player.seek((e.clientX - r.left) / r.width); };
-  return html`<div class="player-bar glass">
-    <button class="icon-btn" onClick=${player.toggle}>${p.playing ? Icon.pause(18) : Icon.play(18)}</button>
-    <div class="pb-info" onClick=${goto}>
-      <div class="pb-title">${p.performer ? html`<b>${p.performer}</b> — ` : ''}${p.title}</div>
-      <div class="pb-sub">${owner ? chatTitle(owner) : ''} · ${duration(Math.floor(p.time))} / ${duration(Math.floor(p.duration || 0))}</div>
+  const goto = () => { if (p.chatId !== S.currentChatId) selectChat(p.chatId); else jumpTo(p.chatId, p.msgId); };
+  const posFromEvent = e => { const r = e.currentTarget.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); };
+  const prog = progress();
+  const d = p.duration || 0;
+  const hasPrev = p.kind !== 'note', hasNext = !!player.neighbor(1);
+  const rateMenu = e => {
+    const r = e.currentTarget.getBoundingClientRect();
+    openMenu(r.left, r.bottom + 6, RATES.map(x => ({ label: `${x}×${x === p.rate ? '  ✓' : ''}`, action: () => player.setRate(x) })));
+  };
+  const nextRepeat = { none: 'all', all: 'one', one: 'none' }[p.repeat || 'none'];
+  const title = p.kind === 'audio' ? p.title : p.performer || p.title;
+  const artist = p.kind === 'audio' ? p.performer : (p.kind === 'note' ? 'Видеосообщение' : 'Голосовое сообщение');
+  return html`<div class=${`player-bar glass ${expanded ? 'expanded' : ''}`} onMouseMove=${e => {
+      const r = e.currentTarget.getBoundingClientRect(); setExpanded(r.bottom - e.clientY < 22);
+    }} onMouseLeave=${() => { setExpanded(false); setHover(null); }}>
+    <div class="pb-row">
+      <button class="pb-btn" title="Предыдущий" disabled=${!hasPrev} onClick=${player.prev}>${MI('Icon_InlinePlayerNext', 22, 'transform:scaleX(-1)')}</button>
+      <button class="pb-btn pb-play" title=${p.playing ? 'Пауза' : 'Играть'} onClick=${player.toggle}>
+        <span class=${p.playing ? 'hide' : ''}>${MI('Icon_ChatMusicPlay', 18)}</span>
+        <span class=${p.playing ? '' : 'hide'}>${MI('Icon_ChatMusicPause', 16)}</span>
+      </button>
+      <button class="pb-btn" title="Следующий" disabled=${!hasNext} onClick=${player.next}>${MI('Icon_InlinePlayerNext', 22)}</button>
+      <div class="pb-info" onClick=${goto}>
+        <div class="pb-title">${title}</div>
+        ${artist && html`<div class="pb-sub">${artist}${owner && p.chatId !== S.currentChatId ? ` · ${chatTitle(owner)}` : ''}</div>`}
+      </div>
+      ${p.kind === 'audio' && html`<button class=${`pb-btn ${p.repeat && p.repeat !== 'none' ? 'on' : 'dim'}`} title="Повтор" onClick=${() => player.setRepeat(nextRepeat)}>
+        ${MI(p.repeat === 'one' ? 'Icon_InlinePlayer_RepeatOne' : p.repeat === 'all' ? 'Icon_InlinePlayer_Repeat' : 'Icon_AudioPlayer_List', 24)}</button>`}
+      <button class=${`pb-rate ${p.rate === 1 ? 'dim' : ''}`} title="Скорость" onClick=${rateMenu}>${String(p.rate).replace(/^(\d)$/, '$1.0')}x</button>
+      <label class="pb-vol" title="Громкость">
+        <button class=${`pb-btn ${p.muted ? 'dim' : ''}`} onClick=${e => { e.preventDefault(); player.toggleMute(); }}>${MI(p.muted ? 'Icon_InlinePlayer_VolumeOff' : 'Icon_InlinePlayer_VolumeOn', 24)}</button>
+        <span class="pb-vol-pop"><input type="range" min="0" max="1" step="0.01" value=${p.volume} onInput=${e => player.setVolume(Number(e.target.value))}/></span>
+      </label>
+      <button class="pb-btn" title="Закрыть" onClick=${player.stop}>${MI('Icon_Pip_Close', 18)}</button>
     </div>
-    <button class="pb-rate" title="Скорость" onClick=${() => player.setRate(RATES[(RATES.indexOf(p.rate) + 1) % RATES.length])}>${p.rate}×</button>
-    <label class="pb-vol" title="Громкость">${Icon.volume(15)}<input type="range" min="0" max="1" step="0.01" value=${p.volume} onInput=${e => player.setVolume(Number(e.target.value))}/></label>
-    <button class="icon-btn gray" title="Закрыть" onClick=${player.stop}>${Icon.menu('Icon_ChatAction_Close')}</button>
-    <div class="pb-progress" onClick=${seek}><i style=${`width:${progress() * 100}%`}/></div>
+    <div class="pb-track" onClick=${e => player.seek(posFromEvent(e))} onMouseMove=${e => setHover(posFromEvent(e))} onMouseLeave=${() => setHover(null)}>
+      <div class="pb-line"><i class="pb-fill" style=${`width:${prog * 100}%`}/>${hover != null && html`<i class="pb-preview" style=${`width:${hover * 100}%`}/>`}</div>
+    </div>
+    ${expanded && hover != null && html`<div class="pb-tip" style=${`left:calc(20px + (100% - 40px) * ${hover})`}><b>${duration(Math.floor(hover * d))}</b> ${duration(Math.floor(d))}</div>`}
   </div>`;
 }
 
