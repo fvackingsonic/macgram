@@ -46,12 +46,14 @@ export async function pasteImage(file) {
 const local = path => ({ '@type': 'inputFileLocal', path });
 const caption = text => ({ '@type': 'formattedText', text: text || '', entities: [] });
 
+// Формат TDLib 1.8.69+: файл передаётся внутри объекта inputPhoto / inputVideo / inputDocument …
 function content(f, compress, cap) {
-  if (compress && f.kind === 'photo') return { '@type': 'inputMessagePhoto', photo: local(f.path), caption: caption(cap) };
-  if (compress && f.kind === 'gif') return { '@type': 'inputMessageAnimation', animation: local(f.path), caption: caption(cap) };
-  if (compress && f.kind === 'video') return { '@type': 'inputMessageVideo', video: local(f.path), supports_streaming: true, caption: caption(cap) };
-  if (f.kind === 'audio') return { '@type': 'inputMessageAudio', audio: local(f.path), caption: caption(cap) };
-  return { '@type': 'inputMessageDocument', document: local(f.path), caption: caption(cap) };
+  const c = caption(cap);
+  if (compress && f.kind === 'photo') return { '@type': 'inputMessagePhoto', photo: { '@type': 'inputPhoto', photo: local(f.path) }, caption: c };
+  if (compress && f.kind === 'gif') return { '@type': 'inputMessageAnimation', animation: { '@type': 'inputAnimation', animation: local(f.path) }, caption: c };
+  if (compress && f.kind === 'video') return { '@type': 'inputMessageVideo', video: { '@type': 'inputVideo', video: local(f.path), supports_streaming: true }, caption: c };
+  if (f.kind === 'audio') return { '@type': 'inputMessageAudio', audio: { '@type': 'inputAudio', audio: local(f.path) }, caption: c };
+  return { '@type': 'inputMessageDocument', document: { '@type': 'inputDocument', document: local(f.path) }, caption: c };
 }
 
 export async function sendFiles(chatId, files, compress, text) {

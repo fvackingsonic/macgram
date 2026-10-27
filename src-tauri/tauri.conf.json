@@ -26,13 +26,16 @@
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data: blob:; media-src 'self' asset: http://asset.localhost blob:; font-src 'self' data:; connect-src ipc: http://ipc.localhost asset: http://asset.localhost",
       "assetProtocol": {
         "enable": true,
-        "scope": [
-          "$APPLOCALDATA/tdlib/files/**",
-          "$APPLOCALDATA/tdlib/db/profile_photos/**",
-          "$APPLOCALDATA/tdlib/db/thumbnails/**",
-          "$APPLOCALDATA/tdlib/db/secret_thumbnails/**",
-          "$APPLOCALDATA/tdlib/db/wallpapers/**"
-        ]
+        "scope": {
+          "allow": [
+            "$APPLOCALDATA/tdlib/files/**",
+            "$APPLOCALDATA/tdlib/db/*/**"
+          ],
+          "deny": [
+            "$APPLOCALDATA/tdlib/db/*.binlog",
+            "$APPLOCALDATA/tdlib/db/*.sqlite*"
+          ]
+        }
       }
     }
   },

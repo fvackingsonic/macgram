@@ -211,7 +211,7 @@ function Poll({ msg }) {
   const optText = o => typeof o.text === 'string' ? o.text : o.text?.text;
   const voted = p.is_closed || p.options.some(o => o.is_chosen);
   const quiz = p.type?.['@type'] === 'pollTypeQuiz';
-  const multi = p.type?.allow_multiple_answers;
+  const multi = p.allows_multiple_answers ?? p.type?.allow_multiple_answers;
   const [picked, setPicked] = useState([]);
   const vote = ids => send({ '@type': 'setPollAnswer', chat_id: msg.chat_id, message_id: msg.id, option_ids: ids }).catch(e => showHud(e.message));
   const kind = quiz ? 'Викторина' : p.is_anonymous ? 'Анонимный опрос' : 'Опрос';

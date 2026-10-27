@@ -885,10 +885,15 @@ button.item { width: 100%; text-align: left; }
 .stories-row { display: flex; gap: 10px; padding: 2px 14px 10px; overflow-x: auto; scrollbar-width: none; flex: none; }
 .stories-row::-webkit-scrollbar { display: none; }
 .story-av { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 58px; flex: none; animation: pop .3s var(--spring) backwards; }
-.story-ring { padding: 2px; border-radius: 50%; background: var(--gray-fg); transition: transform .2s var(--spring); }
-.story-ring.unread { background: linear-gradient(45deg, #34c76f, #3da1fd); }
-.story-ring.unread.close { background: linear-gradient(45deg, #61c83a, #c0e04c); }
-.story-ring .avatar { box-shadow: 0 0 0 2px var(--card-bg); }
+.story-ring { position: relative; padding: 4px; border-radius: 50%; transition: transform .2s var(--spring); }
+/* кольцо рисуется отдельным слоем с вырезом — без просвечивания фона через щель */
+.story-ring::before {
+  content: ""; position: absolute; inset: 0; border-radius: 50%; padding: 2px; background: var(--gray-icon); opacity: .55;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.story-ring.unread::before { background: linear-gradient(45deg, #34c76f, #3da1fd); opacity: 1; }
+.story-ring.unread.close::before { background: linear-gradient(45deg, #61c83a, #c0e04c); }
 .story-av:hover .story-ring { transform: scale(1.06); }
 .story-name { font-size: var(--fs-small); max-width: 58px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .story-veil { position: fixed; inset: 0; z-index: 46; background: rgba(0, 0, 0, .92); display: grid; place-items: center; animation: fade-in .2s var(--ease); }

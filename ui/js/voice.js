@@ -68,7 +68,7 @@ export async function finishRecording() {
     await send({
       '@type': 'sendMessage', chat_id: chatId,
       reply_to: reply ? { '@type': 'inputMessageReplyToMessage', message_id: reply.id } : undefined,
-      input_message_content: { '@type': 'inputMessageVoiceNote', voice_note: { '@type': 'inputFileLocal', path }, duration: Math.round(duration), waveform: b64(packWaveform(levels)), caption: { '@type': 'formattedText', text: '', entities: [] } },
+      input_message_content: { '@type': 'inputMessageVoiceNote', voice_note: { '@type': 'inputVoiceNote', voice_note: { '@type': 'inputFileLocal', path }, duration: Math.round(duration), waveform: b64(packWaveform(levels)) }, caption: { '@type': 'formattedText', text: '', entities: [] } },
     });
   } catch (e) { showHud(e.message || String(e)); }
 }

@@ -88,3 +88,20 @@ export const downloadProgress = file => {
   const f = fileOf(file);
   return f?.size ? (f.local?.downloaded_size || 0) / f.size : 0;
 };
+
+// Одновременно играет только один звук: голосовое/музыка, видео, кружок со звуком или история.
+// Беззвучные анимации (GIF, видеостикеры, кружки без звука) не трогаем.
+document.addEventListener('play', e => {
+  const t = e.target;
+  if (!(t instanceof HTMLMediaElement) || t.muted) return;
+  if (!audio.paused) audio.pause();
+  document.querySelectorAll('audio, video').forEach(m => { if (m !== t && !m.muted && !m.paused) m.pause(); });
+}, true);
+audio.addEventListener('play', () => {
+  document.querySelectorAll('audio, video').forEach(m => { if (!m.muted && !m.paused) m.pause(); });
+});
+// Кружок, включённый со звуком, тоже ставит плеер на паузу (событие volumechange).
+document.addEventListener('volumechange', e => {
+  const t = e.target;
+  if (t instanceof HTMLMediaElement && !t.muted && !t.paused && !audio.paused) audio.pause();
+}, true);

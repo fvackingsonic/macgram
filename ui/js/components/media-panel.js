@@ -15,12 +15,12 @@ const pushRecent = e => { try { localStorage.setItem(RECENT_KEY, JSON.stringify(
 const remote = f => ({ '@type': 'inputFileRemote', id: f.remote.id });
 async function sendSticker(chatId, st) {
   try {
-    await send({ '@type': 'sendMessage', chat_id: chatId, input_message_content: { '@type': 'inputMessageSticker', sticker: remote(st.sticker), width: st.width, height: st.height, emoji: st.emoji || '' } });
+    await send({ '@type': 'sendMessage', chat_id: chatId, input_message_content: { '@type': 'inputMessageSticker', sticker: { '@type': 'inputSticker', sticker: remote(st.sticker), width: st.width, height: st.height }, emoji: st.emoji || '' } });
   } catch (e) { showHud(e.message?.includes('CHAT_SEND_STICKERS_FORBIDDEN') ? 'В этом чате нельзя отправлять стикеры' : e.message); }
 }
 async function sendGif(chatId, a) {
   try {
-    await send({ '@type': 'sendMessage', chat_id: chatId, input_message_content: { '@type': 'inputMessageAnimation', animation: remote(a.animation), duration: a.duration, width: a.width, height: a.height, caption: { '@type': 'formattedText', text: '', entities: [] } } });
+    await send({ '@type': 'sendMessage', chat_id: chatId, input_message_content: { '@type': 'inputMessageAnimation', animation: { '@type': 'inputAnimation', animation: remote(a.animation), duration: a.duration, width: a.width, height: a.height }, caption: { '@type': 'formattedText', text: '', entities: [] } } });
   } catch (e) { showHud(e.message); }
 }
 
