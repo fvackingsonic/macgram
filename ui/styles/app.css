@@ -431,3 +431,56 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; bo
 .video-note .ring { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; }
 .bubble.round { background: transparent !important; box-shadow: none !important; padding: 0; }
 .bubble.round .meta-overlay { position: static; display: inline-flex; margin-top: 4px; }
+
+/* ───────── плеер ───────── */
+.player-bar {
+  flex: none; height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 12px; position: relative;
+  border-bottom: 1px solid var(--border); background: var(--chat-bg); animation: bar-in .22s var(--ease-out);
+}
+.pb-info { flex: 1; min-width: 0; cursor: pointer; }
+.pb-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-text); }
+.pb-sub { color: var(--gray-text); font-size: var(--fs-small); }
+.pb-rate { font-weight: 600; font-size: var(--fs-short); color: var(--accent); padding: 3px 7px; border-radius: 6px; background: var(--accent-soft); min-width: 38px; }
+.pb-vol { display: flex; align-items: center; gap: 4px; color: var(--gray-icon); }
+.pb-vol input { width: 80px; accent-color: var(--accent); }
+.pb-progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; cursor: pointer; }
+.pb-progress i, .mini-progress i { display: block; height: 100%; background: var(--accent); transition: width .2s linear; }
+.mini-progress { height: 3px; border-radius: 2px; background: rgba(127, 127, 127, .3); margin-top: 5px; cursor: pointer; overflow: hidden; }
+.msg-row.out .mini-progress i { background: #fff; }
+.voice-wave i.on { opacity: 1; }
+.msg-row.in .voice-wave i.on { background: var(--accent); }
+
+/* ───────── профиль справа ───────── */
+.profile-panel {
+  width: 320px; flex: none; border-left: 1px solid var(--border); display: flex; flex-direction: column; background: var(--sidebar-bg);
+  animation: panel-in .28s var(--ease-out);
+}
+.pp-head { height: var(--header-h); display: flex; align-items: center; justify-content: space-between; padding: 0 10px 0 16px; border-bottom: 1px solid var(--border); flex: none; }
+.pp-title { font-weight: 600; font-size: var(--fs-title); }
+.pp-body { flex: 1; overflow-y: auto; padding-bottom: 20px; }
+.profile .psub.online { color: var(--accent); }
+.pp-actions { display: flex; gap: 8px; padding: 0 10px 14px; }
+.pp-actions button {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: 10px;
+  background: var(--gray-ui); box-shadow: inset 0 0 0 1px var(--border); color: var(--accent); font-size: var(--fs-short); font-weight: 500;
+  transition: background .12s;
+}
+.pp-actions button:hover { background: var(--row-hover); }
+.item.two { height: auto; padding: 8px 12px; text-align: left; width: 100%; }
+.item.two small { color: var(--gray-text); font-size: var(--fs-short); }
+.item.two + .item::before, .item + .item.two::before { left: 12px; }
+.pp-section { padding: 4px 16px 8px; color: var(--gray-text); font-size: var(--fs-short); font-weight: 600; text-transform: uppercase; letter-spacing: .3px; }
+.media-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 0 10px; }
+.media-cell { aspect-ratio: 1; position: relative; overflow: hidden; background: var(--gray-bg); border-radius: 2px; cursor: zoom-in; }
+.media-cell img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.media-cell .blur { filter: blur(8px); transform: scale(1.1); }
+@keyframes panel-in { from { opacity: 0; transform: translateX(24px); } }
+
+/* ───────── просмотр фото ───────── */
+.viewer { position: fixed; inset: 0; z-index: 45; background: rgba(0, 0, 0, .88); display: grid; place-items: center; animation: fade-in .2s var(--ease); cursor: zoom-out; color: #fff; }
+.viewer img { max-width: 92vw; max-height: 90vh; object-fit: contain; border-radius: 4px; animation: viewer-in .28s var(--spring); cursor: default; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+.viewer.out { animation: fade-out .18s var(--ease) forwards; }
+.viewer.out img { animation: sheet-out .18s var(--ease) forwards; }
+.viewer-close { position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.14); display: grid; place-items: center; color: #fff; }
+.viewer-close:hover { background: rgba(255,255,255,.24); }
+@keyframes viewer-in { from { opacity: 0; transform: scale(.88); } }

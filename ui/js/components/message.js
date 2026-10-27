@@ -4,6 +4,7 @@ import { send, shell } from '../td.js';
 import { Icon } from '../icons.js';
 import { hm, renderFormatted, contentSummary, fileSize, duration, peerIndex, nameColor, jumboEmoji, userName, serviceText } from '../format.js';
 import { Avatar } from './common.js';
+import { player, progress } from '../player.js';
 
 const onLink = url => shell.openUrl(url);
 
@@ -64,7 +65,8 @@ function Photo({ photo, overlay }) {
   const [W, H] = fit(size?.width, size?.height);
   const url = size ? fileUrl(size.photo) : '';
   const mini = photo.minithumbnail?.data;
-  return html`<div class="photo" style=${`width:${W}px;height:${H}px`}>
+  const open = e => { e.stopPropagation(); S.viewer = { photo, url }; changed(); };
+  return html`<div class="photo" style=${`width:${W}px;height:${H}px;cursor:zoom-in`} onClick=${open}>
     ${mini && html`<img class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
     ${url && html`<img class="full" src=${url} alt="" draggable="false"/>`}
     ${overlay}
@@ -101,28 +103,47 @@ function Sticker({ sticker }) {
   return html`<div class="sticker-emoji">${sticker.emoji || '🙂'}</div>`;
 }
 
-function Voice({ voice, out }) {
-  const [playing, setPlaying] = useState(false);
-  const [want, setWant] = useState(false);
-  const audio = useRef();
-  const url = fileUrl(voice.voice);
-  useEffect(() => { if (want) download(voice.voice, 5); }, [want]);
-  useEffect(() => { if (want && url && audio.current) audio.current.play().catch(() => {}); }, [url, want]);
+function Voice({ msg }) {
+  const voice = msg.content.voice_note;
+  const cur = player.isCurrent(msg);
+  const p = cur ? S.player : null;
   const bars = useWave(voice.waveform);
-  const toggle = () => {
-    if (!url) { setWant(true); return; }
-    const a = audio.current; if (!a) return;
-    a.paused ? a.play().catch(() => {}) : a.pause();
+  const prog = cur ? progress() : 0;
+  const onWave = e => {
+    e.stopPropagation();
+    const r = e.currentTarget.getBoundingClientRect();
+    const f = (e.clientX - r.left) / r.width;
+    if (!cur) player.play(msg);
+    setTimeout(() => player.seek(f), cur ? 0 : 400);
   };
   return html`<div class="file">
-    <button class="file-ic" onClick=${toggle}>${playing ? Icon.pause(18) : Icon.play(18)}</button>
+    <button class="file-ic" onClick=${e => { e.stopPropagation(); player.play(msg); }}>
+      ${p?.loading && !p.playing ? html`<span class="spinner" style="width:18px;height:18px"/>` : p?.playing ? Icon.pause(18) : Icon.play(18)}
+    </button>
     <div style="flex:1;min-width:0">
-      <div class="voice-wave">${bars.map(v => html`<i style=${`height:${3 + v * 19}px`}/>`)}</div>
-      <div class="fsize">${duration(voice.duration || 0)}</div>
+      <div class="voice-wave" onClick=${onWave} style="cursor:pointer">${bars.map((v, i) => html`<i class=${i / bars.length < prog ? 'on' : ''} style=${`height:${3 + v * 19}px`}/>`)}</div>
+      <div class="fsize">${cur && p.time > 0 ? `${duration(Math.floor(p.time))} / ` : ''}${duration(voice.duration || 0)}</div>
     </div>
-    ${url && html`<audio ref=${audio} src=${url} onPlay=${() => setPlaying(true)} onPause=${() => setPlaying(false)} onEnded=${() => setPlaying(false)}/>`}
   </div>`;
 }
+
+function Audio_({ msg }) {
+  const a = msg.content.audio;
+  const cur = player.isCurrent(msg);
+  const p = cur ? S.player : null;
+  const title = a.title || a.file_name || 'Аудио';
+  return html`<div class="file" style="min-width:240px">
+    <button class="file-ic" onClick=${e => { e.stopPropagation(); player.play(msg); }}>
+      ${p?.loading && !p.playing ? html`<span class="spinner" style="width:18px;height:18px"/>` : p?.playing ? Icon.pause(18) : Icon.play(18)}
+    </button>
+    <div style="min-width:0;flex:1">
+      <div class="fname">${title}</div>
+      <div class="fsize">${a.performer ? `${a.performer} · ` : ''}${cur && p.time > 0 ? `${duration(Math.floor(p.time))} / ` : ''}${duration(a.duration || 0)}</div>
+      ${cur && html`<div class="mini-progress" onClick=${e => { const r = e.currentTarget.getBoundingClientRect(); player.seek((e.clientX - r.left) / r.width); }}><i style=${`width:${progress() * 100}%`}/></div>`}
+    </div>
+  </div>`;
+}
+
 function useWave(b64) {
   // waveform — 5-битные значения, упакованные подряд
   try {
@@ -194,12 +215,13 @@ function Body({ msg, showName, chat }) {
     case 'messageVideoNote':
       return html`<div class="bubble round"><${ReplyQuote} msg=${msg}/><${VideoNote} note=${c.video_note}/><div><span class="meta-overlay">${metaInner(msg, chat)}</span></div></div>`;
     case 'messageVoiceNote':
-      return html`<div class="bubble">${nameEl}<${ReplyQuote} msg=${msg}/><${Voice} voice=${c.voice_note}/>${meta}</div>`;
+      return html`<div class="bubble">${nameEl}<${ReplyQuote} msg=${msg}/><${Voice} msg=${msg}/>${meta}</div>`;
     case 'messageDocument':
       return html`<div class="bubble">${nameEl}${fwd}<${ReplyQuote} msg=${msg}/><${Doc} name=${c.document.file_name || 'Файл'} size=${c.document.document?.size}/>
         ${c.caption?.text && html`<div class="text selectable">${renderFormatted(c.caption, onLink)}</div>`}${meta}</div>`;
     case 'messageAudio':
-      return html`<div class="bubble">${nameEl}<${Doc} name=${[c.audio.performer, c.audio.title].filter(Boolean).join(' — ') || c.audio.file_name} size=${c.audio.audio?.size} icon=${Icon.play(18)}/>${meta}</div>`;
+      return html`<div class="bubble">${nameEl}${fwd}<${ReplyQuote} msg=${msg}/><${Audio_} msg=${msg}/>
+        ${c.caption?.text && html`<div class="text selectable">${renderFormatted(c.caption, onLink)}</div>`}${meta}</div>`;
     default:
       return html`<div class="bubble">${nameEl}${fwd}<span class="text" style="opacity:.8"><i>${contentSummary(c, id => userName(S.users.get(id)))}</i></span>${meta}</div>`;
   }

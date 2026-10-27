@@ -39,6 +39,8 @@ export function createMock(dispatch) {
       ]) }),
       msg(11, 107, ME, 'Отлично, гляну вечером', now - 35 * 60, { reply_to: { '@type': 'messageReplyToMessage', chat_id: 11, message_id: 106 } }),
       msg(11, 108, 11, '👍', now - 30 * 60),
+      msg(11, 110, 11, '', now - 25 * 60, { content: { '@type': 'messageVoiceNote', voice_note: { duration: 14, waveform: 'AAAQIEBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygp', voice: { id: 77, size: 20000, local: { is_downloading_completed: false, can_be_downloaded: true } } } } }),
+      msg(11, 111, ME, '', now - 20 * 60, { content: { '@type': 'messageAudio', audio: { duration: 187, title: 'Night Drive', performer: 'Demo Artist', file_name: 'night.mp3', audio: { id: 78, size: 4200000, local: { is_downloading_completed: false, can_be_downloaded: true } } }, caption: { text: '', entities: [] } } }),
       msg(11, 109, 11, 'И не забудь про тёмную тему', now - 3 * 60),
     ],
     12: [
@@ -174,6 +176,8 @@ export function createMock(dispatch) {
           const lq = q.query.toLowerCase();
           return reply({ '@type': 'chats', chat_ids: chats.filter(c => c.title.toLowerCase().includes(lq)).map(c => c.id) });
         }
+        case 'getUserFullInfo': return reply({ '@type': 'userFullInfo', bio: { '@type': 'formattedText', text: 'Дизайнер. Люблю кофе и горы ☕️', entities: [] } }, 150);
+        case 'searchChatMessages': return reply({ '@type': 'foundChatMessages', messages: [] }, 150);
         case 'getContacts': return reply({ '@type': 'users', user_ids: users.slice(1).map(u => u.id) }, 200);
         case 'createPrivateChat': return reply(chats.find(c => c.id === q.user_id) || chats[0]);
         case 'getRepliedMessage': {

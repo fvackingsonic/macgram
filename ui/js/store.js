@@ -28,6 +28,9 @@ export const S = {
   hud: null,
   modal: null,
   highlight: null,
+  player: null,
+  profile: false,
+  viewer: null,
   prefs: loadPrefs(),
 };
 

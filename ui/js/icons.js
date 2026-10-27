@@ -21,6 +21,7 @@ export const Icon = {
   clock: (s = 13) => S(s, html`<circle cx="12" cy="12" r="8"/><path d="M12 7.5V12l3 2"/>`),
   pin: (s = 14) => S(s, html`<path d="M15 3.5 20.5 9l-2.6.9-3.6 3.6.2 4-1.6 1.6-3.6-3.6-4.8 4.8M9.3 12.3 5.7 8.7l1.6-1.6 4 .2 3.6-3.6z"/>`, { sw: 1.6 }),
   muted: (s = 13) => S(s, html`<path d="M11 5 6.5 8.5H4v7h2.5L11 19z"/><path d="m16 9.5 5 5M21 9.5l-5 5"/>`),
+  volume: (s = 15) => S(s, html`<path d="M11 5 6.5 8.5H4v7h2.5L11 19z"/><path d="M15.5 9a4.5 4.5 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>`),
   more: (s = 22) => S(s, html`<circle cx="5.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18.5" cy="12" r="1.2"/>`, { sw: 1.9 }),
   reply: (s = 15) => S(s, html`<path d="M10 5 4 11l6 6"/><path d="M4.5 11H14a6 6 0 0 1 6 6v2"/>`),
   copy: (s = 15) => S(s, html`<rect x="8.5" y="8.5" width="11" height="11" rx="2.2"/><path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/>`),

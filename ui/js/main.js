@@ -5,6 +5,7 @@ import { Auth } from './components/auth.js';
 import { Sidebar } from './components/sidebar.js';
 import { Main } from './components/chat.js';
 import { ContextMenu, Hud, Modal } from './components/common.js';
+import { Viewer } from './components/profile.js';
 
 function App() {
   useStore();
@@ -13,7 +14,7 @@ function App() {
     const f = () => setFocused(true), b = () => setFocused(false);
     window.addEventListener('focus', f); window.addEventListener('blur', b);
     const keys = e => {
-      if (e.key === 'Escape' && !S.menu && !S.modal && !S.reply && !S.editing && S.currentChatId && document.activeElement?.tagName !== 'INPUT') selectChat(null);
+      if (e.key === 'Escape' && !S.menu && !S.modal && !S.viewer && !S.reply && !S.editing && S.currentChatId && document.activeElement?.tagName !== 'INPUT') selectChat(null);
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault(); S.tab = 'chats'; changed();
         setTimeout(() => document.querySelector('.search input')?.focus(), 0);
@@ -32,6 +33,7 @@ function App() {
   const ready = S.auth?.['@type'] === 'authorizationStateReady';
   return html`<div class=${`window ${focused ? '' : 'blurred'}`}>
     ${ready ? html`<${Sidebar}/><${Main}/>` : html`<${Auth}/>`}
+    <${Viewer}/>
     <${ContextMenu}/>
     <${Modal}/>
     <${Hud}/>
