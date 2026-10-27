@@ -7,6 +7,8 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 static CLOSE_TO_TRAY: AtomicBool = AtomicBool::new(true);
+/// Номер последнего уведомления — страховка: окно прячется само, даже если его страница не ответила.
+static TOAST_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 /// Последнее уведомление: окно, созданное только что, ещё не слушает события и забирает его само.
 static LAST_TOAST: std::sync::Mutex<Option<serde_json::Value>> = std::sync::Mutex::new(None);
 pub fn close_to_tray() -> bool {
@@ -109,6 +111,13 @@ pub async fn toast_show(app: AppHandle, payload: serde_json::Value) -> Result<()
     }
     let _ = app.emit_to("toast", "toast", payload);
     let _ = win.show();
+    let seq = TOAST_SEQ.fetch_add(1, Ordering::Relaxed) + 1;
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(12));
+        if TOAST_SEQ.load(Ordering::Relaxed) == seq {
+            let _ = win.hide();
+        }
+    });
     Ok(())
 }
 

@@ -32,7 +32,12 @@ function show(chat, title, body) {
   const photo = chat && S.prefs.notifyName !== false ? fileUrl(chat.photo?.small) : '';
   const payload = { chatId: chat?.id || 0, title, body,
     initials: chat ? initials(chatTitle(chat)) : 'm', color: chat ? avatarGradient(peerIndex(chat.id)) : '', photo };
-  window.__TAURI__.core.invoke('toast_show', { payload }).catch(() => shell.notify(title, body));
+  // Если своё окно уведомления не ответило за 3 с — показываем обычное уведомление Windows.
+  let done = false;
+  const fallback = setTimeout(() => { if (!done) shell.notify(title, body); }, 3000);
+  window.__TAURI__.core.invoke('toast_show', { payload })
+    .then(() => { done = true; clearTimeout(fallback); })
+    .catch(() => { done = true; clearTimeout(fallback); shell.notify(title, body); });
 }
 
 // События из трея и из окна уведомления.
