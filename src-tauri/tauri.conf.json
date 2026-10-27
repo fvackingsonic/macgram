@@ -20,7 +20,7 @@
         "decorations": false,
         "shadow": true,
         "dragDropEnabled": true,
-        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,SpareRendererForSitePerProcess --disable-background-networking"
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,SpareRendererForSitePerProcess --disable-background-networking --autoplay-policy=no-user-gesture-required"
       }
     ],
     "security": {

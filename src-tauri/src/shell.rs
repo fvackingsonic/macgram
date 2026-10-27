@@ -74,8 +74,10 @@ const TOAST_W: f64 = 360.0;
 const TOAST_H: f64 = 92.0;
 
 /// Показать всплывающее уведомление macgram (окно без рамки поверх всех, не забирает фокус).
+/// Команда обязательно async: на Windows создание окна из синхронной команды блокирует
+/// главный поток (tauri#4121) — из-за этого в 0.5/0.6 «зависало» всё окно после первого уведомления.
 #[tauri::command]
-pub fn toast_show(app: AppHandle, payload: serde_json::Value) -> Result<(), String> {
+pub async fn toast_show(app: AppHandle, payload: serde_json::Value) -> Result<(), String> {
     let win = match app.get_webview_window("toast") {
         Some(w) => w,
         None => WebviewWindowBuilder::new(&app, "toast", WebviewUrl::App("toast.html".into()))
