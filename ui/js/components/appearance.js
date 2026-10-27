@@ -88,8 +88,12 @@ export function Appearance() {
     <div class="group">
       <div class="item"><span class="lbl">Тёмный режим</span><${Switch} on=${dark} onChange=${v => pickTheme(v ? (S.prefs.nightTheme || 'night') : (['classic', 'day'].includes(S.prefs.dayTheme) ? S.prefs.dayTheme : 'classic'))}/></div>
       <div class="item"><span class="lbl">Пузыри сообщений</span><${Switch} on=${S.prefs.bubbles !== false} onChange=${v => setPref('bubbles', v)}/></div>
+      ${S.prefs.bubbles !== false && html`<div class="item"><span class="lbl">Стеклянные пузыри<small>Полупрозрачные, с размытием фона — как Liquid Glass в macOS</small></span><${Switch} on=${S.prefs.glassBubbles !== false} onChange=${v => setPref('glassBubbles', v)}/></div>`}
       ${S.prefs.bubbles !== false && html`<button class="item" onClick=${() => go('wallpaper')}><span class="lbl">Фон чата</span><span class="chev">${Icon.chevron(11)}</span></button>`}
-      <div class="item"><span class="lbl">Цвета под фон<small>Акцент, свои сообщения и панели подстраиваются под цвет вашего фона</small></span><${Switch} on=${S.prefs.autoTint !== false} onChange=${v => setPref('autoTint', v)}/></div>
+      <div class="item"><span class="lbl">Цвета под фон<small>${S.prefs.tint ? 'Цвета темы подобраны под ваш фон' : S.wallTint ? 'Подобрать акцент, свои сообщения и панели под цвет фона' : 'Сначала поставьте свой фон'}</small></span>
+        ${S.prefs.tint && html`<span class="ap-dot" style=${`background:hsl(${Math.round(S.prefs.tint.h)} ${Math.round(Math.min(85, S.prefs.tint.s + 15))}% 50%)`}/>`}
+        ${S.prefs.tint ? html`<button class="sel-btn" onClick=${() => { setPref('tint', null); showHud('Цвета темы — стандартные'); }}>Сбросить</button>`
+          : html`<button class="sel-btn" disabled=${!S.wallTint} onClick=${() => { setPref('tint', S.wallTint); showHud('Цвета подобраны под фон'); }}>Подобрать</button>`}</div>
       <button class="item" onClick=${() => go('namecolor')}><span class="lbl">Цвет вашего имени</span><span class="ap-dot" style=${`background:${nameColor[0]}`}/><span class="chev">${Icon.chevron(11)}</span></button>
     </div>
 
@@ -227,40 +231,59 @@ function BgPreview({ pv, onClose }) {
   const [intensity, setIntensity] = useState(Math.abs(pv.type?.intensity ?? 50));
   const [fill, setFill] = useState(pv.type?.fill || PRESET_FILLS[0]);
   const [both, setBoth] = useState(true);
+  const [tint, setTint] = useState(false);
   const [busy, setBusy] = useState(false);
   const url = useThumb(pv.bg);
-  const t = pv.kind === 'fill' ? 'fill' : pv.type?.['@type'];
+  const t = pv.kind === 'fill' ? 'fill' : pv.kind === 'live' ? 'live' : pv.type?.['@type'];
   const pattern = t === 'backgroundTypePattern';
-  const photo = t === 'backgroundTypeWallpaper';
+  const photo = t === 'backgroundTypeWallpaper' || pv.kind === 'local';
+  const live = pv.kind === 'live';
+  const me = S.users.get(S.myId);
+  useEffect(() => { const k = e => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, []);
   const apply = async () => {
     setBusy(true);
     try {
-      if (pv.kind === 'fill') await applyBg(null, { '@type': 'backgroundTypeFill', fill: pv.fill }, both);
-      else if (pv.kind === 'local') await applyBg({ '@type': 'inputBackgroundLocal', background: { '@type': 'inputFileLocal', path: pv.path } }, { '@type': 'backgroundTypeWallpaper', is_blurred: blur, is_moving: false }, both);
-      else {
-        const type = photo ? { ...pv.type, is_blurred: blur } : pattern ? { ...pv.type, fill, intensity } : pv.type;
-        await applyBg({ '@type': 'inputBackgroundRemote', background_id: pv.bg.id }, type, both);
+      if (live) {
+        const path = await window.__TAURI__.core.invoke('set_live_wallpaper', { path: pv.path });
+        setPref('liveWall', { path, kind: pv.video ? 'video' : 'gif', blur });
+      } else {
+        if (S.prefs.liveWall) { setPref('liveWall', null); window.__TAURI__?.core.invoke('clear_live_wallpaper').catch(() => {}); }
+        if (pv.kind === 'fill') await applyBg(null, { '@type': 'backgroundTypeFill', fill: pv.fill }, both);
+        else if (pv.kind === 'local') await applyBg({ '@type': 'inputBackgroundLocal', background: { '@type': 'inputFileLocal', path: pv.path } }, { '@type': 'backgroundTypeWallpaper', is_blurred: blur, is_moving: false }, both);
+        else {
+          const type = photo ? { ...pv.type, is_blurred: blur } : pattern ? { ...pv.type, fill, intensity } : pv.type;
+          await applyBg({ '@type': 'inputBackgroundRemote', background_id: pv.bg.id }, type, both);
+        }
       }
+      if (tint) S.pendingTint = true; // цвета подберутся, когда фон загрузится
       showHud('Фон установлен'); onClose();
     } catch (e) { showHud(e.message || String(e)); }
     setBusy(false);
   };
-  const bgCss = pv.kind === 'fill' ? fillCss(pv.fill, FALLBACK) : pattern ? fillCss(fill, FALLBACK) : '#000';
-  const img = pv.kind === 'local' ? pv.url : url;
+  const bgCss = pv.kind === 'fill' ? fillCss(pv.fill, FALLBACK) : pattern ? fillCss(fill, FALLBACK) : '#222';
+  const img = pv.kind === 'local' || live ? pv.url : url;
+  const Chip = ({ on, label, onClick }) => html`<button class=${`wp-chip ${on ? 'on' : ''}`} onClick=${onClick}>${on && Icon.check(11)}${label}</button>`;
   return html`<div class="veil" onMouseDown=${e => e.target === e.currentTarget && onClose()}>
     <div class="sheet wp-sheet">
-      <div class="sd-title">Предпросмотр фона</div>
       <div class="wp-prev" style=${`background:${bgCss}`}>
-        ${img && !pattern && html`<img src=${img} alt="" style=${blur ? 'filter:blur(14px);transform:scale(1.1)' : ''}/>`}
+        ${img && !pattern && (pv.video ? html`<video src=${img} autoplay loop muted playsinline style=${blur ? 'filter:blur(14px);transform:scale(1.1)' : ''}/>` : html`<img src=${img} alt="" style=${blur ? 'filter:blur(14px);transform:scale(1.1)' : ''}/>`)}
         ${img && pattern && html`<img src=${img} alt="" style=${`mix-blend-mode:multiply;opacity:${intensity / 100 * .8}`}/>`}
-        <div class="ap-msg in"><div class="ap-bubble">Так будет выглядеть чат<span class="ap-time">12:41</span></div></div>
-        <div class="ap-msg out"><div class="ap-bubble">Красиво!<span class="ap-time">12:42</span></div></div>
+        <div class="wp-prev-head glass"><span class="wp-av">${(me?.first_name || 'm')[0]}</span><div><b>Предпросмотр фона</b><small>${live ? 'живой фон' : pattern ? 'узор' : photo ? 'фото' : 'цвет'}</small></div></div>
+        <div class="wp-prev-msgs">
+          <div class="ap-msg in"><div class="ap-bubble">Так будет выглядеть чат с этим фоном<span class="ap-time">12:41</span></div></div>
+          <div class="ap-msg out"><div class="ap-bubble">Красиво 😍<span class="ap-time">12:42 ${Icon.checks(12)}</span></div></div>
+        </div>
+        <div class="wp-chips">
+          ${(photo || live) && html`<${Chip} on=${blur} label="Размытие" onClick=${() => setBlur(!blur)}/>`}
+          ${!live && html`<${Chip} on=${both} label="Для дневной и ночной" onClick=${() => setBoth(!both)}/>`}
+          <${Chip} on=${tint} label="Цвета под фон" onClick=${() => setTint(!tint)}/>
+        </div>
       </div>
-      ${(photo || pv.kind === 'local') && html`<label class="check-line"><input type="checkbox" checked=${blur} onChange=${e => setBlur(e.target.checked)}/>Размытие</label>`}
       ${pattern && html`<div class="wp-ctrl"><span>Яркость узора</span><input type="range" min="10" max="100" value=${intensity} onInput=${e => setIntensity(Number(e.target.value))}/></div>
         <div class="wp-colors">${PRESET_FILLS.slice(0, 8).map((f, i) => html`<button class=${`accent-dot ${fill === f ? 'on' : ''}`} style=${`background:${fillCss(f, FALLBACK)}`} onClick=${() => setFill(f)} key=${i}/>`)}</div>`}
-      <label class="check-line"><input type="checkbox" checked=${both} onChange=${e => setBoth(e.target.checked)}/>Для дневной и ночной темы</label>
-      <div class="sd-btns"><span style="flex:1"/><button class="btn second" onClick=${onClose}>Отмена</button><button class="btn" disabled=${busy} onClick=${apply}>${busy ? html`<${Spinner}/>` : 'Установить'}</button></div>
+      ${live && html`<div class="sp-hint">GIF и видео-фоны хранятся только на этом компьютере — Telegram такие фоны не поддерживает.</div>`}
+      <button class="btn wp-apply" disabled=${busy} onClick=${apply}>${busy ? html`<${Spinner}/>` : 'Установить фон'}</button>
+      <button class="wp-cancel" onClick=${onClose}>Отмена</button>
     </div>
   </div>`;
 }
@@ -269,23 +292,33 @@ export function WallpaperSettings() {
   const dark = ['night', 'dark'].includes(effectiveTheme());
   const [list, setList] = useState(null);
   const setPv = p => { S.bgPreview = p ? { ...p, key: Date.now(), onDone: load } : null; changed(); };
-  const cur = S.backgrounds?.[dark ? 'dark' : 'light'];
+  const cur = S.prefs.liveWall ? null : S.backgrounds?.[dark ? 'dark' : 'light'];
   const load = () => send({ '@type': 'getInstalledBackgrounds', for_dark_theme: dark }).then(r => setList(r.backgrounds || [])).catch(() => setList([]));
   useEffect(() => { load(); }, [dark]);
   const pickFile = async () => {
     try {
       const [path] = await shell.pickFiles(true);
-      if (path) setPv({ kind: 'local', path, url: window.__TAURI__?.core?.convertFileSrc?.(path) || '' });
+      if (!path) return;
+      const ext = path.split('.').pop().toLowerCase();
+      const T = window.__TAURI__;
+      const staged = T ? await T.core.invoke('stage_wallpaper', { path }) : path;
+      const url = T?.core?.convertFileSrc ? `${T.core.convertFileSrc(staged)}?v=${Date.now()}` : '';
+      if (['gif', 'mp4', 'webm', 'mov'].includes(ext)) setPv({ kind: 'live', path: staged, url, video: ext !== 'gif' });
+      else setPv({ kind: 'local', path: staged, url });
     } catch (e) { showHud(e.message || String(e)); }
   };
-  const reset = () => Promise.all([send({ '@type': 'deleteDefaultBackground', for_dark_theme: false }), send({ '@type': 'deleteDefaultBackground', for_dark_theme: true })])
-    .then(() => showHud('Стандартный фон')).catch(e => showHud(e.message));
+  const reset = () => {
+    if (S.prefs.liveWall) { setPref('liveWall', null); window.__TAURI__?.core.invoke('clear_live_wallpaper').catch(() => {}); }
+    Promise.all([send({ '@type': 'deleteDefaultBackground', for_dark_theme: false }), send({ '@type': 'deleteDefaultBackground', for_dark_theme: true })])
+      .then(() => showHud('Стандартный фон')).catch(e => showHud(e.message));
+  };
   const removeBg = (e, bg) => { e.preventDefault(); openMenu(e.clientX, e.clientY, [{ label: 'Удалить фон', icon: Icon.trash(), danger: true, action: () => send({ '@type': 'removeInstalledBackground', background_id: bg.id }).then(load).catch(err => showHud(err.message)) }]); };
   return html`<${Page} title="Фон чата" back="appearance">
     <div class="group">
-      <button class="item" onClick=${pickFile}><span class="ic" style="background:#007aff">${MI('menu_camera', 15)}</span><span class="lbl" style="color:var(--accent)">Загрузить изображение</span></button>
+      <button class="item" onClick=${pickFile}><span class="ic" style="background:#007aff">${MI('menu_camera', 15)}</span><span class="lbl" style="color:var(--accent)">Загрузить изображение, GIF или видео</span></button>
       <button class="item" onClick=${reset}><span class="ic" style="background:#8e8e93">${MI('menu_clear_history', 15)}</span><span class="lbl" style="color:var(--accent)">Стандартный фон</span></button>
     </div>
+    ${S.prefs.liveWall && html`<div class="sp-hint" style="padding:0 18px 8px">Сейчас стоит живой фон (${S.prefs.liveWall.kind === 'video' ? 'видео' : 'GIF'}).</div>`}
     <div class="pane-sec">Ваши фоны</div>
     ${list === null ? html`<div style="display:grid;place-items:center;padding:20px"><${Spinner}/></div>`
       : !list.length ? html`<div class="sp-hint" style="padding:0 18px 8px">Здесь появятся фоны, сохранённые в вашем аккаунте Telegram.</div>`

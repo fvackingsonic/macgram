@@ -181,6 +181,7 @@ export function applyPrefs() {
   root.dataset.palette = palette();
   root.dataset.variant = effectiveTheme() === 'dark' ? 'dark' : '';
   root.classList.toggle('no-bubbles', S.prefs.bubbles === false);
+  root.classList.toggle('glass-bubbles', S.prefs.glassBubbles !== false);
   const icon = S.prefs.appIcon || 'blue';
   if (icon !== appliedIcon && (appliedIcon || icon !== 'blue')) window.__TAURI__?.core.invoke('set_app_icon', { name: icon }).catch(() => {});
   appliedIcon = icon;
@@ -203,7 +204,7 @@ export function applyPrefs() {
 const TINT_VARS = ['--out-bg', '--out-border', '--out-text', '--out-gray', '--out-link', '--out-reply', '--out-ic-bg', '--out-ic-fg', '--in-bg', '--glass-bg', '--row-active', '--badge', '--link', '--in-link', '--in-reply'];
 export function applyTint() {
   const root = document.documentElement;
-  const t = S.prefs.autoTint !== false ? S.wallTint : null;
+  const t = S.prefs.tint || null; // включается кнопкой «Подобрать цвета под фон»
   const own = !!S.prefs.accent;
   if (!t) {
     TINT_VARS.forEach(v => root.style.removeProperty(v));

@@ -5,13 +5,14 @@
 <title>macgram</title>
 <link rel="stylesheet" href="styles/fonts.css">
 <style>
-  html, body { margin: 0; background: transparent; overflow: hidden; font: 13px/1.3 "SF Pro Text", "Inter var", "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; user-select: none; }
-  .card { position: absolute; inset: 6px; display: flex; gap: 11px; align-items: center; padding: 10px 12px; border-radius: 16px; cursor: default;
-    background: rgba(246, 246, 248, .96); color: #111; box-shadow: 0 8px 24px rgba(0,0,0,.22), 0 0 0 .5px rgba(0,0,0,.12);
-    transform: translateX(110%); transition: transform .45s cubic-bezier(.2, 1.1, .35, 1), opacity .25s; }
-  @media (prefers-color-scheme: dark) { .card { background: rgba(38, 38, 42, .96); color: #f2f2f7; box-shadow: 0 8px 24px rgba(0,0,0,.45), 0 0 0 .5px rgba(255,255,255,.12); } .text { color: #b8b8c0 !important; } }
-  .card.in { transform: none; }
-  .card.out { transform: translateX(110%); opacity: .2; }
+  /* Окно непрозрачное (прозрачные окна WebView2 на части компьютеров не рисуются) — само окно и есть карточка;
+     скругление и тень даёт Windows 11. */
+  html, body { margin: 0; height: 100%; background: #f6f6f8; overflow: hidden; font: 13px/1.3 "SF Pro Text", "Inter var", "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; user-select: none; }
+  .card { position: absolute; inset: 0; display: flex; gap: 11px; align-items: center; padding: 10px 14px; cursor: default;
+    background: #f6f6f8; color: #111; opacity: 0; transform: translateY(6px); transition: transform .35s cubic-bezier(.2, 1.1, .35, 1), opacity .2s; }
+  @media (prefers-color-scheme: dark) { html, body, .card { background: #2a2a2e; color: #f2f2f7; } .text { color: #b8b8c0 !important; } }
+  .card.in { transform: none; opacity: 1; }
+  .card.out { opacity: 0; transform: translateY(6px); }
   .av { width: 44px; height: 44px; border-radius: 50%; flex: none; display: grid; place-items: center; color: #fff; font-weight: 600; font-size: 16px; background-size: cover; background-position: center; }
   .body { flex: 1; min-width: 0; }
   .top { display: flex; align-items: center; gap: 6px; }

@@ -100,8 +100,7 @@ pub async fn toast_show(app: AppHandle, payload: serde_json::Value) -> Result<()
             .title("macgram")
             .inner_size(TOAST_W, TOAST_H)
             .decorations(false)
-            .transparent(true)
-            .shadow(false)
+            .shadow(true)
             .always_on_top(true)
             .skip_taskbar(true)
             .resizable(false)
@@ -146,6 +145,18 @@ pub async fn toast_show(app: AppHandle, payload: serde_json::Value) -> Result<()
         }
     });
     Ok(())
+}
+
+/// Состояние окна уведомления — для кнопки «Проверить уведомление» в настройках.
+#[tauri::command]
+pub fn toast_status(app: AppHandle) -> serde_json::Value {
+    let w = app.get_webview_window("toast");
+    serde_json::json!({
+        "created": w.is_some(),
+        "visible": w.as_ref().and_then(|w| w.is_visible().ok()).unwrap_or(false),
+        "seq": TOAST_SEQ.load(Ordering::Relaxed),
+        "ack": TOAST_ACK.load(Ordering::Relaxed),
+    })
 }
 
 /// Окно уведомления показало карточку.
@@ -217,4 +228,57 @@ pub fn set_app_icon(app: AppHandle, name: String) -> Result<(), String> {
         let _ = t.set_icon(Some(img));
     }
     Ok(())
+}
+
+/// Живой фон (GIF или видео) — Telegram такие фоны не хранит, поэтому держим копию у себя.
+#[tauri::command]
+pub fn set_live_wallpaper(app: AppHandle, path: String) -> Result<String, String> {
+    let src = std::path::PathBuf::from(&path);
+    let ext = src.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
+    if !matches!(ext.as_str(), "gif" | "mp4" | "webm" | "mov") {
+        return Err("Живой фон — только GIF, MP4, WEBM или MOV".into());
+    }
+    let size = std::fs::metadata(&src).map_err(|e| e.to_string())?.len();
+    if size > 80 * 1024 * 1024 {
+        return Err("Файл больше 80 МБ — слишком тяжёлый для фона".into());
+    }
+    let dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("wallpapers");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    if let Ok(rd) = std::fs::read_dir(&dir) {
+        for e in rd.flatten() {
+            if e.file_name().to_string_lossy().starts_with("live_") {
+                let _ = std::fs::remove_file(e.path());
+            }
+        }
+    }
+    let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+    let dst = dir.join(format!("live_{}.{}", stamp, ext));
+    std::fs::copy(&src, &dst).map_err(|e| e.to_string())?;
+    Ok(dst.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+pub fn clear_live_wallpaper(app: AppHandle) {
+    if let Ok(dir) = app.path().app_local_data_dir() {
+        let _ = std::fs::remove_dir_all(dir.join("wallpapers"));
+    }
+}
+
+/// Копия выбранного файла для предпросмотра фона (окно может показывать только файлы программы).
+#[tauri::command]
+pub fn stage_wallpaper(app: AppHandle, path: String) -> Result<String, String> {
+    let src = std::path::PathBuf::from(&path);
+    let ext = src.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
+    if !matches!(ext.as_str(), "jpg" | "jpeg" | "png" | "webp" | "gif" | "mp4" | "webm" | "mov") {
+        return Err("Подходят JPG, PNG, WEBP, GIF, MP4, WEBM, MOV".into());
+    }
+    let size = std::fs::metadata(&src).map_err(|e| e.to_string())?.len();
+    if size > 80 * 1024 * 1024 {
+        return Err("Файл больше 80 МБ — слишком тяжёлый для фона".into());
+    }
+    let dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("wallpapers");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let dst = dir.join(format!("preview.{}", ext));
+    std::fs::copy(&src, &dst).map_err(|e| e.to_string())?;
+    Ok(dst.to_string_lossy().into_owned())
 }

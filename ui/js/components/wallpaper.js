@@ -1,6 +1,6 @@
 // Обои чата на весь фон окна — те же, что выбраны в аккаунте Telegram (узор + градиент).
 import { html, useEffect, useState } from '../lib.js';
-import { S, changed, download, fileUrl, palette, applyTint } from '../store.js';
+import { S, changed, download, fileUrl, palette, setPref } from '../store.js';
 import { send, onUpdate } from '../td.js';
 
 const hex = n => `#${(n >>> 0 & 0xffffff).toString(16).padStart(6, '0')}`;
@@ -108,6 +108,27 @@ async function computeTint(bg) {
   return res;
 }
 
+async function liveTint(url, kind) {
+  if (!url) return null;
+  try {
+    const blob = await (await fetch(url)).blob();
+    let src;
+    if (kind === 'video') {
+      const v = document.createElement('video'); v.muted = true; v.src = URL.createObjectURL(blob);
+      await new Promise((ok, no) => { v.onloadeddata = ok; v.onerror = no; setTimeout(no, 8000); });
+      v.currentTime = Math.min(1, (v.duration || 2) / 2);
+      await new Promise(ok => { v.onseeked = ok; setTimeout(ok, 1500); });
+      src = v;
+    } else src = await createImageBitmap(blob);
+    const c = document.createElement('canvas'); c.width = c.height = 32;
+    const g = c.getContext('2d'); g.drawImage(src, 0, 0, 32, 32);
+    const d = g.getImageData(0, 0, 32, 32).data, px = [];
+    for (let i = 0; i < d.length; i += 4) px.push([d[i], d[i + 1], d[i + 2]]);
+    if (src.src) URL.revokeObjectURL(src.src);
+    return dominant(px);
+  } catch { return null; }
+}
+
 export function Wallpaper() {
   const dark = palette() === 'night';
   const plain = palette() === 'day' && !S.backgrounds?.light;
@@ -129,13 +150,25 @@ export function Wallpaper() {
   const base = plain ? 'var(--chat-bg)' : type?.['@type'] === 'backgroundTypeFill' ? fillCss(type.fill, fallback) : fillCss(fill, fallback);
 
   // Цвета под фон — только для своего фона из аккаунта.
-  const tintKey = own ? `${own.id}:${dark}` : '';
+  const live = S.prefs.liveWall;
+  const liveUrl = live?.path ? (window.__TAURI__?.core?.convertFileSrc?.(live.path) || '') : '';
+  const tintKey = live?.path ? `live:${live.path}` : own ? `${own.id}:${dark}` : '';
   useEffect(() => {
     let alive = true;
-    if (!own) { if (S.wallTint) { S.wallTint = null; applyTint(); changed(); } return; }
-    computeTint(own).then(t => { if (!alive) return; S.wallTint = t; applyTint(); changed(); });
+    if (live?.path) {
+      liveTint(liveUrl, live.kind).then(t => { if (!alive) return; S.wallTint = t; if (S.pendingTint && t) { S.pendingTint = false; setPref('tint', t); } changed(); });
+      return () => { alive = false; };
+    }
+    if (!own) { if (S.wallTint) { S.wallTint = null; changed(); } return; }
+    computeTint(own).then(t => { if (!alive) return; S.wallTint = t; if (S.pendingTint && t) { S.pendingTint = false; setPref('tint', t); } changed(); });
     return () => { alive = false; };
   }, [tintKey]);
+  // Живой фон (GIF / видео) — свой, хранится на этом компьютере.
+  if (liveUrl) return html`<div class="wallpaper live" style=${`background:${dark ? '#000' : '#888'}`}>
+    ${live.kind === 'video' ? html`<video src=${liveUrl} autoplay loop muted playsinline disablepictureinpicture/>` : html`<img src=${liveUrl} alt=""/>`}
+    ${live.blur && html`<div class="wp-blur"/>`}
+    ${dark && html`<div class="wp-dim"/>`}
+  </div>`;
   return html`<div class="wallpaper" style=${`background:${isPhoto && photoUrl ? `center/cover no-repeat url("${photoUrl}")` : base}`}>
     ${isPhoto && type.is_blurred && html`<div class="wp-blur"/>`}
     ${!plain && isPattern && pattern && html`<div class="wp-pattern" style=${`-webkit-mask-image:url("${pattern}");mask-image:url("${pattern}");background:${inverted ? '#fff' : '#000'};opacity:${inverted ? intensity * 0.12 : intensity * 0.32}`}/>`}

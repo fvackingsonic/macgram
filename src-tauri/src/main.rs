@@ -267,6 +267,10 @@ fn main() {
             shell::toast_send,
             shell::set_app_icon,
             shell::toast_ack,
+            shell::toast_status,
+            shell::set_live_wallpaper,
+            shell::clear_live_wallpaper,
+            shell::stage_wallpaper,
             shell::toast_open,
             desktop::set_badge
         ])

@@ -174,6 +174,24 @@ const SCOPES = [
 function Switch({ on, onChange }) {
   return html`<span class=${`switch ${on ? 'on' : ''}`} onClick=${e => { e.stopPropagation(); onChange(!on); }}><i/></span>`;
 }
+// Пробное уведомление: показывает его и сообщает, удалось ли (помогает найти причину, если не видно).
+async function testNotify() {
+  const T = window.__TAURI__;
+  if (S.prefs.notifySound !== false) playTone(S.prefs.notifyTone);
+  if (!T) { showHud('Уведомления работают в программе для Windows'); return; }
+  if (S.prefs.notifyStyle === 'windows') { shell.notify('macgram', 'Так выглядит уведомление Windows').then(() => showHud('Уведомление Windows отправлено')).catch(e => showHud(`Windows не показала уведомление: ${e}`)); return; }
+  const me = S.users.get(S.myId);
+  try {
+    await T.core.invoke('toast_show', { payload: { chatId: 0, title: 'macgram', body: 'Так выглядит уведомление macgram', initials: 'm', color: 'linear-gradient(#5AC8FA,#1E6FE0)' } });
+  } catch (e) { showHud(`Окно уведомления не создалось: ${e}`); return; }
+  setTimeout(async () => {
+    const st = await T.core.invoke('toast_status').catch(() => null);
+    if (!st) return;
+    if (st.ack >= st.seq) showHud(st.visible ? 'Уведомление показано в правом нижнем углу' : 'Уведомление показано и уже скрыто');
+    else showHud(`Окно уведомления не ответило (создано: ${st.created ? 'да' : 'нет'}, видно: ${st.visible ? 'да' : 'нет'}) — сообщите разработчику`);
+  }, 2500);
+}
+
 // Выбор мелодии — всплывающее меню с галочкой, как в Telegram для macOS; выбранная сразу проигрывается.
 function pickTone(e) {
   const r = e.currentTarget.getBoundingClientRect();
@@ -198,6 +216,7 @@ function Notifications() {
     <div class="group">
       <${Toggle} k="notifyAll" label="Уведомления" hint="Выключить все уведомления на этом компьютере (также в меню значка в трее)"/>
       <div class="item wrap"><span class="lbl">Вид уведомлений</span>${seg('notifyStyle', [['macgram', 'Как на Mac'], ['windows', 'Windows']], 'macgram')}</div>
+      <button class="item" onClick=${testNotify}><span class="lbl" style="color:var(--accent)">Показать пробное уведомление</span></button>
     </div>
     <div class="pane-sec">Уведомления о сообщениях</div>
     <div class="group">

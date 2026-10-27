@@ -72,7 +72,7 @@ export const shell = {
   pickFont: kind => T ? T.core.invoke('pick_font', { kind }) : Promise.resolve([]),
   pickFiles: media => T ? T.core.invoke('pick_files', { media }) : Promise.resolve(['C:/Users/demo/Pictures/photo.jpg', 'C:/Users/demo/Documents/отчёт.pdf']),
   savePaste: (data, ext) => T ? T.core.invoke('save_paste', { data, ext }) : Promise.resolve(`C:/demo/paste.${ext}`),
-  notify: (title, body) => T ? T.core.invoke('notify', { title, body }).catch(() => {}) : Promise.resolve(),
+  notify: (title, body) => T ? T.core.invoke('notify', { title, body }) : Promise.resolve(),
   setBadge: png => T ? T.core.invoke('set_badge', { png }).catch(() => {}) : Promise.resolve(),
   listen: (name, fn) => T ? T.event.listen(name, e => fn(e.payload)) : Promise.resolve(() => {}),
 };

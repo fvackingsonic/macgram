@@ -29,16 +29,16 @@ onUpdate(u => {
 // или системное уведомление Windows — смотря что выбрано в настройках.
 let toastBroken = false;
 function show(chat, title, body) {
-  if (S.prefs.notifyStyle === 'windows' || toastBroken || !window.__TAURI__) { shell.notify(title, body); return; }
+  if (S.prefs.notifyStyle === 'windows' || toastBroken || !window.__TAURI__) { shell.notify(title, body).catch(() => {}); return; }
   const photo = chat && S.prefs.notifyName !== false ? fileUrl(chat.photo?.small) : '';
   const payload = { chatId: chat?.id || 0, title, body,
     initials: chat ? initials(chatTitle(chat)) : 'm', color: chat ? avatarGradient(peerIndex(chat.id)) : '', photo };
   // Если своё окно уведомления не ответило за 3 с — показываем обычное уведомление Windows.
   let done = false;
-  const fallback = setTimeout(() => { if (!done) shell.notify(title, body); }, 3000);
+  const fallback = setTimeout(() => { if (!done) shell.notify(title, body).catch(() => {}); }, 3000);
   window.__TAURI__.core.invoke('toast_show', { payload })
     .then(() => { done = true; clearTimeout(fallback); })
-    .catch(() => { done = true; clearTimeout(fallback); shell.notify(title, body); });
+    .catch(() => { done = true; clearTimeout(fallback); shell.notify(title, body).catch(() => {}); });
 }
 
 // События из трея и из окна уведомления.
@@ -48,7 +48,7 @@ if (window.__TAURI__) {
   ev.listen('tray-notify', e => setPref('notifyAll', !!e.payload));
   ev.listen('tray-lock', () => lockNow());
   // Своё окно уведомления не смогло показаться — показываем уведомление Windows и дальше сразу его.
-  ev.listen('toast-failed', e => { toastBroken = true; const p = e.payload || {}; shell.notify(p.title || 'macgram', p.body || ''); });
+  ev.listen('toast-failed', e => { toastBroken = true; const p = e.payload || {}; shell.notify(p.title || 'macgram', p.body || '').catch(() => {}); });
   // Быстрый ответ из всплывающего уведомления, как в macOS.
   ev.listen('toast-reply', e => {
     const { chatId, text } = e.payload || {};

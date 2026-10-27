@@ -31,7 +31,8 @@
           "allow": [
             "$APPLOCALDATA/tdlib/files/**",
             "$APPLOCALDATA/tdlib/db/*/**",
-            "$APPLOCALDATA/fonts/**"
+            "$APPLOCALDATA/fonts/**",
+            "$APPLOCALDATA/wallpapers/**"
           ],
           "deny": [
             "$APPLOCALDATA/tdlib/db/*.binlog",
