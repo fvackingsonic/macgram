@@ -22,8 +22,12 @@ export function Main() {
   const chat = S.chats.get(S.currentChatId);
   if (!chat) return html`<main class="main"><div class="main-drag" ...${dragHandlers()}/>
     <div class="main-empty"><span class="service-pill">Выберите, кому хотели бы написать</span></div></main>`;
-  return html`<main class="main">
-    ${S.profile ? html`<${ProfileScreen} key=${`p${chat.id}`} chat=${chat}/>` : html`<${Chat} key=${chat.id} chat=${chat}/>`}
+  // Профиль открывается как push в NavigationViewController (macOS): чат уезжает влево на треть
+  // и гаснет, профиль въезжает справа (0.4 с, spring); «назад» — обратное движение.
+  const nav = S.profile ? (S.profileClosing ? 'popping' : 'pushed') : '';
+  return html`<main class=${`main ${nav}`}>
+    <div class="nav-layer nav-prev" key=${`c${chat.id}`}><${Chat} key=${chat.id} chat=${chat}/></div>
+    ${S.profile && html`<div class=${`nav-layer nav-next ${S.profileClosing ? 'out' : ''}`} key=${`p${chat.id}`}><${ProfileScreen} chat=${chat}/></div>`}
   </main>`;
 }
 

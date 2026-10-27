@@ -46,7 +46,12 @@ export function ProfileScreen({ chat }) {
     window.addEventListener('keydown', esc);
     return () => window.removeEventListener('keydown', esc);
   }, [chat.id]);
-  const close = () => { S.profile = false; changed(); };
+  const close = () => {
+    if (S.profileClosing) return;
+    if (S.prefs.glass === false) { S.profile = false; changed(); return; }
+    S.profileClosing = true; changed();
+    setTimeout(() => { S.profile = false; S.profileClosing = false; changed(); }, 380);
+  };
 
   const muted = isMuted(chat);
   const toggleMute = () => send({ '@type': 'setChatNotificationSettings', chat_id: chat.id, notification_settings: { ...(chat.notification_settings || {}), '@type': 'chatNotificationSettings', use_default_mute_for: false, mute_for: muted ? 0 : 2147483647 } })

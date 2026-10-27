@@ -382,7 +382,7 @@ svg { display: block; flex: none; }
 .veil.out { animation: fade-out .18s var(--ease) forwards; }
 .sheet {
   width: 300px; background: var(--sheet-bg); border-radius: 12px; padding: 20px 16px 16px; text-align: center;
-  box-shadow: 0 20px 50px rgba(0,0,0,.35), 0 0 0 .5px rgba(0,0,0,.2); animation: sheet-in .3s var(--spring);
+  box-shadow: 0 20px 50px rgba(0,0,0,.35), 0 0 0 .5px rgba(0,0,0,.2); animation: sheet-in .4s cubic-bezier(.22, .9, .3, 1);
 }
 .veil.out .sheet { animation: sheet-out .18s var(--ease) forwards; }
 .sheet h3 { margin: 10px 0 6px; font-size: var(--fs-title); }
@@ -406,7 +406,8 @@ svg { display: block; flex: none; }
 @keyframes menu-in { from { opacity: 0; transform: scale(.94); } }
 @keyframes hud-in { from { opacity: 0; transform: translateX(-50%) scale(.85); } }
 @keyframes hud-out { to { opacity: 0; transform: translateX(-50%) scale(.92); } }
-@keyframes sheet-in { from { opacity: 0; transform: scale(1.12); } }
+/* Модальные окна как Modal (macOS, bottomToCenter): поднимаются на 100px и проявляются */
+@keyframes sheet-in { from { opacity: .1; transform: translateY(100px); } }
 @keyframes sheet-out { to { opacity: 0; transform: scale(.94); } }
 @keyframes highlight { 0%, 60% { filter: brightness(.86); } }
 @keyframes typing { 0%, 60%, 100% { opacity: .3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }
@@ -1097,3 +1098,26 @@ html.lite *, html.lite *::before, html.lite *::after { animation-duration: .001s
 .menu-anim canvas { width: 100% !important; height: 100% !important; }
 .ctx button:hover .menu-anim canvas { filter: brightness(0) invert(1); }
 .list > .row { position: relative; }
+
+/* ═════════ Механика анимаций Telegram для macOS (mac-anim.js) ═════════ */
+.cd { display: inline-block; position: relative; }
+.cd-ghost { position: absolute; inset: 0; text-align: center; }
+.badge { overflow: hidden; display: inline-flex; align-items: center; justify-content: center; }
+.cd-hidden { display: none !important; }
+.ctx { animation: none; border-radius: 18px; }
+.msg-row.fresh { animation: none; }
+/* Push/pop профиля */
+.nav-layer { position: absolute; inset: 0; display: flex; flex-direction: column; min-width: 0; }
+.nav-prev { transition: transform .4s cubic-bezier(.22, .9, .3, 1), opacity .4s cubic-bezier(.22, .9, .3, 1), visibility 0s; }
+.main.pushed .nav-prev { transform: translateX(-33%); opacity: 0; visibility: hidden; pointer-events: none; transition: transform .4s cubic-bezier(.22, .9, .3, 1), opacity .13s linear, visibility 0s .4s; }
+.nav-next { z-index: 2; animation: nav-push .4s cubic-bezier(.22, .9, .3, 1); }
+.nav-next.out { animation: nav-pop .38s cubic-bezier(.22, .9, .3, 1) forwards; pointer-events: none; }
+.nav-next > .pscreen { animation: none; }
+@keyframes nav-push { from { transform: translateX(100%); } }
+@keyframes nav-pop { to { transform: translateX(100%); } }
+.main.pushed .nav-prev .chat, .main.popping .nav-prev .chat { animation: none; }
+.ctx button { border-radius: 12px; }
+html.lite .nav-prev, html.lite .nav-next { transition: none !important; animation: none !important; }
+
+.main.pushed, .main.popping { overflow: hidden; }
+.row { transition: background-color .2s ease-out; }

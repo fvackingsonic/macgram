@@ -1,4 +1,5 @@
-import { html, useEffect, useState, useRef, memo } from '../lib.js';
+import { html, useEffect, useLayoutEffect, useState, useRef, memo } from '../lib.js';
+import { insertAtBottom } from '../mac-anim.js';
 import { S, changed, useTick, jumpTo, download, fileUrl, fileOf, senderName, senderId, openMenu, openModal, closeModal, showHud, deleteMessages, isGroup, isChannel, chatUser } from '../store.js';
 import { send, shell } from '../td.js';
 import { Icon } from '../icons.js';
@@ -457,6 +458,8 @@ function MessageRowView({ msg, chat, first, last }) {
   const c = msg.content;
   const fresh = S.fresh.has(msg.id);
   useEffect(() => { if (fresh) setTimeout(() => S.fresh.delete(msg.id), 600); }, [fresh]);
+  // Новое сообщение: лента поднимается на его высоту, как в TableAnimationInterface (macOS).
+  useLayoutEffect(() => { if (fresh) insertAtBottom(document.querySelector(`.messages [data-mid="${msg.id}"]`)); }, []);
   if (isServiceType(c)) {
     const actor = senderName(msg.sender_id);
     const t = serviceText(c, id => userName(S.users.get(id)));

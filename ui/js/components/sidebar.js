@@ -4,6 +4,7 @@ import {
   search, loadContacts, isMuted, fileUrl, openPrivate, openMenu, openModal, closeModal, setPref, logOut, showHud, position,
 } from '../store.js';
 import { send } from '../td.js';
+import { Counter } from '../mac-anim.js';
 import { Icon } from '../icons.js';
 import { listTime, contentSummary, userStatus, userName } from '../format.js';
 import { Avatar, Traffic, TypingDots, Spinner, dragHandlers } from './common.js';
@@ -97,7 +98,7 @@ function TabBar() {
     <div class="tab-sel" style=${sel}><i class="tab-lens"/></div>
     ${TABS.map((t, i) => html`<div class=${`tab ${(g ? lensIndex === i : S.tab === t.id) ? 'on' : ''} ${g && lensIndex === i ? 'grow' : ''}`} title=${t.title}>
       ${t.id === 'settings' && S.users.get(S.myId) ? html`<span class="tab-avatar"><${Avatar} user=${S.users.get(S.myId)} size=${26}/></span>` : t.icon()}
-      ${t.id === 'chats' && unread > 0 && html`<span class="badge">${unread > 99 ? '99+' : unread}</span>`}
+      ${t.id === 'chats' && html`<${Counter} value=${unread > 99 ? '99+' : unread} show=${unread > 0}/>`}
     </div>`)}
   </nav>`;
 }
@@ -146,7 +147,7 @@ function Folders() {
     ${items.map(f => {
       const n = f.key === 'main' ? 0 : unreadIn(f.key);
       return html`<button class=${`folder ${S.folder === f.key ? 'on' : ''}`} onClick=${() => { S.folder = f.key; changed(); }}>
-        ${f.title}${n > 0 && html`<span class="badge">${n}</span>`}
+        ${f.title}<${Counter} value=${n} show=${n > 0}/>
       </button>`;
     })}
     ${ind && html`<i class="folder-ind" style=${`width:${ind.w}px;transform:translateX(${ind.x}px)`}/>`}
@@ -272,9 +273,9 @@ function ChatRowView({ chat, pinned, compact }) {
       <div class="line">
         <div class="preview">${compact ? (user ? userStatus(user) : '') : preview(chat)}</div>
         ${!compact && html`<div class="meta">
-          ${chat.unread_mention_count > 0 && html`<span class="badge mention">@</span>`}
-          ${unread > 0 ? html`<span class=${`badge ${muted ? 'muted' : ''}`}>${chat.unread_count > 0 ? (unread > 999 ? `${Math.floor(unread / 1000)}K` : unread) : ''}</span>`
-            : pinned && html`<span class="pin">${Icon.pin()}</span>`}
+          <${Counter} cls="badge mention" value="@" show=${chat.unread_mention_count > 0}/>
+          <${Counter} cls=${`badge ${muted ? 'muted' : ''}`} value=${chat.unread_count > 0 ? (unread > 999 ? `${Math.floor(unread / 1000)}K` : unread) : ''} show=${unread > 0}/>
+          ${!(unread > 0) && pinned && html`<span class="pin">${Icon.pin()}</span>`}
         </div>`}
       </div>
     </div>

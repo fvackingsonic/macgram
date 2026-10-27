@@ -301,7 +301,21 @@ export function showHud(text) {
   }, 1500);
 }
 export function openMenu(x, y, items) { S.menu = { x, y, items }; changed(); }
-export function closeMenu() { if (S.menu) { S.menu = null; changed(); } }
+export function closeMenu() {
+  if (!S.menu) return;
+  // Закрытие меню как в AppMenu (macOS): растворяется за 0.2 с. Копия остаётся на экране,
+  // пока гаснет, а само меню убирается сразу, чтобы клики шли дальше.
+  const el = document.querySelector('.ctx');
+  if (el?.animate && S.prefs.glass !== false) {
+    const ghost = el.cloneNode(true);
+    ghost.style.pointerEvents = 'none';
+    const src = el.querySelectorAll('canvas'), dst = ghost.querySelectorAll('canvas');
+    src.forEach((c, i) => { try { dst[i].getContext('2d').drawImage(c, 0, 0); } catch {} });
+    document.body.appendChild(ghost);
+    ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: 'ease-out', fill: 'forwards' }).onfinish = () => ghost.remove();
+  }
+  S.menu = null; changed();
+}
 export function openModal(m) { S.modal = { ...m, out: false }; changed(); }
 export function closeModal() {
   if (!S.modal) return;
@@ -442,7 +456,7 @@ export async function selectChat(chatId, opts = {}) {
   const prev = S.currentChatId;
   if (prev) send({ '@type': 'closeChat', chat_id: prev }).catch(() => {});
   S.currentChatId = chatId;
-  S.reply = null; S.editing = null; S.highlight = null; S.profile = false; S.chatSearch = null; S.selection = null;
+  S.reply = null; S.editing = null; S.highlight = null; S.profile = false; S.profileClosing = false; S.chatSearch = null; S.selection = null;
   changed();
   if (!chatId) return;
   send({ '@type': 'openChat', chat_id: chatId }).catch(() => {});
@@ -673,7 +687,7 @@ onUpdate(u => {
         h.byId.delete(u.old_message_id);
         h.byId.set(u.message.id, u.message);
         h.list = h.list.map(x => (x.id === u.old_message_id ? u.message : x)).sort((a, b) => a.id - b.id);
-        if (S.fresh.has(u.old_message_id)) S.fresh.add(u.message.id);
+        // временный id сменился на настоящий — строка пересоздаётся, повторно не анимируем
       } else putMessage(u.message);
       if (u['@type'] === 'updateMessageSendFailed') showHud(u.error?.message || 'Сообщение не отправлено');
       break;
@@ -697,9 +711,22 @@ onUpdate(u => {
       if (u.chat_id === S.currentChatId) loadPinned(u.chat_id);
       { const h = S.history.get(u.chat_id), m = h?.byId.get(u.message_id); if (m) putMessage({ ...m, is_pinned: u.is_pinned }); }
       break;
-    case 'updateDeleteMessages':
-      if (!u.from_cache) for (const id of u.message_ids) removeMessage(u.chat_id, id);
-      break;
+    case 'updateDeleteMessages': {
+      if (u.from_cache) break;
+      // Как удаление строки в TableView (macOS): сообщение гаснет и схлопывается за 0.2 с,
+      // соседние плавно съезжают; только потом убираем его из данных.
+      const rows = u.chat_id === S.currentChatId && S.prefs.glass !== false
+        ? u.message_ids.map(id => document.querySelector(`.messages [data-mid="${id}"]`)).filter(Boolean) : [];
+      if (!rows.length || !rows[0].animate) { for (const id of u.message_ids) removeMessage(u.chat_id, id); break; }
+      for (const r of rows) {
+        const h = r.getBoundingClientRect().height;
+        r.style.overflow = 'hidden';
+        r.animate([{ opacity: 1, height: `${h}px` }, { opacity: 0, height: `${h}px`, offset: .5 }, { opacity: 0, height: '0px', marginTop: '0px', marginBottom: '0px', paddingTop: '0px', paddingBottom: '0px' }],
+          { duration: 400, easing: 'ease-out', fill: 'forwards' });
+      }
+      setTimeout(() => { for (const id of u.message_ids) removeMessage(u.chat_id, id); changed(); }, 400);
+      return;
+    }
     case 'updateChatAction': setTyping(u.chat_id, u.sender_id, u.action); break;
     case 'updateProfileAccentColors': S.profileColors = Object.fromEntries((u.colors || []).map(c => [c.id, c])); break;
     case 'updateScopeNotificationSettings': S.scopes[u.scope['@type']] = u.notification_settings; break;

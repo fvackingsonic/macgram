@@ -1,4 +1,5 @@
 import { MenuAnim, animNameOf } from './tgs.js';
+import { menuBubble, popIn } from '../mac-anim.js';
 import { MENU_ANIMS } from '../menu-anims.js';
 import { html, useEffect, useRef, useState } from '../lib.js';
 import { S, download, fileUrl, chatTitle, isSaved, closeMenu, closeModal } from '../store.js';
@@ -10,6 +11,9 @@ export function Avatar({ chat, user, size = 48, online = false }) {
   const id = chat?.id ?? user?.id;
   const photo = chat?.photo?.small ?? user?.profile_photo?.small;
   useEffect(() => { if (photo) download(photo, 3); }, [photo?.id]);
+  // Точка «в сети» появляется пружинкой (scale 0.1 → 1, 0.3 с), как activeImage в ChatListRowView.
+  const wrap = useRef(); const wasOnline = useRef(online);
+  useEffect(() => { if (online && !wasOnline.current) popIn(wrap.current?.querySelector('.online-dot'), .1, 300); wasOnline.current = online; }, [online]);
   const [bad, setBad] = useState('');
   const url = photo ? fileUrl(photo) : '';
   const title = chat ? chatTitle(chat) : [user?.first_name, user?.last_name].filter(Boolean).join(' ');
@@ -21,7 +25,7 @@ export function Avatar({ chat, user, size = 48, online = false }) {
   else if (url && bad !== url) inner = html`<img src=${url} alt="" draggable="false" onError=${() => setBad(url)}/>`;
   else if (mini) inner = html`<img src=${`data:image/jpeg;base64,${mini}`} style="filter:blur(3px);transform:scale(1.1)" alt=""/>`;
   else inner = initials(title);
-  return html`<div class="av-wrap"><div class="avatar" style=${style}>${inner}</div>${online && html`<i class="online-dot"/>`}</div>`;
+  return html`<div class="av-wrap" ref=${wrap}><div class="avatar" style=${style}>${inner}</div>${online && html`<i class="online-dot"/>`}</div>`;
 }
 
 export function Traffic() {
@@ -67,7 +71,9 @@ export function ContextMenu() {
     let x = m.x, y = m.y, origin = ['left', 'top'];
     if (x + r.width > innerWidth - 6) { x = Math.max(6, x - r.width); origin[0] = 'right'; }
     if (y + r.height > innerHeight - 6) { y = Math.max(6, y - r.height); origin[1] = 'bottom'; }
-    Object.assign(el.style, { left: `${x}px`, top: `${y}px`, transformOrigin: origin.join(' '), visibility: 'visible' });
+    Object.assign(el.style, { left: `${x}px`, top: `${y}px`, visibility: 'visible' });
+    // «Пузырь» из точки клика, как AppMenu в macOS.
+    menuBubble(el, Math.max(0, Math.min(r.width, m.x - x)), Math.max(0, Math.min(r.height, m.y - y)));
   }, [m]);
   if (!m) return null;
   return html`<div class="ctx" ref=${ref} style=${`left:${m.x}px;top:${m.y}px;visibility:hidden`} onContextMenu=${e => e.preventDefault()}>
