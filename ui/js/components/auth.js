@@ -93,14 +93,14 @@ function Phone() {
   };
   return html`<${Shell}>
     <div class="auth-logo"><${AppLogo} size=${96}/></div>
-    <h1>Вход в Telegram</h1>
-    <p>Введите номер телефона с кодом страны.</p>
+    <h1>macgram</h1>
+    <p>Войдите с вашим номером Telegram — введите его с кодом страны.</p>
     <form style="width:100%" onSubmit=${submit}>
       <${Field} value=${phone} onInput=${onInput} err=${f.error} shake=${f.shake} autofocus placeholder="+380 00 000 0000" inputmode="tel"/>
       <div class="err-text">${f.error}</div>
       <button class="btn" disabled=${f.busy || phone.replace(/\D/g, '').length < 7}>${f.busy ? html`<${Spinner}/>` : 'Далее'}</button>
     </form>
-    <div class="hint">Вход выполняется напрямую через серверы Telegram.<br/>Код придёт в приложение Telegram на другом устройстве или по SMS.</div>
+    <div class="hint">Вход выполняется напрямую через серверы Telegram.<br/>Код придёт в приложение Telegram на другом устройстве или по SMS.<br/><span style="opacity:.7">macgram — неофициальный клиент Telegram.</span></div>
   </${Shell}>`;
 }
 

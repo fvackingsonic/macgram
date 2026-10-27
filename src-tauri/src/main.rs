@@ -131,7 +131,21 @@ fn td_send(app: AppHandle, td: State<Td>, request: String) -> Result<(), String>
 #[tauri::command]
 fn creds_status(app: AppHandle) -> Result<bool, String> {
     let dir = data_dir(&app)?;
-    Ok(secrets::get(&dir, "api-id").is_some() && secrets::get(&dir, "api-hash").is_some())
+    Ok(api_credentials(&dir).is_some())
+}
+
+/// Ключи приложения, вшитые при сборке (секреты репозитория MACGRAM_API_ID / MACGRAM_API_HASH).
+/// Если они есть, вход обычный — только номер телефона, как в официальных клиентах.
+fn builtin_credentials() -> Option<(i64, String)> {
+    let id: i64 = option_env!("MACGRAM_API_ID")?.trim().parse().ok()?;
+    let hash = option_env!("MACGRAM_API_HASH")?.trim().to_string();
+    (id > 0 && hash.len() == 32 && hash.chars().all(|c| c.is_ascii_hexdigit())).then_some((id, hash))
+}
+
+/// Свои ключи пользователя (если он когда-то их вводил) важнее вшитых — сеанс не меняется.
+fn api_credentials(dir: &std::path::PathBuf) -> Option<(i64, String)> {
+    let own = secrets::get(dir, "api-id").and_then(|v| v.parse::<i64>().ok()).zip(secrets::get(dir, "api-hash"));
+    own.or_else(builtin_credentials)
 }
 
 #[tauri::command]
@@ -151,10 +165,7 @@ fn creds_save(app: AppHandle, api_id: i64, api_hash: String) -> Result<(), Strin
 #[tauri::command]
 fn td_set_parameters(app: AppHandle, td: State<Td>, lang: String) -> Result<(), String> {
     let dir = data_dir(&app)?;
-    let api_id: i64 = secrets::get(&dir, "api-id")
-        .and_then(|v| v.parse().ok())
-        .ok_or("нет api_id")?;
-    let api_hash = secrets::get(&dir, "api-hash").ok_or("нет api_hash")?;
+    let (api_id, api_hash) = api_credentials(&dir).ok_or("нет ключей приложения")?;
     let key = secrets::database_key(&dir)?;
     let base = dir.join("tdlib");
     let lang = if lang.chars().all(|c| c.is_ascii_alphabetic()) && !lang.is_empty() { lang } else { "ru".into() };

@@ -56,17 +56,8 @@ export const Icon = {
 };
 
 // Собственный логотип приложения (облачко-сообщение), не логотип Telegram.
-export const AppLogo = ({ size = 96 }) => html`
-  <svg width=${size} height=${size} viewBox="0 0 96 96">
-    <defs>
-      <linearGradient id="lg" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#4fb0f4"/><stop offset="1" stop-color="#1f7fd0"/>
-      </linearGradient>
-    </defs>
-    <rect x="4" y="4" width="88" height="88" rx="22" fill="url(#lg)"/>
-    <path d="M48 24c14.9 0 27 9.7 27 21.7S62.9 67.4 48 67.4c-2.9 0-5.7-.4-8.3-1.1L27 72.5l3.6-10.4C25 58.2 21 52.3 21 45.7 21 33.7 33.1 24 48 24z" fill="#fff"/>
-    <circle cx="37.5" cy="46" r="3.4" fill="#2a8ad8"/><circle cx="48" cy="46" r="3.4" fill="#2a8ad8"/><circle cx="58.5" cy="46" r="3.4" fill="#2a8ad8"/>
-  </svg>`;
+// Логотип macgram (свой, не логотип Telegram): облачко с «m» на синем «сквиркле».
+export const AppLogo = ({ size = 96 }) => html`<img src="icons/macgram-logo.svg" width=${size} height=${size} alt="macgram" draggable="false"/>`;
 
 // ── Заменяем свои иконки на настоящие из Telegram для macOS там, где они есть ──
 import { MI } from './mac-icons.js';

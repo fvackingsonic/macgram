@@ -1121,3 +1121,12 @@ html.lite .nav-prev, html.lite .nav-next { transition: none !important; animatio
 
 .main.pushed, .main.popping { overflow: hidden; }
 .row { transition: background-color .2s ease-out; }
+
+/* Громкость в историях: ползунок появляется при наведении на динамик (как в macOS) */
+.story-vol { position: relative; display: flex; align-items: center; }
+.story-vol-pop { position: absolute; right: calc(100% + 2px); top: 50%; transform: translateY(-50%) scaleX(.6); transform-origin: right center;
+  opacity: 0; visibility: hidden; padding: 6px 10px; border-radius: 14px; background: rgba(0,0,0,.45); backdrop-filter: blur(16px);
+  transition: opacity .15s .35s, transform .2s .35s, visibility 0s .55s; }
+.story-vol-pop::after { content: ''; position: absolute; top: 0; bottom: 0; right: -12px; width: 14px; }
+.story-vol:hover .story-vol-pop { opacity: 1; visibility: visible; transform: translateY(-50%) scaleX(1); transition: opacity .15s, transform .25s cubic-bezier(.2, 1.2, .35, 1), visibility 0s; }
+.story-vol-pop input { width: 90px; accent-color: #fff; display: block; cursor: pointer; }

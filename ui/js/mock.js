@@ -207,7 +207,7 @@ export function createMock(dispatch) {
         }
         case 'getStory': return reply({ '@type': 'story', id: q.story_id, content: { '@type': 'storyContentPhoto', photo: { sizes: [], minithumbnail: null } }, caption: { text: 'Вид с горы 🏔', entities: [] } }, 200);
         case 'getActiveSessions': return reply({ '@type': 'sessions', sessions: [
-          { id: '1', is_current: true, application_name: 'MacTele', application_version: '0.2', device_model: 'Windows PC', platform: 'Windows', system_version: '11', country: 'Украина', last_active_date: now },
+          { id: '1', is_current: true, application_name: 'macgram', application_version: '0.3.0', device_model: 'Windows PC', platform: 'Windows', system_version: '11', country: 'Украина', last_active_date: now },
           { id: '2', application_name: 'Telegram iOS', application_version: '12.1', device_model: 'iPhone 16', platform: 'iOS', system_version: '26', country: 'Украина', ip_address: '93.x.x.x', last_active_date: now - 3600 }] }, 200);
         case 'getStorageStatisticsFast': return reply({ files_size: 734003200, file_count: 1873, database_size: 52428800 }, 100);
         case 'getUserPrivacySettingRules': return reply({ rules: [{ '@type': 'userPrivacySettingRuleAllowContacts' }] }, 100);

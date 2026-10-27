@@ -3,6 +3,11 @@ import { html, useState, useEffect } from '../lib.js';
 import { S, changed, setPref, showHud, openModal, closeModal, logOut } from '../store.js';
 import { send, shell } from '../td.js';
 import { Icon } from '../icons.js';
+
+// Версия из сборки (tauri.conf.json → CI подставляет номер), в демо-режиме — заглушка.
+let version = '';
+window.__TAURI__?.app?.getVersion?.().then(v => { version = v; }).catch(() => {});
+const appVersion = () => version || 'dev';
 import { MI } from '../mac-icons.js';
 import { userName, fileSize } from '../format.js';
 import { Avatar, Spinner } from './common.js';
@@ -80,7 +85,7 @@ function Main() {
     <div class="group">
       <${Row} icon=${Square('var(--red)', MI('menu_leave', 15))} label="Выйти" danger onClick=${confirmLogout} chevron=${false}/>
     </div>
-    <div class="settings-foot">MacTele 0.2 · TDLib · интерфейс по Telegram для macOS</div>
+    <div class="settings-foot">macgram ${appVersion()} pre-alpha · неофициальный клиент Telegram</div>
   </div>`;
 }
 

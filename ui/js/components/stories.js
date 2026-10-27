@@ -71,6 +71,9 @@ function step(d) {
   else closeStories();
 }
 
+// Тихое сохранение настройки (без перерисовки всего окна) — для ползунка громкости.
+function savePref(k, v) { S.prefs[k] = v; try { localStorage.setItem('prefs', JSON.stringify(S.prefs)); } catch {} }
+
 const storyReq = (type, chatId, id) => ({ '@type': type, story_poster_chat_id: chatId, story_sender_chat_id: chatId, story_id: id });
 
 export function StoryViewer() {
@@ -78,13 +81,14 @@ export function StoryViewer() {
   const [story, setStory] = useState(null);
   const [paused, setPaused] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [muted, setMuted] = useState(false);
+  const [muted, setMuted] = useState(() => S.prefs.storyMuted === true);
+  const [volume, setVolume] = useState(() => S.prefs.storyVolume ?? 1);
   const vid = useRef();
   const a = v ? S.stories.get(v.chatId) : null;
   const info = a?.stories[v.index];
   useEffect(() => {
     if (!info) return;
-    setStory(null); setProgress(0);
+    setStory(null); setProgress(0); setUseMain(false);
     let dead = false;
     send({ ...storyReq('getStory', v.chatId, info.story_id), only_local: false })
       .then(s => { if (!dead) setStory(s); }).catch(e => { if (!dead) { showHud(e.message || 'История недоступна'); step(1); } });
@@ -100,7 +104,11 @@ export function StoryViewer() {
   const c = story?.content;
   const isVideo = c?.['@type'] === 'storyContentVideo';
   const photoSize = c?.photo ? [...c.photo.sizes].sort((x, y) => y.width - x.width)[0] : null;
-  const file = isVideo ? c.video.video : photoSize?.photo;
+  // Основное видео истории бывает в HEVC/AV1, которые Windows-движок (WebView2) не играет без
+  // дополнений, — берём запасную версию в H.264 (alternative_video), если она есть.
+  const [useMain, setUseMain] = useState(false);
+  const vfile = isVideo ? ((!useMain && c.alternative_video?.video) || c.video.video) : null;
+  const file = isVideo ? vfile : photoSize?.photo;
   useEffect(() => { if (file) download(file, 32); }, [file?.id]);
   const url = file ? fileUrl(file) : '';
   // Фото — 5 секунд, видео — по его длительности.
@@ -112,6 +120,13 @@ export function StoryViewer() {
   }, [url, paused]);
   useEffect(() => { const el = vid.current; if (!el) return; paused ? el.pause() : el.play().catch(() => {}); }, [paused, url]);
   if (!v || !a) return null;
+  // Громкость как в Telegram для macOS: наведите на динамик — появится ползунок, колёсико тоже работает.
+  function applyVol(x) {
+    x = Math.max(0, Math.min(1, x));
+    setVolume(x); setMuted(x === 0);
+    if (vid.current) { vid.current.volume = x; vid.current.muted = x === 0; }
+    savePref('storyVolume', x); savePref('storyMuted', x === 0);
+  }
   const chat = S.chats.get(v.chatId);
   const mini = (isVideo ? c.video : c?.photo)?.minithumbnail?.data;
   const caption = story?.caption?.text;
@@ -119,7 +134,9 @@ export function StoryViewer() {
     <div class="story-frame" onClick=${e => e.stopPropagation()} onMouseDown=${() => setPaused(true)} onMouseUp=${() => setPaused(false)}>
       ${mini && html`<img class="story-media blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
       ${url && !isVideo && html`<img class="story-media" src=${url} alt=""/>`}
-      ${url && isVideo && html`<video ref=${vid} class="story-media" src=${url} autoplay playsinline muted=${muted}
+      ${url && isVideo && html`<video ref=${vid} class="story-media" key=${url} src=${url} autoplay playsinline muted=${muted || volume === 0}
+        onLoadedMetadata=${e => { e.target.volume = volume; e.target.play().catch(() => { e.target.muted = true; setMuted(true); e.target.play().catch(() => {}); }); }}
+        onError=${() => { if (!useMain && c.alternative_video) setUseMain(true); else showHud('Это видео не поддерживается на Windows'); }}
         onTimeUpdate=${e => setProgress(e.target.currentTime / (e.target.duration || 1))} onEnded=${() => step(1)}/>`}
       ${!url && html`<div class="story-loading"><${Spinner}/></div>`}
       <div class="story-top">
@@ -127,7 +144,10 @@ export function StoryViewer() {
         <div class="story-head">
           <${Avatar} chat=${chat} size=${32}/>
           <div class="sh-text"><b>${isSaved(chat) ? 'Моя история' : chatTitle(chat)}</b><span>${listTime(info?.date)}</span></div>
-          ${isVideo && html`<button onClick=${() => setMuted(m => !m)}>${MI(muted ? 'Icon_StoryMute' : 'Icon_StoryUnmute', 24)}</button>`}
+          ${isVideo && html`<div class="story-vol" onWheel=${e => { e.preventDefault(); applyVol(volume - Math.sign(e.deltaY) * 0.05); }}>
+            <button onClick=${() => { const m = !(muted || volume === 0); setMuted(m); if (!m && volume === 0) applyVol(.5); savePref('storyMuted', m); }}>${MI(muted || volume === 0 ? 'Icon_StoryMute' : 'Icon_StoryUnmute', 24)}</button>
+            <div class="story-vol-pop"><input type="range" min="0" max="1" step="0.01" value=${muted ? 0 : volume} onInput=${e => applyVol(Number(e.target.value))}/></div>
+          </div>`}
           <button onClick=${closeStories}>${MI('Icon_StoryClose', 24)}</button>
         </div>
       </div>

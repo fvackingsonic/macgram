@@ -1,6 +1,6 @@
 [package]
 name = "mactele"
-version = "0.1.0"
+version = "0.3.0"
 description = "Неофициальный клиент Telegram для Windows в стиле macOS"
 edition = "2021"
 publish = false
