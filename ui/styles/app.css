@@ -1198,3 +1198,5 @@ body.resizing .sidebar.card, body.resizing .main { transition: none !important; 
 .group .item.wrap .lbl { flex: 1 0 100%; }
 .group .item.wrap .seg, .group .item.wrap .choice.inline { margin-left: 0; }
 .group .item .lbl { white-space: normal; line-height: 1.25; }
+.meta-inline .views { display: inline-flex; align-items: center; gap: 2px; margin-right: 2px; } .meta-inline .views .mi { opacity: .85; }
+.group .item { height: auto; min-height: 40px; padding-top: 5px; padding-bottom: 5px; }

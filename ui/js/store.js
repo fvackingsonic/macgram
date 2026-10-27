@@ -495,6 +495,9 @@ export function markRead(chatId = S.currentChatId) {
       send({ '@type': 'viewMessages', chat_id: chatId, message_ids: ids, force_read: true }).catch(() => {});
       if (chat.is_marked_as_unread) send({ '@type': 'toggleChatIsMarkedAsUnread', chat_id: chatId, is_marked_as_unread: false }).catch(() => {});
     }
+    // Дочитали до конца — упоминания и реакции тоже прочитаны (как в официальных клиентах).
+    if (chat.unread_mention_count > 0) send({ '@type': 'readAllChatMentions', chat_id: chatId }).catch(() => {});
+    if (chat.unread_reaction_count > 0) send({ '@type': 'readAllChatReactions', chat_id: chatId }).catch(() => {});
   }, 250);
 }
 document.addEventListener('visibilitychange', () => markRead());
@@ -682,6 +685,10 @@ onUpdate(u => {
     case 'updateChatReadInbox': patchChat(u.chat_id, c => { c.last_read_inbox_message_id = u.last_read_inbox_message_id; c.unread_count = u.unread_count; }); break;
     case 'updateChatReadOutbox': patchChat(u.chat_id, c => { c.last_read_outbox_message_id = u.last_read_outbox_message_id; }); break;
     case 'updateChatUnreadMentionCount': patchChat(u.chat_id, c => { c.unread_mention_count = u.unread_mention_count; }); break;
+    // Упоминание прочитано — TDLib сообщает новый счётчик именно так (без этого «собачка» висела).
+    case 'updateMessageMentionRead': patchChat(u.chat_id, c => { c.unread_mention_count = u.unread_mention_count; }); break;
+    case 'updateChatUnreadReactionCount': patchChat(u.chat_id, c => { c.unread_reaction_count = u.unread_reaction_count; }); break;
+    case 'updateMessageUnreadReactions': patchChat(u.chat_id, c => { c.unread_reaction_count = u.unread_reaction_count; }); break;
     case 'updateChatNotificationSettings': patchChat(u.chat_id, c => { c.notification_settings = u.notification_settings; }); break;
     case 'updateChatIsMarkedAsUnread': patchChat(u.chat_id, c => { c.is_marked_as_unread = u.is_marked_as_unread; }); break;
     case 'updateChatFolders': case 'updateChatFilters': {

@@ -5,6 +5,7 @@ import { InlineKeyboard } from './keyboards.js';
 import { S, changed, useTick, jumpTo, download, fileUrl, fileOf, senderName, senderId, openMenu, openModal, closeModal, showHud, deleteMessages, isGroup, isChannel, chatUser } from '../store.js';
 import { send, shell } from '../td.js';
 import { Icon } from '../icons.js';
+import { MI } from '../mac-icons.js';
 import { hm, renderFormatted, contentSummary, fileSize, duration, peerIndex, nameColor, jumboEmoji, userName, serviceText, count } from '../format.js';
 import { openForward, startSelection, toggleSelected } from './forward.js';
 import { Avatar } from './common.js';
@@ -103,7 +104,7 @@ function Sticker({ sticker }) {
   const live = S.prefs.animStickers !== false;
   if (fmt === 'stickerFormatWebm' && url) return html`<video class="sticker-img" src=${url} autoplay=${live} loop muted playsinline onMouseEnter=${e => !live && e.target.play()} onMouseLeave=${e => !live && e.target.pause()}/>`;
   if (fmt === 'stickerFormatWebp' && url) return html`<img decoding="async" class="sticker-img" src=${url} alt=${sticker.emoji} draggable="false"/>`;
-  if (fmt === 'stickerFormatTgs') return html`<${Tgs} file=${sticker.sticker} size=${160} autoplay=${live} hover=${!live} fallback=${sticker.emoji || '🙂'}/>`;
+  if (fmt === 'stickerFormatTgs') return html`<${Tgs} file=${sticker.sticker} size=${160} autoplay=${live} hover=${!live} loop=${S.prefs.loopStickers !== false} fallback=${sticker.emoji || '🙂'}/>`;
   return html`<div class="sticker-emoji">${sticker.emoji || '🙂'}</div>`;
 }
 
@@ -425,11 +426,17 @@ function forwardName(fi) {
   }
 }
 
+// Число просмотров как в Telegram для macOS: 999, 1.2K, 12K, 1.2M.
+function shortCount(n) {
+  if (n < 1000) return String(n);
+  if (n < 1e6) { const k = n / 1000; return `${k < 10 ? k.toFixed(1).replace(/\.0$/, '') : Math.floor(k)}K`; }
+  const m = n / 1e6; return `${m < 10 ? m.toFixed(1).replace(/\.0$/, '') : Math.floor(m)}M`;
+}
 function metaInner(msg, chat) {
   const read = msg.is_outgoing && msg.id <= (chat.last_read_outbox_message_id || 0);
   const views = msg.interaction_info?.view_count;
   return html`${msg.edit_date ? html`<span class="edited">изм.</span>` : null}
-    ${isChannel(chat) && views ? html`<span>${views >= 1000 ? `${(views / 1000).toFixed(1)}K` : views} 👁</span>` : null}
+    ${isChannel(chat) && views ? html`<span class="views">${MI('Icon_ChannelViews', 15)}${shortCount(views)}</span>` : null}
     ${hm(msg.date)}
     ${msg.is_outgoing && !isChannel(chat) && chat.id !== S.myId && (msg.sending_state ? (msg.sending_state['@type'] === 'messageSendingStateFailed' ? html`<span style="color:var(--red)">!</span>` : Icon.clock(12)) : read ? Icon.checks(13) : Icon.check(13))}`;
 }

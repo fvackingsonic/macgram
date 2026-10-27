@@ -6,6 +6,7 @@ import { Icon } from '../icons.js';
 import { setPasscode, lockNow } from '../passcode.js';
 import { checkUpdates, showUpdate, REPO } from '../updates.js';
 import { openLink } from '../links.js';
+import { playTone, SOUND_NAMES } from '../sound.js';
 
 // Версия из сборки (tauri.conf.json → CI подставляет номер), в демо-режиме — заглушка.
 let version = '';
@@ -42,6 +43,8 @@ export function SettingsPane() {
     case 'general': return html`<${General}/>`;
     case 'power': return html`<${PowerSaving}/>`;
     case 'about': return html`<${About}/>`;
+    case 'stickers': return html`<${StickersSettings}/>`;
+    case 'proxy': return html`<${ProxySettings}/>`;
     default: return html`<${Main}/>`;
   }
 }
@@ -84,7 +87,9 @@ function Main() {
       <${Row} icon=${MI('Icon_PrivacySettings_ActiveSessions', 24)} label="Активные сеансы" onClick=${() => go('sessions')}/>
       <${Row} icon=${Square('#5856d6', MI('menu_moon', 15))} label="Оформление" onClick=${() => go('appearance')}/>
       <${Row} icon=${MI('Icon_SettingsStorage', 24)} label="Данные и память" onClick=${() => go('storage')}/>
+      <${Row} icon=${MI('Icon_SettingsStickers', 24)} label="Стикеры и эмодзи" onClick=${() => go('stickers')}/>
       <${Row} icon=${Square('#ff9500', MI('menu_select_messages', 15))} label="Энергосбережение" onClick=${() => go('power')}/>
+      <${Row} icon=${Square('#34aadc', MI('menu_link', 15))} label="Прокси" onClick=${() => go('proxy')}/>
       <${Row} icon=${MI('Icon_SettingsLanguage', 24)} label="Язык" value="Русский"/>
     </div>
     <div class="group">
@@ -173,6 +178,11 @@ function Notifications() {
       ${SCOPES.map(([scope, label, icon]) => html`<div class="item">${MI(icon, 24)}<span class="lbl">${label}</span>
         <${Switch} on=${!((S.scopes[scope]?.mute_for || 0) > 0)} onChange=${on => setScope(scope, on)}/></div>`)}
     </div>
+    <div class="pane-sec">Звук</div>
+    <div class="group">
+      <div class="item"><span class="lbl">Звук уведомления</span><${Switch} on=${S.prefs.notifySound !== false} onChange=${v => setPref('notifySound', v)}/></div>
+      ${S.prefs.notifySound !== false && html`<div class="item wrap"><span class="lbl">Мелодия</span><div class="seg">${SOUND_NAMES.map(([k, l]) => html`<button class=${(S.prefs.notifyTone || 'note') === k ? 'on' : ''} onClick=${() => { setPref('notifyTone', k); playTone(k); }}>${l}</button>`)}</div></div>`}
+    </div>
     <div class="pane-sec">На этом компьютере</div>
     <div class="group">
       <div class="item"><span class="lbl">Показывать текст сообщения</span><${Switch} on=${S.prefs.notifyPreview !== false} onChange=${v => setPref('notifyPreview', v)}/></div>
@@ -241,6 +251,7 @@ function Privacy() {
       </div>`)}
     </div>
     <div class="sp-hint" style="padding:0 18px">Исключения для отдельных людей сохраняются в Telegram; при смене варианта здесь они сбрасываются.</div>
+    <${PrivacyExtras}/>
   </${Page}>`;
 }
 
@@ -490,4 +501,87 @@ export function openBugReport() {
       { label: 'Отмена', kind: 'second', action: closeModal },
     ],
   });
+}
+
+// Дополнительные настройки конфиденциальности (как в Telegram для macOS).
+function PrivacyExtras() {
+  const [ttl, setTtl] = useState(null);
+  const [arch, setArch] = useState(null);
+  const [top, setTop] = useState(null);
+  useEffect(() => {
+    send({ '@type': 'getAccountTtl' }).then(r => setTtl(r.days)).catch(() => setTtl(0));
+    send({ '@type': 'getArchiveChatListSettings' }).then(setArch).catch(() => setArch(false));
+    send({ '@type': 'getOption', name: 'disable_top_chats' }).then(r => setTop(!r.value)).catch(() => setTop(true));
+  }, []);
+  const saveTtl = d => send({ '@type': 'setAccountTtl', ttl: { '@type': 'accountTtl', days: d } }).then(() => { setTtl(d); showHud('Сохранено'); }).catch(e => showHud(e.message));
+  const saveArch = v => { const n = { ...(arch || {}), '@type': 'archiveChatListSettings', archive_and_mute_new_chats_from_unknown_users: v }; send({ '@type': 'setArchiveChatListSettings', settings: n }).then(() => setArch(n)).catch(e => showHud(e.message?.includes('PREMIUM') ? 'Доступно не всем аккаунтам' : e.message)); };
+  const saveTop = v => send({ '@type': 'setOption', name: 'disable_top_chats', value: { '@type': 'optionValueBoolean', value: !v } }).then(() => setTop(v)).catch(e => showHud(e.message));
+  const clearDrafts = () => openModal({ title: 'Удалить все черновики?', text: 'Неотправленный текст пропадёт во всех чатах на всех устройствах.',
+    buttons: [{ label: 'Удалить', kind: 'danger', action: () => { closeModal(); send({ '@type': 'clearAllDraftMessages', exclude_secret_chats: false }).then(() => showHud('Черновики удалены')).catch(e => showHud(e.message)); } }, { label: 'Отмена', kind: 'second', action: closeModal }] });
+  const TTL = [[30, '1 мес'], [90, '3 мес'], [180, '6 мес'], [365, '1 год']];
+  return html`<div class="pane-sec">Чаты</div>
+    <div class="group">
+      <div class="item"><span class="lbl">Архивировать новые чаты от незнакомцев<small>и выключать в них звук</small></span><${Switch} on=${!!arch?.archive_and_mute_new_chats_from_unknown_users} onChange=${saveArch}/></div>
+      <div class="item"><span class="lbl">Предлагать частых собеседников<small>в поиске</small></span><${Switch} on=${top !== false} onChange=${saveTop}/></div>
+      <${Row} label="Удалить все черновики" danger onClick=${clearDrafts} chevron=${false}/>
+    </div>
+    <div class="pane-sec">Удалить мой аккаунт</div>
+    <div class="group">
+      <div class="item wrap"><span class="lbl">Если меня нет больше</span><div class="seg">${TTL.map(([d, l]) => html`<button class=${ttl === d ? 'on' : ''} onClick=${() => saveTtl(d)}>${l}</button>`)}</div></div>
+    </div>
+    <div class="sp-hint" style="padding:0 18px">Если вы не заходите в Telegram ни с одного устройства столько времени, аккаунт удалится вместе со всеми сообщениями.</div>`;
+}
+
+// «Стикеры и эмодзи».
+function StickersSettings() {
+  return html`<${Page} title="Стикеры и эмодзи">
+    <div class="group">
+      <${Toggle} k="animStickers" label="Анимированные стикеры"/>
+      <${Toggle} k="loopStickers" label="Зацикливать анимированные стикеры"/>
+      <${Toggle} k="bigEmoji" label="Большие смайлики"/>
+    </div>
+    <div class="sp-hint" style="padding:0 18px">Свой шрифт смайликов можно выбрать в разделе «Оформление».</div>
+  </${Page}>`;
+}
+
+// «Прокси» — SOCKS5 и MTProto через TDLib (как в Telegram для macOS).
+function ProxySettings() {
+  const [list, setList] = useState(null);
+  const [form, setForm] = useState(null);
+  const [ping, setPing] = useState({});
+  const load = () => send({ '@type': 'getProxies' }).then(r => setList(r.proxies || [])).catch(() => setList([]));
+  useEffect(() => { load(); }, []);
+  const test = p => send({ '@type': 'pingProxy', proxy_id: p.id }).then(r => setPing(x => ({ ...x, [p.id]: `${Math.round(r.seconds * 1000)} мс` }))).catch(() => setPing(x => ({ ...x, [p.id]: 'нет связи' })));
+  useEffect(() => { (list || []).forEach(test); }, [list?.length]);
+  const toggle = p => send(p.is_enabled ? { '@type': 'disableProxy' } : { '@type': 'enableProxy', proxy_id: p.id }).then(load).catch(e => showHud(e.message));
+  const remove = p => send({ '@type': 'removeProxy', proxy_id: p.id }).then(load).catch(e => showHud(e.message));
+  const save = async e => {
+    e.preventDefault();
+    const f = form; const port = Number(f.port);
+    if (!f.server || !port) { showHud('Укажите сервер и порт'); return; }
+    const type = f.kind === 'mtproto' ? { '@type': 'proxyTypeMtproto', secret: f.secret || '' } : { '@type': 'proxyTypeSocks5', username: f.user || '', password: f.pass || '' };
+    try { await send({ '@type': 'addProxy', server: f.server.trim(), port, enable: true, type }); setForm(null); load(); showHud('Прокси добавлен и включён'); }
+    catch (x) { showHud(x.message); }
+  };
+  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+  return html`<${Page} title="Прокси">
+    <div class="group">
+      ${list === null ? html`<div class="item"><${Spinner}/></div>` : !list.length ? html`<div class="item"><span class="lbl" style="color:var(--gray-text)">Прокси не добавлены</span></div>`
+        : list.map(p => html`<div class="item" key=${p.id}>
+          <span class="lbl">${p.server}:${p.port}<small>${p.type['@type'] === 'proxyTypeMtproto' ? 'MTProto' : p.type['@type'] === 'proxyTypeSocks5' ? 'SOCKS5' : 'HTTP'} · ${ping[p.id] || 'проверка…'}</small></span>
+          <button class="sel-btn" onClick=${() => remove(p)}>Удалить</button>
+          <${Switch} on=${p.is_enabled} onChange=${() => toggle(p)}/>
+        </div>`)}
+    </div>
+    ${form ? html`<form class="pc-form group" onSubmit=${save}>
+        <div class="seg">${[['socks5', 'SOCKS5'], ['mtproto', 'MTProto']].map(([k, l]) => html`<button type="button" class=${form.kind === k ? 'on' : ''} onClick=${() => setForm(f => ({ ...f, kind: k }))}>${l}</button>`)}</div>
+        <input placeholder="Сервер" value=${form.server || ''} onInput=${set('server')}/>
+        <input placeholder="Порт" inputmode="numeric" value=${form.port || ''} onInput=${set('port')}/>
+        ${form.kind === 'mtproto' ? html`<input placeholder="Секрет" value=${form.secret || ''} onInput=${set('secret')}/>`
+          : html`<input placeholder="Имя пользователя (необязательно)" value=${form.user || ''} onInput=${set('user')}/><input type="password" placeholder="Пароль (необязательно)" value=${form.pass || ''} onInput=${set('pass')}/>`}
+        <div class="pc-btns"><button class="btn" type="submit">Сохранить</button><button class="btn second" type="button" onClick=${() => setForm(null)}>Отмена</button></div>
+      </form>`
+      : html`<div class="group"><${Row} label="Добавить прокси" onClick=${() => setForm({ kind: 'socks5' })}/></div>`}
+    <div class="sp-hint" style="padding:0 18px">Прокси нужен, если Telegram недоступен в вашей сети. Подключайте только серверы, которым доверяете.</div>
+  </${Page}>`;
 }

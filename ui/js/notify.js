@@ -2,6 +2,7 @@
 import { S, chatTitle, senderName, isGroup, inList, isMuted } from './store.js';
 import { onUpdate, shell } from './td.js';
 import { contentSummary, userName } from './format.js';
+import { playTone } from './sound.js';
 
 onUpdate(u => {
   if (u['@type'] !== 'updateNewMessage') return;
@@ -18,6 +19,7 @@ onUpdate(u => {
   // Заблокировано код-паролем — не показываем ни имя, ни текст.
   if (S.locked) { shell.notify('macgram', 'Новое сообщение'); return; }
   shell.notify(S.prefs.notifyName === false ? 'macgram' : chatTitle(chat), body);
+  if (S.prefs.notifySound !== false) playTone(S.prefs.notifyTone || 'note');
 });
 
 let lastBadge = -1;
