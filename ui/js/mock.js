@@ -39,12 +39,12 @@ export function createMock(dispatch) {
       ]) }),
       msg(11, 107, ME, 'Отлично, гляну вечером', now - 35 * 60, { reply_to: { '@type': 'messageReplyToMessage', chat_id: 11, message_id: 106 } }),
       msg(11, 108, 11, '👍', now - 30 * 60),
-      msg(11, 113, 11, '', now - 29 * 60, { media_album_id: '777', content: { '@type': 'messagePhoto', photo: { sizes: [{ type: 'x', width: 800, height: 600, photo: { id: 501, size: 1, local: {} } }] }, caption: { text: 'Фото с прогулки', entities: [] } } }),
-      msg(11, 114, 11, '', now - 29 * 60, { media_album_id: '777', content: { '@type': 'messagePhoto', photo: { sizes: [{ type: 'x', width: 600, height: 800, photo: { id: 502, size: 1, local: {} } }] }, caption: { text: '', entities: [] } } }),
-      msg(11, 115, 11, '', now - 29 * 60, { media_album_id: '777', content: { '@type': 'messagePhoto', photo: { sizes: [{ type: 'x', width: 800, height: 800, photo: { id: 503, size: 1, local: {} } }] }, caption: { text: '', entities: [] } } }),
+      msg(11, 113, 11, '', now - 29 * 60, { media_album_id: '777', content: { '@type': 'messagePhoto', photo: { sizes: [{ type: 'x', width: 800, height: 600, photo: { id: 501, size: 1, local: { can_be_downloaded: true } } }] }, caption: { text: 'Фото с прогулки', entities: [] } } }),
+      msg(11, 114, 11, '', now - 29 * 60, { media_album_id: '777', content: { '@type': 'messagePhoto', photo: { sizes: [{ type: 'x', width: 600, height: 800, photo: { id: 502, size: 1, local: { can_be_downloaded: true } } }] }, caption: { text: '', entities: [] } } }),
+      msg(11, 115, 11, '', now - 29 * 60, { media_album_id: '777', content: { '@type': 'messagePhoto', photo: { sizes: [{ type: 'x', width: 800, height: 800, photo: { id: 503, size: 1, local: { can_be_downloaded: true } } }] }, caption: { text: '', entities: [] } } }),
       msg(11, 116, 11, '', now - 28 * 60, { content: { '@type': 'messagePoll', poll: { question: { text: 'Куда пойдём в субботу?' }, is_anonymous: true, total_voter_count: 7, type: { '@type': 'pollTypeRegular' }, options: [{ text: { text: 'В горы' }, voter_count: 4, vote_percentage: 57, is_chosen: true }, { text: { text: 'На море' }, voter_count: 2, vote_percentage: 29 }, { text: { text: 'Остаться дома' }, voter_count: 1, vote_percentage: 14 }] } } }),
-      msg(11, 117, 11, '', now - 27 * 60, { content: { '@type': 'messageVideoNote', video_note: { duration: 12, length: 384, video: { id: 80, size: 900000, local: { is_downloading_completed: false, can_be_downloaded: true } } } } }),
-      msg(11, 112, 11, '', now - 26 * 60, { content: { '@type': 'messageVideo', video: { duration: 42, width: 1280, height: 720, video: { id: 79, size: 9000000, local: { is_downloading_completed: false, can_be_downloaded: true, downloaded_size: 3000000 } } }, caption: { text: 'Видео с выходных', entities: [] } } }),
+      msg(11, 117, 11, '', now - 27 * 60, { content: { '@type': 'messageVideoNote', video_note: { duration: 12, length: 384, thumbnail: { format: { '@type': 'thumbnailFormatJpeg' }, width: 384, height: 384, file: { id: 81, size: 1, local: { can_be_downloaded: true } } }, video: { id: 80, size: 900000, local: { is_downloading_completed: false, can_be_downloaded: true } } } } }),
+      msg(11, 112, 11, '', now - 26 * 60, { content: { '@type': 'messageVideo', video: { duration: 42, width: 1280, height: 720, thumbnail: { format: { '@type': 'thumbnailFormatJpeg' }, width: 320, height: 180, file: { id: 82, size: 1, local: { can_be_downloaded: true } } }, video: { id: 79, size: 9000000, local: { is_downloading_completed: false, can_be_downloaded: true, downloaded_size: 3000000 } } }, caption: { text: 'Видео с выходных', entities: [] } } }),
       msg(11, 110, 11, '', now - 25 * 60, { content: { '@type': 'messageVoiceNote', voice_note: { duration: 14, waveform: 'AAAQIEBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygp', voice: { id: 77, size: 20000, local: { is_downloading_completed: false, can_be_downloaded: true } } } } }),
       msg(11, 111, ME, '', now - 20 * 60, { content: { '@type': 'messageAudio', audio: { duration: 187, title: 'Night Drive', performer: 'Demo Artist', file_name: 'night.mp3', audio: { id: 78, size: 4200000, local: { is_downloading_completed: false, can_be_downloaded: true } } }, caption: { text: '', entities: [] } } }),
       msg(11, 109, 11, 'И не забудь про тёмную тему', now - 3 * 60),
@@ -159,7 +159,7 @@ export function createMock(dispatch) {
           const ic = q.input_message_content;
           if (ic['@type'] !== 'inputMessageText') {
             const wrap = ic.photo || ic.document || ic.video || ic.audio || ic.animation || ic.voice_note; const path = (wrap.photo || wrap.document || wrap.video || wrap.audio || wrap.animation || wrap.voice_note || wrap).path;
-            const m = msg(q.chat_id, ++nextId, ME, '', Math.floor(Date.now() / 1000), { content: { '@type': 'messageDocument', document: { file_name: path.split('/').pop(), document: { id: nextId, size: 120000, local: {} } }, caption: ic.caption } });
+            const m = msg(q.chat_id, ++nextId, ME, '', Math.floor(Date.now() / 1000), { content: { '@type': 'messageDocument', document: { file_name: path.split('/').pop(), document: { id: nextId, size: 120000, local: { can_be_downloaded: true } } }, caption: ic.caption } });
             (hist[q.chat_id] ||= []).push(m);
             return reply(m, 20);
           }
@@ -205,7 +205,7 @@ export function createMock(dispatch) {
           t = t.replace(/\*\*(.+?)\*\*/g, (m0, x, off) => { entities.push({ '@type': 'textEntity', offset: off, length: x.length, type: { '@type': 'textEntityTypeBold' } }); return x; });
           return reply({ '@type': 'formattedText', text: t, entities });
         }
-        case 'getStory': return reply({ '@type': 'story', id: q.story_id, content: { '@type': 'storyContentPhoto', photo: { sizes: [], minithumbnail: null } }, caption: { text: 'Вид с горы 🏔', entities: [] } }, 200);
+        case 'getStory': return reply({ '@type': 'story', id: q.story_id, content: { '@type': 'storyContentPhoto', photo: { sizes: window.__mockFiles?.[601] ? [{ type: 'x', width: 1080, height: 1920, photo: { id: 601, size: 1, local: { can_be_downloaded: true } } }] : [], minithumbnail: null } }, caption: { text: 'Вид с горы 🏔', entities: [] } }, 200);
         case 'getActiveSessions': return reply({ '@type': 'sessions', sessions: [
           { id: '1', is_current: true, application_name: 'macgram', application_version: '0.3.0', device_model: 'Windows PC', platform: 'Windows', system_version: '11', country: 'Украина', last_active_date: now },
           { id: '2', application_name: 'Telegram iOS', application_version: '12.1', device_model: 'iPhone 16', platform: 'iOS', system_version: '26', country: 'Украина', ip_address: '93.x.x.x', last_active_date: now - 3600 }] }, 200);
@@ -226,6 +226,12 @@ export function createMock(dispatch) {
           setAuth({ '@type': 'authorizationStateLoggingOut' });
           return setTimeout(() => setAuth({ '@type': 'authorizationStateClosed' }), 400);
         case 'getAuthorizationState': return reply(auth);
+        // Демо-файлы (для показа и промо-роликов): window.__mockFiles = { id: 'путь' }.
+        case 'downloadFile': {
+          const p = window.__mockFiles?.[q.file_id];
+          if (p) return reply({ '@type': 'file', id: q.file_id, size: 1, expected_size: 1, local: { path: p, is_downloading_completed: true, can_be_downloaded: true, downloaded_size: 1 }, remote: { is_uploading_completed: true } }, 60);
+          return err(404, 'Not Found');
+        }
         default: return ok();
       }
     },
