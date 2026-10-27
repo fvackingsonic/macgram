@@ -73,59 +73,117 @@ pub fn shell_prefs(app: AppHandle, close_to_tray: bool, notify: bool) {
     }
 }
 
-const TOAST_W: f64 = 360.0;
-const TOAST_H: f64 = 92.0;
-const TOAST_H_REPLY: f64 = 132.0;
+/// Вид и место уведомления — из настроек (Настройки → Уведомления → Всплывающие уведомления).
+#[derive(Clone, PartialEq)]
+struct ToastLook {
+    style: String, // "mac" — своя скруглённая карточка; "glass" — размытие Windows (акрил)
+    pos: String,   // "tr" | "br" | "tl" | "bl"
+    w: f64,
+    h: f64,
+}
+static LOOK: std::sync::Mutex<Option<ToastLook>> = std::sync::Mutex::new(None);
+const REPLY_EXTRA: f64 = 44.0;
 
-/// Правый нижний угол основного монитора, над панелью задач.
-fn place_toast(win: &tauri::WebviewWindow, h: f64) {
+/// У каждого вида своё окно: размытие задаётся только при создании окна.
+fn label_for(style: &str) -> &'static str {
+    if style == "glass" { "toastg" } else { "toast" }
+}
+fn cur_toast(app: &AppHandle) -> Option<tauri::WebviewWindow> {
+    let style = LOOK.lock().ok().and_then(|l| l.as_ref().map(|x| x.style.clone())).unwrap_or_else(|| "mac".into());
+    app.get_webview_window(label_for(&style))
+}
+
+fn look_from(p: &serde_json::Value) -> ToastLook {
+    let o = p.get("look");
+    let get = |k: &str, d: &str| o.and_then(|o| o.get(k)).and_then(|v| v.as_str()).unwrap_or(d).to_string();
+    let style = get("style", "mac");
+    let (w, h) = match get("size", "m").as_str() {
+        "s" => (330.0, 78.0),
+        "l" => (420.0, 112.0),
+        _ => (372.0, 92.0),
+    };
+    // у карточки «mac» прозрачные поля 10px под тень и скругление
+    let pad = if style == "mac" { 20.0 } else { 0.0 };
+    ToastLook { style, pos: get("pos", "tr"), w: w + pad, h: h + pad }
+}
+
+/// Угол основного монитора (сверху справа — как в macOS).
+fn place_toast(win: &tauri::WebviewWindow, look: &ToastLook, h: f64) {
     if let Ok(Some(m)) = win.primary_monitor() {
         let scale = m.scale_factor();
         let size = m.size().to_logical::<f64>(scale);
         let pos = m.position().to_logical::<f64>(scale);
-        let x = pos.x + size.width - TOAST_W - 12.0;
-        let y = pos.y + size.height - h - 60.0;
+        let edge = if look.style == "mac" { 2.0 } else { 12.0 };
+        let left = look.pos.ends_with('l');
+        let top = look.pos.starts_with('t');
+        let x = if left { pos.x + edge } else { pos.x + size.width - look.w - edge };
+        let y = if top { pos.y + edge + 6.0 } else { pos.y + size.height - h - 56.0 };
         let _ = win.set_position(tauri::LogicalPosition::new(x, y));
     }
 }
 
+fn create_toast(app: &AppHandle, look: &ToastLook) -> Result<tauri::WebviewWindow, String> {
+    let mut b = WebviewWindowBuilder::new(app, label_for(&look.style), WebviewUrl::App("toast.html".into()))
+        .title("macgram")
+        .inner_size(look.w, look.h)
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .resizable(false)
+        .focused(false)
+        .focusable(false)
+        .visible(false);
+    // У всех окон WebView2 с общей папкой данных должны быть одинаковые параметры браузера —
+    // иначе второе окно молча не создаётся (из-за этого уведомления macgram не появлялись).
+    if let Some(args) = app.config().app.windows.iter().find(|w| w.label == "main").and_then(|w| w.additional_browser_args.clone()) {
+        b = b.additional_browser_args(&args);
+    }
+    b = if look.style == "glass" {
+        // Настоящее размытие того, что под окном (акрил Windows), углы скругляет Windows 11.
+        b.shadow(true).effects(tauri::window::EffectsBuilder::new().effect(tauri::window::Effect::Acrylic).build())
+    } else {
+        b.shadow(false)
+    };
+    b.build().map_err(|e| e.to_string())
+}
+
 /// Показать всплывающее уведомление macgram (окно без рамки поверх всех, не забирает фокус).
 /// Команда обязательно async: на Windows создание окна из синхронной команды блокирует
-/// главный поток (tauri#4121) — из-за этого в 0.5/0.6 «зависало» всё окно после первого уведомления.
+/// главный поток (tauri#4121).
 #[tauri::command]
 pub async fn toast_show(app: AppHandle, payload: serde_json::Value) -> Result<(), String> {
-    let win = match app.get_webview_window("toast") {
+    let look = look_from(&payload);
+    // Сменили вид в настройках — старое окно другого вида больше не нужно.
+    let other = label_for(if look.style == "glass" { "mac" } else { "glass" });
+    if let Some(w) = app.get_webview_window(other) {
+        let _ = w.destroy();
+    }
+    if let Ok(mut l) = LOOK.lock() {
+        *l = Some(look.clone());
+    }
+    let label = label_for(&look.style);
+    let win = match app.get_webview_window(label) {
         Some(w) => w,
-        None => WebviewWindowBuilder::new(&app, "toast", WebviewUrl::App("toast.html".into()))
-            .title("macgram")
-            .inner_size(TOAST_W, TOAST_H)
-            .decorations(false)
-            .shadow(true)
-            .always_on_top(true)
-            .skip_taskbar(true)
-            .resizable(false)
-            .focused(false)
-            .focusable(false)
-            .visible(false)
-            .build()
-            .map_err(|e| e.to_string())?,
+        None => create_toast(&app, &look)?,
     };
     let seq = TOAST_SEQ.fetch_add(1, Ordering::Relaxed) + 1;
     let mut payload = payload;
     if let Some(o) = payload.as_object_mut() {
         o.insert("id".into(), serde_json::json!(seq));
     }
-    let _ = win.set_size(tauri::LogicalSize::new(TOAST_W, TOAST_H));
-    place_toast(&win, TOAST_H);
+    let _ = win.set_size(tauri::LogicalSize::new(look.w, look.h));
+    place_toast(&win, &look, look.h);
     if let Ok(mut l) = LAST_TOAST.lock() {
         *l = Some(payload.clone());
     }
-    let _ = app.emit_to("toast", "toast", payload.clone());
+    let _ = app.emit_to(label, "toast", payload.clone());
     let _ = win.show();
     // Доставка надёжнее событий: вызываем функцию страницы напрямую, пока она не подтвердит показ.
     // Если за 5 с подтверждения нет — прячем окно и просим главное окно показать уведомление Windows.
     let js = format!("window.__toast && window.__toast({})", payload);
     let fallback = payload.clone();
+    let stay = payload.get("look").and_then(|l| l.get("secs")).and_then(|v| v.as_u64()).unwrap_or(6);
     std::thread::spawn(move || {
         for ms in [150u64, 450, 900, 1500, 2000] {
             std::thread::sleep(std::time::Duration::from_millis(ms));
@@ -139,7 +197,9 @@ pub async fn toast_show(app: AppHandle, payload: serde_json::Value) -> Result<()
             let _ = app.emit_to("main", "toast-failed", fallback);
             return;
         }
-        std::thread::sleep(std::time::Duration::from_secs(10));
+        // страховка: окно прячется само, даже если страница не ответила
+        let wait = if stay == 0 { 600 } else { stay + 6 };
+        std::thread::sleep(std::time::Duration::from_secs(wait));
         if TOAST_SEQ.load(Ordering::Relaxed) == seq {
             let _ = win.hide();
         }
@@ -150,7 +210,7 @@ pub async fn toast_show(app: AppHandle, payload: serde_json::Value) -> Result<()
 /// Состояние окна уведомления — для кнопки «Проверить уведомление» в настройках.
 #[tauri::command]
 pub fn toast_status(app: AppHandle) -> serde_json::Value {
-    let w = app.get_webview_window("toast");
+    let w = cur_toast(&app);
     serde_json::json!({
         "created": w.is_some(),
         "visible": w.as_ref().and_then(|w| w.is_visible().ok()).unwrap_or(false),
@@ -173,7 +233,7 @@ pub fn toast_last() -> Option<serde_json::Value> {
 
 #[tauri::command]
 pub fn toast_hide(app: AppHandle) {
-    if let Some(w) = app.get_webview_window("toast") {
+    if let Some(w) = cur_toast(&app) {
         let _ = w.hide();
         let _ = w.set_focusable(false);
     }
@@ -182,12 +242,13 @@ pub fn toast_hide(app: AppHandle) {
 /// «Ответить» в уведомлении: окно становится выше и принимает ввод с клавиатуры.
 #[tauri::command]
 pub async fn toast_reply_mode(app: AppHandle, on: bool) {
-    if let Some(w) = app.get_webview_window("toast") {
-        let h = if on { TOAST_H_REPLY } else { TOAST_H };
+    if let Some(w) = cur_toast(&app) {
+        let look = LOOK.lock().ok().and_then(|l| l.clone()).unwrap_or_else(|| look_from(&serde_json::Value::Null));
+        let h = if on { look.h + REPLY_EXTRA } else { look.h };
         TOAST_SEQ.fetch_add(1, Ordering::Relaxed); // пока пишут ответ — не прятать само
         let _ = w.set_focusable(on);
-        let _ = w.set_size(tauri::LogicalSize::new(TOAST_W, h));
-        place_toast(&w, h);
+        let _ = w.set_size(tauri::LogicalSize::new(look.w, h));
+        place_toast(&w, &look, h);
         if on {
             let _ = w.set_focus();
         }

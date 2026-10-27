@@ -17,7 +17,18 @@
     card.classList.remove('in'); card.classList.add('out');
     setTimeout(() => T.core.invoke('toast_hide'), 260);
   };
-  const arm = () => { clearTimeout(timer); timer = setTimeout(() => { if (replying) return; if (!hover) hide(); else arm(); }, 5500); };
+  let stay = 6;
+  const arm = () => { clearTimeout(timer); if (!stay) return; timer = setTimeout(() => { if (replying) return; if (!hover) hide(); else arm(); }, stay * 1000); };
+  // Вид из настроек: стиль, угол, размер, тема, прозрачность, время показа, аватар, «Ответить».
+  const dark = window.matchMedia('(prefers-color-scheme: dark)');
+  const applyLook = l => {
+    const h = document.documentElement;
+    const theme = l.theme === 'dark' || (l.theme !== 'light' && dark.matches) ? 'dark' : '';
+    h.className = [`style-${l.style || 'mac'}`, `size-${l.size || 'm'}`, theme, (l.pos || 'tr').endsWith('l') ? 'left' : '',
+      l.avatar === false ? 'no-avatar' : '', l.reply === false ? 'no-reply' : ''].filter(Boolean).join(' ');
+    if (typeof l.opacity === 'number') h.style.setProperty('--alpha', String(l.opacity)); else h.style.removeProperty('--alpha');
+    stay = typeof l.secs === 'number' ? l.secs : 6;
+  };
   card.addEventListener('mouseenter', () => { hover = true; });
   card.addEventListener('mouseleave', () => { hover = false; });
   card.addEventListener('click', e => {
@@ -47,8 +58,10 @@
     $('title').textContent = cur.title || 'macgram';
     $('text').textContent = cur.body || '';
     replyBtn.style.display = cur.chatId ? '' : 'none';
+    applyLook(cur.look || {});
     const av = $('av');
-    av.textContent = cur.photo ? '' : (cur.initials || '');
+    av.firstChild?.nodeType === 3 && av.removeChild(av.firstChild);
+    if (!cur.photo && cur.initials) av.insertBefore(document.createTextNode(cur.initials), av.firstChild);
     av.style.backgroundImage = cur.photo ? `url("${cur.photo}")` : (cur.color || 'linear-gradient(#72d5fd,#2a9ef1)');
     card.classList.remove('out', 'in');
     void card.offsetWidth;

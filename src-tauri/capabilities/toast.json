@@ -2,6 +2,6 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "toast",
   "description": "Окно всплывающих уведомлений: только события и свои команды",
-  "windows": ["toast"],
+  "windows": ["toast", "toastg"],
   "permissions": ["core:default", "core:event:default"]
 }

@@ -1,49 +1,67 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" class="style-mac">
 <head>
 <meta charset="utf-8">
 <title>macgram</title>
 <link rel="stylesheet" href="styles/fonts.css">
 <style>
-  /* Окно непрозрачное (прозрачные окна WebView2 на части компьютеров не рисуются) — само окно и есть карточка;
-     скругление и тень даёт Windows 11. */
-  html, body { margin: 0; height: 100%; background: #f6f6f8; overflow: hidden; font: 13px/1.3 "SF Pro Text", "Inter var", "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; user-select: none; }
-  .card { position: absolute; inset: 0; display: flex; gap: 11px; align-items: center; padding: 10px 14px; cursor: default;
-    background: #f6f6f8; color: #111; opacity: 0; transform: translateY(6px); transition: transform .35s cubic-bezier(.2, 1.1, .35, 1), opacity .2s; }
-  @media (prefers-color-scheme: dark) { html, body, .card { background: #2a2a2e; color: #f2f2f7; } .text { color: #b8b8c0 !important; } }
+  /* Баннер уведомления как в macOS: скруглённая полупрозрачная карточка, аватар с маленьким
+     значком приложения, имя жирным, «сейчас» справа, при наведении — крестик и «Ответить». */
+  :root { --bg: 246, 246, 248; --alpha: .86; --fg: #111; --sub: #4b4b52; --muted: #8a8a90; --edge: rgba(0,0,0,.1); --hi: rgba(255,255,255,.9);
+    --btn: rgba(0,0,0,.07); --btn-h: rgba(0,0,0,.13); --input: rgba(255,255,255,.85); }
+  html.dark { --bg: 38, 38, 42; --alpha: .84; --fg: #f2f2f7; --sub: #c7c7cc; --muted: #8e8e93; --edge: rgba(255,255,255,.12); --hi: rgba(255,255,255,.14);
+    --btn: rgba(255,255,255,.1); --btn-h: rgba(255,255,255,.18); --input: rgba(0,0,0,.28); }
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none;
+    font: 13px/1.3 "SF Pro Text", "Inter var", "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: var(--fg); }
+  .card { position: absolute; inset: 10px; display: flex; flex-direction: column; justify-content: center; padding: 10px 14px 10px 12px; cursor: default;
+    border-radius: 18px; background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,0) 50%), rgba(var(--bg), var(--alpha));
+    box-shadow: 0 6px 18px rgba(0,0,0,.2), 0 0 0 .5px var(--edge), inset 0 .5px 0 var(--hi);
+    opacity: 0; transform: translateX(var(--from, 40px)); transition: transform .5s cubic-bezier(.2, 1.15, .35, 1), opacity .2s; }
+  html.left { --from: -40px; }
+  /* «Стекло»: само окно размыто Windows (акрил), карточка — только лёгкий оттенок */
+  html.style-glass .card { inset: 0; border-radius: 0; box-shadow: none; background: rgba(var(--bg), calc(var(--alpha) * .45)); transform: none; }
   .card.in { transform: none; opacity: 1; }
-  .card.out { opacity: 0; transform: translateY(6px); }
-  .av { width: 44px; height: 44px; border-radius: 50%; flex: none; display: grid; place-items: center; color: #fff; font-weight: 600; font-size: 16px; background-size: cover; background-position: center; }
+  .card.out { opacity: 0; transform: translateX(var(--from, 40px)); transition-duration: .3s; }
+  html.style-glass .card.out { transform: none; }
+  .row { display: flex; gap: 11px; align-items: center; width: 100%; min-width: 0; }
+  .av { width: 38px; height: 38px; border-radius: 50%; flex: none; display: grid; place-items: center; color: #fff; font-weight: 600; font-size: 15px;
+    background-size: cover; background-position: center; position: relative; }
+  .av .badge { position: absolute; right: -3px; bottom: -3px; width: 16px; height: 16px; border-radius: 4px; background: url(icons/macgram-logo.svg) center/cover; box-shadow: 0 0 0 1.5px rgba(var(--bg), 1); }
+  html.no-avatar .av { width: 30px; height: 30px; border-radius: 7px; background: url(icons/macgram-logo.svg) center/cover !important; color: transparent; }
+  html.no-avatar .av .badge { display: none; }
   .body { flex: 1; min-width: 0; }
-  .top { display: flex; align-items: center; gap: 6px; }
+  .top { display: flex; align-items: baseline; gap: 6px; }
   .title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
-  .app { font-size: 11px; opacity: .55; flex: none; }
-  .text { margin-top: 2px; color: #555; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
-  .x { position: absolute; top: 6px; left: 6px; width: 18px; height: 18px; border-radius: 50%; border: 0; background: rgba(0,0,0,.45); color: #fff; font-size: 11px; line-height: 18px; padding: 0; opacity: 0; transition: opacity .15s; cursor: pointer; }
-  .card:hover .x { opacity: 1; }
-  /* «Ответить» — как кнопка в баннере macOS: появляется при наведении */
-  .row { display: flex; gap: 11px; align-items: center; width: 100%; }
-  .reply-btn { flex: none; height: 26px; padding: 0 11px; border-radius: 13px; border: 0; font-size: 12px; font-weight: 500; line-height: 26px; font-family: inherit;
-    background: rgba(0,0,0,.07); color: inherit; opacity: 0; transform: scale(.9); transition: opacity .15s, transform .2s cubic-bezier(.2,1.2,.35,1), background .15s; cursor: pointer; }
-  .card:hover .reply-btn { opacity: 1; transform: none; }
-  .reply-btn:hover { background: rgba(0,0,0,.13); }
-  .card { flex-direction: column; justify-content: center; }
-  .reply { display: none; width: 100%; gap: 6px; align-items: center; margin-top: 8px; }
+  .when { font-size: 11px; color: var(--muted); flex: none; }
+  .text { margin-top: 1px; color: var(--sub); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+  html.size-s { font-size: 12px; } html.size-s .av { width: 32px; height: 32px; } html.size-s .text { -webkit-line-clamp: 1; }
+  html.size-l { font-size: 14px; } html.size-l .av { width: 46px; height: 46px; } html.size-l .text { -webkit-line-clamp: 3; }
+  .x { position: absolute; top: -6px; left: -6px; width: 20px; height: 20px; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+    background: rgba(var(--bg), 1); color: var(--sub); font-size: 10px; line-height: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.25), 0 0 0 .5px var(--edge);
+    opacity: 0; transform: scale(.7); transition: opacity .15s, transform .2s cubic-bezier(.2,1.3,.35,1); }
+  html.style-glass .x { top: 4px; left: 4px; }
+  .card:hover .x { opacity: 1; transform: none; }
+  .reply-btn { flex: none; height: 26px; padding: 0 11px; border-radius: 13px; border: 0; font-size: 12px; font-weight: 500; font-family: inherit;
+    background: var(--btn); color: inherit; cursor: pointer; display: none; transition: background .15s; }
+  .card:hover .reply-btn { display: block; }
+  .card:hover .when { display: none; }
+  html.no-reply .reply-btn { display: none !important; }
+  .reply-btn:hover { background: var(--btn-h); }
+  .reply { display: none; width: 100%; gap: 6px; align-items: center; margin-top: 9px; }
   .card.replying .reply { display: flex; }
-  .card.replying .reply-btn { display: none; }
-  .reply input { flex: 1; min-width: 0; height: 30px; border-radius: 15px; border: .5px solid rgba(0,0,0,.15); background: rgba(255,255,255,.9); padding: 0 12px; font-size: 13px; font-family: inherit; color: inherit; outline: none; }
+  .card.replying .reply-btn { display: none !important; }
+  .reply input { flex: 1; min-width: 0; height: 30px; border-radius: 15px; border: .5px solid var(--edge); background: var(--input); padding: 0 12px; font-size: 13px; font-family: inherit; color: inherit; outline: none; }
   .reply input:focus { border-color: #2481cc; box-shadow: 0 0 0 2px rgba(36,129,204,.25); }
   .send { width: 30px; height: 30px; border-radius: 50%; border: 0; background: #2481cc; color: #fff; font-size: 15px; cursor: pointer; flex: none; }
   .send:disabled { opacity: .4; }
-  @media (prefers-color-scheme: dark) { .reply-btn { background: rgba(255,255,255,.1); } .reply-btn:hover { background: rgba(255,255,255,.18); } .reply input { background: rgba(0,0,0,.25); border-color: rgba(255,255,255,.15); } }
 </style>
 </head>
 <body>
   <div class="card" id="card">
     <button class="x" id="x" title="Закрыть">✕</button>
     <div class="row">
-      <div class="av" id="av"></div>
-      <div class="body"><div class="top"><div class="title" id="title"></div><div class="app">macgram</div></div><div class="text" id="text"></div></div>
+      <div class="av" id="av"><i class="badge"></i></div>
+      <div class="body"><div class="top"><div class="title" id="title"></div><div class="when">сейчас</div></div><div class="text" id="text"></div></div>
       <button class="reply-btn" id="reply">Ответить</button>
     </div>
     <div class="reply"><input id="input" placeholder="Ответить…" maxlength="4096"/><button class="send" id="send" title="Отправить" disabled>↑</button></div>

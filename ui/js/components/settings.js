@@ -1,12 +1,13 @@
 // Настройки — как в Telegram для macOS: главная страница и вложенные разделы.
 import { html, useState, useEffect } from '../lib.js';
-import { S, changed, setPref, showHud, openModal, closeModal, logOut, openMenu } from '../store.js';
+import { S, changed, setPref, showHud, openModal, closeModal, logOut, openMenu, fileUrl } from '../store.js';
 import { send, shell } from '../td.js';
 import { Icon } from '../icons.js';
 import { setPasscode, lockNow } from '../passcode.js';
 import { checkUpdates, showUpdate, REPO } from '../updates.js';
 import { openLink } from '../links.js';
 import { playTone, SOUND_NAMES } from '../sound.js';
+import { toastLook } from '../notify.js';
 import { FoldersSettings, FolderEdit } from './folders.js';
 import { openAvatar } from './profile.js';
 import { Appearance, AutoNight, NameColor, WallpaperSettings } from './appearance.js';
@@ -174,6 +175,20 @@ const SCOPES = [
 function Switch({ on, onChange }) {
   return html`<span class=${`switch ${on ? 'on' : ''}`} onClick=${e => { e.stopPropagation(); onChange(!on); }}><i/></span>`;
 }
+// Живое превью баннера прямо в настройках.
+function ToastPreview() {
+  const l = toastLook();
+  const me = S.users.get(S.myId);
+  const sysDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+  const dark = l.theme === 'dark' || (l.theme !== 'light' && sysDark);
+  const a = l.opacity ?? (dark ? .84 : .86);
+  const bg = dark ? `rgba(38,38,42,${l.style === 'glass' ? a * .45 + .3 : a})` : `rgba(246,246,248,${l.style === 'glass' ? a * .45 + .3 : a})`;
+  return html`<div class=${`toast-prev size-${l.size} ${dark ? 'dark' : ''} ${l.style}`} style=${`background:${bg}`}>
+    ${l.avatar ? html`<span class="tp-av"><${Avatar} user=${me} size=${l.size === 's' ? 30 : l.size === 'l' ? 44 : 36}/><i/></span>` : html`<img class="tp-app" src="icons/macgram-logo.svg" alt=""/>`}
+    <div class="tp-body"><div class="tp-top"><b>${me ? userName(me) : 'Мария'}</b><span>сейчас</span></div><div class="tp-text">Так выглядит уведомление macgram 👋</div></div>
+  </div>`;
+}
+
 // Пробное уведомление: показывает его и сообщает, удалось ли (помогает найти причину, если не видно).
 async function testNotify() {
   const T = window.__TAURI__;
@@ -182,7 +197,7 @@ async function testNotify() {
   if (S.prefs.notifyStyle === 'windows') { shell.notify('macgram', 'Так выглядит уведомление Windows').then(() => showHud('Уведомление Windows отправлено')).catch(e => showHud(`Windows не показала уведомление: ${e}`)); return; }
   const me = S.users.get(S.myId);
   try {
-    await T.core.invoke('toast_show', { payload: { chatId: 0, title: 'macgram', body: 'Так выглядит уведомление macgram', initials: 'm', color: 'linear-gradient(#5AC8FA,#1E6FE0)' } });
+    await T.core.invoke('toast_show', { payload: { chatId: 0, title: me ? userName(me) : 'macgram', body: 'Так выглядит уведомление macgram 👋', initials: 'm', color: 'linear-gradient(#5AC8FA,#1E6FE0)', photo: me?.profile_photo ? fileUrl(me.profile_photo.small) : '', look: toastLook() } });
   } catch (e) { showHud(`Окно уведомления не создалось: ${e}`); return; }
   setTimeout(async () => {
     const st = await T.core.invoke('toast_status').catch(() => null);
@@ -218,6 +233,18 @@ function Notifications() {
       <div class="item wrap"><span class="lbl">Вид уведомлений</span>${seg('notifyStyle', [['macgram', 'Как на Mac'], ['windows', 'Windows']], 'macgram')}</div>
       <button class="item" onClick=${testNotify}><span class="lbl" style="color:var(--accent)">Показать пробное уведомление</span></button>
     </div>
+    ${S.prefs.notifyStyle !== 'windows' && html`<div class="pane-sec">Вид баннера</div>
+    <div class="toast-prev-wrap"><${ToastPreview}/></div>
+    <div class="group">
+      <div class="item wrap"><span class="lbl">Стиль</span>${seg('toastStyle', [['mac', 'Как на Mac'], ['glass', 'Стекло Windows']], 'mac')}</div>
+      <div class="item wrap"><span class="lbl">Где показывать</span>${seg('toastPos', [['tr', 'Справа сверху'], ['br', 'Справа снизу'], ['tl', 'Слева сверху'], ['bl', 'Слева снизу']], 'tr')}</div>
+      <div class="item wrap"><span class="lbl">Размер</span>${seg('toastSize', [['s', 'Маленький'], ['m', 'Обычный'], ['l', 'Крупный']], 'm')}</div>
+      <div class="item wrap"><span class="lbl">Сколько показывать</span>${seg('toastSecs', [[3, '3 с'], [6, '6 с'], [10, '10 с'], [0, 'Пока не закрою']], 6)}</div>
+      <div class="item wrap"><span class="lbl">Тема</span>${seg('toastTheme', [['auto', 'Как в системе'], ['light', 'Светлая'], ['dark', 'Тёмная']], 'auto')}</div>
+      <div class="item ap-size"><span class="lbl" style="flex:none">Прозрачность</span><input type="range" min="55" max="100" value=${Math.round((S.prefs.toastOpacity ?? .86) * 100)} onInput=${e => setPref('toastOpacity', Number(e.target.value) / 100)} style="flex:1;accent-color:var(--accent)"/></div>
+      <${Toggle} k="toastAvatar" label="Фото отправителя" hint="Выключите — будет значок macgram"/>
+      <${Toggle} k="toastReply" label="Кнопка «Ответить»" hint="Быстрый ответ прямо из уведомления"/>
+    </div>`}
     <div class="pane-sec">Уведомления о сообщениях</div>
     <div class="group">
       ${SCOPES.map(([scope, label, icon]) => html`<div class="item">${MI(icon, 24)}<span class="lbl">${label}</span>

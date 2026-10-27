@@ -28,10 +28,16 @@ onUpdate(u => {
 // Всплывающее уведомление: своё окно macgram в углу экрана (по щелчку открывает чат)
 // или системное уведомление Windows — смотря что выбрано в настройках.
 let toastBroken = false;
+// Вид всплывающего уведомления — из «Настройки → Уведомления → Вид баннера».
+export function toastLook() {
+  const p = S.prefs;
+  return { style: p.toastStyle || 'mac', pos: p.toastPos || 'tr', size: p.toastSize || 'm', secs: p.toastSecs ?? 6,
+    theme: p.toastTheme || 'auto', opacity: p.toastOpacity ?? null, avatar: p.toastAvatar !== false, reply: p.toastReply !== false };
+}
 function show(chat, title, body) {
   if (S.prefs.notifyStyle === 'windows' || toastBroken || !window.__TAURI__) { shell.notify(title, body).catch(() => {}); return; }
   const photo = chat && S.prefs.notifyName !== false ? fileUrl(chat.photo?.small) : '';
-  const payload = { chatId: chat?.id || 0, title, body,
+  const payload = { chatId: chat?.id || 0, title, body, look: toastLook(),
     initials: chat ? initials(chatTitle(chat)) : 'm', color: chat ? avatarGradient(peerIndex(chat.id)) : '', photo };
   // Если своё окно уведомления не ответило за 3 с — показываем обычное уведомление Windows.
   let done = false;
