@@ -1,6 +1,6 @@
 // Обои чата на весь фон окна — те же, что выбраны в аккаунте Telegram (узор + градиент).
 import { html, useEffect, useState } from '../lib.js';
-import { S, changed, download, fileUrl, palette } from '../store.js';
+import { S, changed, download, fileUrl, palette, applyTint } from '../store.js';
 import { send, onUpdate } from '../td.js';
 
 const hex = n => `#${(n >>> 0 & 0xffffff).toString(16).padStart(6, '0')}`;
@@ -54,6 +54,60 @@ function usePattern(file) {
   return url;
 }
 
+// ── главный цвет фона для «Цвета под фон» ──
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+  if (mx === mn) return [0, 0, l * 100];
+  const d = mx - mn, s = l > .5 ? d / (2 - mx - mn) : d / (mx + mn);
+  const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h * 60, s * 100, l * 100];
+}
+// Самый «заметный» оттенок: пиксели делим на 24 корзины по оттенку с весом насыщенности.
+function dominant(pixels) {
+  const bins = Array.from({ length: 24 }, () => ({ w: 0, x: 0, y: 0, s: 0, l: 0 }));
+  let tl = 0, tw = 0;
+  for (const [r, g, b] of pixels) {
+    const [h, s, l] = rgbToHsl(r, g, b);
+    tl += l; tw++;
+    const w = (s / 100) * (1 - Math.abs(l - 50) / 60) + .02;
+    const bin = bins[Math.floor(h / 15) % 24];
+    bin.w += w; bin.x += Math.cos(h * Math.PI / 180) * w; bin.y += Math.sin(h * Math.PI / 180) * w; bin.s += s * w; bin.l += l * w;
+  }
+  const best = bins.reduce((a, b) => (b.w > a.w ? b : a));
+  if (!best.w) return null;
+  const h = (Math.atan2(best.y, best.x) * 180 / Math.PI + 360) % 360;
+  return { h, s: best.s / best.w, l: tl / tw };
+}
+const tintCache = new Map();
+async function computeTint(bg) {
+  if (tintCache.has(bg.id)) return tintCache.get(bg.id);
+  const t = bg.type;
+  let res = null;
+  const fill = t?.fill;
+  if (fill) {
+    const cols = fill.colors || (fill.color != null ? [fill.color] : [fill.top_color, fill.bottom_color]);
+    res = dominant(cols.filter(c => c != null).map(c => [(c >> 16) & 255, (c >> 8) & 255, c & 255]));
+  } else if (t?.['@type'] === 'backgroundTypeWallpaper') {
+    const f = bg.document?.thumbnail?.file || bg.document?.document;
+    if (!f) return null;
+    download(f, 1);
+    for (let i = 0; i < 40 && !fileUrl(f); i++) await new Promise(r => setTimeout(r, 250));
+    const url = fileUrl(f);
+    if (!url) return null;
+    try {
+      const bmp = await createImageBitmap(await (await fetch(url)).blob());
+      const c = document.createElement('canvas'); c.width = c.height = 32;
+      const g = c.getContext('2d'); g.drawImage(bmp, 0, 0, 32, 32);
+      const d = g.getImageData(0, 0, 32, 32).data, px = [];
+      for (let i = 0; i < d.length; i += 4) px.push([d[i], d[i + 1], d[i + 2]]);
+      res = dominant(px);
+    } catch { res = null; }
+  }
+  tintCache.set(bg.id, res);
+  return res;
+}
+
 export function Wallpaper() {
   const dark = palette() === 'night';
   const plain = palette() === 'day' && !S.backgrounds?.light;
@@ -74,6 +128,14 @@ export function Wallpaper() {
   const inverted = dark || (own && isPattern && type.is_inverted);
   const base = plain ? 'var(--chat-bg)' : type?.['@type'] === 'backgroundTypeFill' ? fillCss(type.fill, fallback) : fillCss(fill, fallback);
 
+  // Цвета под фон — только для своего фона из аккаунта.
+  const tintKey = own ? `${own.id}:${dark}` : '';
+  useEffect(() => {
+    let alive = true;
+    if (!own) { if (S.wallTint) { S.wallTint = null; applyTint(); changed(); } return; }
+    computeTint(own).then(t => { if (!alive) return; S.wallTint = t; applyTint(); changed(); });
+    return () => { alive = false; };
+  }, [tintKey]);
   return html`<div class="wallpaper" style=${`background:${isPhoto && photoUrl ? `center/cover no-repeat url("${photoUrl}")` : base}`}>
     ${isPhoto && type.is_blurred && html`<div class="wp-blur"/>`}
     ${!plain && isPattern && pattern && html`<div class="wp-pattern" style=${`-webkit-mask-image:url("${pattern}");mask-image:url("${pattern}");background:${inverted ? '#fff' : '#000'};opacity:${inverted ? intensity * 0.12 : intensity * 0.32}`}/>`}

@@ -18,6 +18,7 @@ import { ForwardDialog } from './components/forward.js';
 import { StoryViewer } from './components/stories.js';
 import { NewChatDialog } from './components/new-chat.js';
 import { FolderChatsPicker } from './components/folders.js';
+import { BgPreviewHost } from './components/appearance.js';
 import { closeThread } from './components/thread.js';
 
 // Кнопка «назад» на мыши (боковая) — шаг назад, как жест «назад» в Telegram для macOS.
@@ -70,6 +71,7 @@ function App() {
     <${ForwardDialog}/>
     <${NewChatDialog}/>
     <${FolderChatsPicker}/>
+    <${BgPreviewHost}/>
     <${StoryViewer}/>
     <${Viewer}/>
     <${ContextMenu}/>

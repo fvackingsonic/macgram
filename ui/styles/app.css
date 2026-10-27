@@ -1400,3 +1400,42 @@ html.no-bubbles .messages { --msg-gap: 2px; }
 .comments-mini { height: 32px; min-width: 32px; padding: 0 9px; border-radius: 16px; display: flex; align-items: center; justify-content: center; gap: 4px; color: var(--accent); font-weight: 600; font-size: 12.5px; transition: transform .2s var(--spring); }
 .comments-mini:hover { transform: scale(1.06); }
 .comments-mini:active { transform: scale(.94); }
+
+/* ── «назад» в настройках — круглая стеклянная кнопка, как в Telegram для macOS 26 ── */
+.sp-head { height: 40px; padding: 0 10px 8px; align-items: center; }
+.sp-back { width: 32px; height: 32px; min-width: 0; padding: 0; margin: 0; border-radius: 50%; display: grid; place-items: center; gap: 0;
+  background: var(--glass-sheen), var(--glass-bg); color: var(--text);
+  box-shadow: 0 2px 8px rgba(0,0,0,.08), inset 0 0 0 .5px var(--glass-edge), inset 1.5px 1.5px 1px -1px var(--glass-hi), inset -1px -1px 1px -.5px var(--glass-lo);
+  transition: transform .25s var(--spring), background .15s; }
+.sp-back:hover { background: var(--glass-sheen), var(--glass-bg); transform: scale(1.08); }
+.sp-back:active { transform: scale(1.14); }
+.sp-back::after { content: ""; position: absolute; inset: -6px; } /* зона нажатия больше самой кнопки */
+.sp-back .sp-back-text { display: none; }
+.sp-more { position: absolute; right: 10px; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: var(--text); z-index: 1;
+  background: var(--glass-sheen), var(--glass-bg); box-shadow: 0 2px 8px rgba(0,0,0,.08), inset 0 0 0 .5px var(--glass-edge), inset 1.5px 1.5px 1px -1px var(--glass-hi); transition: transform .25s var(--spring); }
+.sp-more:hover { transform: scale(1.08); }
+.sp-done { right: 10px; }
+
+/* Оформление — дополнения */
+.ap-preview { position: relative; overflow: hidden; isolation: isolate; }
+.ap-preview > .wallpaper { z-index: -1; }
+.hidden-input { position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none; }
+.accent-dot.custom { display: grid; place-items: center; color: var(--gray-text); background: conic-gradient(#ff3b30, #ff9500, #ffcc00, #34c759, #00c7be, #007aff, #af52de, #ff3b30); }
+.accent-dot.custom:not(.on) { color: #fff; }
+.accent-dot.none { display: grid; place-items: center; background: var(--gray-bg); color: var(--gray-text); }
+.ap-slider { flex: 1; position: relative; display: flex; align-items: center; }
+.ap-slider input { width: 100%; position: relative; z-index: 1; accent-color: var(--accent); margin: 0; }
+.ap-ticks { position: absolute; left: 8px; right: 8px; top: 50%; display: flex; justify-content: space-between; pointer-events: none; transform: translateY(6px); }
+.ap-ticks i { width: 2px; height: 5px; border-radius: 1px; background: var(--gray-icon); opacity: .5; }
+.ap-ticks i.on { background: var(--accent); opacity: .8; }
+.ap-prof { height: 92px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: var(--gray-bg); color: var(--text); }
+.ap-prof[style] { color: #fff; }
+.ap-prof b { font-size: 16px; }
+.ap-prof span { font-size: 12px; opacity: .8; }
+.wp-sheet { width: 420px; text-align: left; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.wp-prev { height: 220px; border-radius: 12px; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; padding: 12px; isolation: isolate; }
+.wp-prev > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+.wp-ctrl { display: flex; align-items: center; gap: 10px; font-size: var(--fs-text); }
+.wp-ctrl input { flex: 1; accent-color: var(--accent); }
+.wp-colors { display: flex; gap: 8px; flex-wrap: wrap; }
+html.tinted .bubble, html.tinted .glass, html.tinted .badge { transition: background-color .5s ease, color .3s; }

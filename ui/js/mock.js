@@ -176,6 +176,8 @@ export function createMock(dispatch) {
           ok();
           return setTimeout(() => { setAuth({ '@type': 'authorizationStateReady' }); populate(); }, 300);
         case 'getMe': return reply(users[0]);
+        case 'setDefaultBackground': { const bg = { '@type': 'background', id: String(Date.now()), type: q.type || { '@type': 'backgroundTypeFill', fill: { '@type': 'backgroundFillSolid', color: 0xdddddd } }, document: null }; reply(bg); return emit({ '@type': 'updateDefaultBackground', for_dark_theme: q.for_dark_theme, background: bg }); }
+        case 'deleteDefaultBackground': ok(); return emit({ '@type': 'updateDefaultBackground', for_dark_theme: q.for_dark_theme, background: null });
         case 'getMessageAvailableReactions': return reply({ '@type': 'availableReactions', top_reactions: ['👍', '❤️', '🔥', '🎉', '😁', '🤔', '👏', '😢'].map(emoji => ({ type: { '@type': 'reactionTypeEmoji', emoji }, needs_premium: false })), recent_reactions: [], popular_reactions: [] }, 80);
         // ── ветки комментариев и темы форума ──
         case 'getMessageThread': {

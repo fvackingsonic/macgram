@@ -194,7 +194,44 @@ export function applyPrefs() {
     root.style.setProperty('--accent-select', S.prefs.accent);
     root.style.setProperty('--accent-soft', `color-mix(in srgb, ${S.prefs.accent} 14%, transparent)`);
   } else ['--accent', '--accent-select', '--accent-soft'].forEach(v => root.style.removeProperty(v));
+  applyTint();
   applyFonts();
+}
+
+// ── Цвета под фон: акцент, исходящие пузыри и стекло подстраиваются под выбранный фон ──
+// S.wallTint = { h, s, l } — главный цвет фона (считает wallpaper.js).
+const TINT_VARS = ['--out-bg', '--out-border', '--out-text', '--out-gray', '--out-link', '--out-reply', '--out-ic-bg', '--out-ic-fg', '--in-bg', '--glass-bg', '--row-active', '--badge', '--link', '--in-link', '--in-reply'];
+export function applyTint() {
+  const root = document.documentElement;
+  const t = S.prefs.autoTint !== false ? S.wallTint : null;
+  const own = !!S.prefs.accent;
+  if (!t) {
+    TINT_VARS.forEach(v => root.style.removeProperty(v));
+    if (!own) ['--accent', '--accent-select', '--accent-soft'].forEach(v => root.style.removeProperty(v));
+    root.classList.remove('tinted');
+    return;
+  }
+  const dark = palette() === 'night';
+  const h = Math.round(t.h), s = Math.round(Math.max(18, Math.min(78, t.s)));
+  const set = (k, v) => root.style.setProperty(k, v);
+  const accent = dark ? `hsl(${h} ${Math.min(80, s + 10)}% 64%)` : `hsl(${h} ${Math.min(85, s + 15)}% 42%)`;
+  if (!own) { set('--accent', accent); set('--accent-select', accent); set('--accent-soft', `color-mix(in srgb, ${accent} 15%, transparent)`); }
+  const a = own ? S.prefs.accent : accent;
+  if (dark) {
+    set('--out-bg', `hsl(${h} ${Math.min(45, s)}% 30%)`); set('--out-border', `hsl(${h} ${Math.min(45, s)}% 34%)`);
+    set('--out-text', '#ffffff'); set('--out-gray', 'rgba(255,255,255,.62)'); set('--out-link', '#ffffff'); set('--out-reply', '#ffffff');
+    set('--out-ic-bg', '#ffffff'); set('--out-ic-fg', `hsl(${h} ${Math.min(45, s)}% 30%)`);
+    set('--in-bg', `hsl(${h} ${Math.min(22, s)}% 16%)`);
+    set('--glass-bg', `hsl(${h} ${Math.min(25, s)}% 16% / .55)`);
+  } else {
+    set('--out-bg', `hsl(${h} ${Math.min(75, s + 10)}% 89%)`); set('--out-border', `hsl(${h} ${Math.min(60, s)}% 82%)`);
+    set('--out-text', '#000000'); set('--out-gray', `hsl(${h} ${Math.min(40, s)}% 36% / .85)`); set('--out-link', `hsl(${h} 70% 34%)`); set('--out-reply', `hsl(${h} 70% 34%)`);
+    set('--out-ic-bg', `hsl(${h} 60% 42%)`); set('--out-ic-fg', '#ffffff');
+    set('--in-bg', `hsl(${h} ${Math.min(30, s)}% 99%)`);
+    set('--glass-bg', `hsl(${h} ${Math.min(40, s)}% 98% / .6)`);
+  }
+  set('--row-active', a); set('--badge', a); set('--link', a); set('--in-link', a); set('--in-reply', a);
+  root.classList.add('tinted');
 }
 darkQuery?.addEventListener?.('change', () => { applyPrefs(); changed(); });
 
