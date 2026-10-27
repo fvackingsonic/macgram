@@ -1508,37 +1508,37 @@ html.no-bubbles .date-sep span, html.no-bubbles .service span, html.no-bubbles .
 html.glass-bubbles .msg-row .bubble::after, html.no-bubbles .msg-row .bubble::after { display: none; }
 html.glass-bubbles .msg-row.last .bubble, html.no-bubbles .msg-row.last .bubble { border-bottom-left-radius: 16px !important; border-bottom-right-radius: 16px !important; }
 
-/* ── стеклянные пузыри — «жидкое стекло» как в iOS/macOS 26: почти прозрачные, сильно размывают
-   фон под собой, яркий блик по краю (светлее сверху-слева и снизу-справа), мягкое свечение внутри ── */
-:root { --lg-tint: rgba(255,255,255,.2); --lg-out: color-mix(in srgb, var(--out-bg) 34%, transparent); --lg-rim-a: rgba(255,255,255,.95); --lg-rim-b: rgba(255,255,255,.12);
-  --lg-glow: rgba(255,255,255,.28); --lg-text: #0b0b0c; --lg-shadow: 0 6px 22px rgba(0,0,0,.14); }
-:root[data-palette="night"] { --lg-tint: rgba(255,255,255,.07); --lg-out: color-mix(in srgb, var(--out-bg) 40%, transparent); --lg-rim-a: rgba(255,255,255,.55); --lg-rim-b: rgba(255,255,255,.06);
-  --lg-glow: rgba(255,255,255,.08); --lg-text: #fff; --lg-shadow: 0 6px 22px rgba(0,0,0,.35); }
+/* ── «жидкое стекло» как в iOS 26 / macOS 26 (по референсам): почти без заливки, фон под стеклом
+   виден, слегка размыт и ПРЕЛОМЛЯЕТСЯ линзой по краям (SVG-фильтр #lg-lens), тонкий яркий кант. ── */
+:root { --lg-tint: rgba(255,255,255,.14); --lg-out: color-mix(in srgb, var(--out-bg) 22%, transparent); --lg-hi: rgba(255,255,255,.75); --lg-lo: rgba(255,255,255,.22);
+  --lg-edge: rgba(255,255,255,.3); --lg-text: #0b0b0c; --lg-shadow: 0 8px 24px rgba(0,0,0,.16); --lg-meta: rgba(0,0,0,.5); }
+:root[data-palette="night"] { --lg-tint: rgba(12,14,20,.26); --lg-out: color-mix(in srgb, var(--out-bg) 28%, transparent); --lg-hi: rgba(255,255,255,.45);
+  --lg-lo: rgba(255,255,255,.1); --lg-edge: rgba(255,255,255,.16); --lg-text: #fff; --lg-shadow: 0 8px 24px rgba(0,0,0,.4); --lg-meta: rgba(255,255,255,.6); }
 html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
 html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble.media.with-caption,
-html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments,
-html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .comments-mini {
-  position: relative; isolation: isolate; color: var(--lg-text) !important;
-  background: radial-gradient(120% 90% at 20% 0%, rgba(255,255,255,.22), rgba(255,255,255,0) 60%), var(--lg-tint) !important;
-  backdrop-filter: blur(24px) saturate(1.45) brightness(1.1) !important; -webkit-backdrop-filter: blur(24px) saturate(1.45) brightness(1.1) !important;
-  box-shadow: var(--lg-shadow), inset 0 0 14px var(--lg-glow), inset 0 1px 1px rgba(255,255,255,.35) !important;
-  contain: none !important;
+html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments {
+  position: relative; color: var(--lg-text) !important; contain: none !important;
+  background: var(--lg-tint) !important;
+  backdrop-filter: url(#lg-lens-s) blur(8px) saturate(1.6) brightness(1.06) !important;
+  -webkit-backdrop-filter: url(#lg-lens-s) blur(8px) saturate(1.6) brightness(1.06) !important;
+  box-shadow: var(--lg-shadow), inset 0 0 0 1px var(--lg-edge), inset 1.5px 1.5px 1px -.5px var(--lg-hi), inset -1px -1.5px 1px -.5px var(--lg-lo) !important;
 }
 html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
-html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .bubble.media.with-caption {
-  background: radial-gradient(120% 90% at 20% 0%, rgba(255,255,255,.24), rgba(255,255,255,0) 60%), var(--lg-out) !important;
-}
-/* блик-кант: градиентная рамка 1.2px через маску (ярко сверху-слева и снизу-справа) */
-html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo)::before,
-html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble.media.with-caption::before,
-html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments::before {
-  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.2px; pointer-events: none; z-index: 2;
-  background: linear-gradient(135deg, var(--lg-rim-a) 0%, var(--lg-rim-b) 32%, var(--lg-rim-b) 62%, var(--lg-rim-a) 100%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
-          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude;
-}
+html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .bubble.media.with-caption { background: var(--lg-out) !important; }
 html.glass-bubbles .msg-row .with-comments > .bubble { backdrop-filter: none !important; background: transparent !important; box-shadow: none !important; }
-html.glass-bubbles .msg-row .with-comments > .bubble::before { display: none; }
-html.glass-bubbles:not(.lite) .msg-row .bubble .meta-inline, html.glass-bubbles:not(.lite) .msg-row .bubble .views { color: color-mix(in srgb, var(--lg-text) 62%, transparent) !important; }
-html.glass-bubbles:not(.lite):not(.no-bubbles):not([data-palette="night"]) .msg-row .bubble { text-shadow: 0 0 6px rgba(255,255,255,.55); }
-html.glass-bubbles[data-palette="night"]:not(.lite) .msg-row .bubble { text-shadow: 0 1px 4px rgba(0,0,0,.45); }
+html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble, html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments { text-shadow: 0 0 8px var(--lg-glow-text, rgba(255,255,255,.6)); }
+:root[data-palette="night"] { --lg-glow-text: rgba(0,0,0,.6); }
+html.glass-bubbles:not(.lite) .msg-row .bubble .meta-inline, html.glass-bubbles:not(.lite) .msg-row .bubble .views, html.glass-bubbles:not(.lite) .msg-row .meta-overlay { color: var(--lg-meta) !important; }
+/* комментарии под постом в стекле: та же поверхность, разделитель — тонкая светлая линия */
+html.glass-bubbles:not(.lite) .msg-row .with-comments .comments-bar { background: transparent; }
+html.glass-bubbles:not(.lite) .msg-row .with-comments .comments-bar::before { background: var(--lg-edge); height: 1px; }
+html.glass-bubbles:not(.lite) .msg-row .with-comments .comments-bar:hover { background: rgba(255,255,255,.08); }
+html.glass-bubbles:not(.lite) .msg-row .cb-av { box-shadow: 0 0 0 1.5px rgba(255,255,255,.35); }
+/* файлы и музыка в стеклянном пузыре: кружок кнопки и подписи читаются на любом фоне */
+html.glass-bubbles:not(.lite) .msg-row .bubble .doc-sub, html.glass-bubbles:not(.lite) .msg-row .bubble .audio-sub { color: var(--lg-meta) !important; }
+
+/* панели и кнопки поверх чата — то же жидкое стекло с линзой */
+html:not(.lite) .chat-top .glass, html:not(.lite) .composer-wrap .glass, html:not(.lite) .top-bars .glass, html:not(.lite) .scroll-down.glass {
+  backdrop-filter: url(#lg-lens) blur(7px) saturate(1.7) brightness(1.05) !important;
+  -webkit-backdrop-filter: url(#lg-lens) blur(7px) saturate(1.7) brightness(1.05) !important;
+}

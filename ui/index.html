@@ -10,6 +10,18 @@
   <script type="module" src="js/main.js"></script>
 </head>
 <body>
+  <!-- «Жидкое стекло»: линза по краям (фон под стеклом преломляется), как Liquid Glass в iOS/macOS 26.
+       Карта смещения растягивается на размер элемента: красный канал — по горизонтали, зелёный — по вертикали. -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="lg-lens" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feImage href="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20width%3D%27100%27%20height%3D%27100%27%20viewBox%3D%270%200%20100%20100%27%20preserveAspectRatio%3D%27none%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27x%27%20x1%3D%270%27%20x2%3D%271%27%20y1%3D%270%27%20y2%3D%270%27%3E%3Cstop%20offset%3D%270%27%20stop-color%3D%27rgb%28255%2C0%2C0%29%27/%3E%3Cstop%20offset%3D%27.1%27%20stop-color%3D%27rgb%28128%2C0%2C0%29%27/%3E%3Cstop%20offset%3D%27.9%27%20stop-color%3D%27rgb%28128%2C0%2C0%29%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27rgb%280%2C0%2C0%29%27/%3E%3C/linearGradient%3E%3ClinearGradient%20id%3D%27y%27%20x1%3D%270%27%20x2%3D%270%27%20y1%3D%270%27%20y2%3D%271%27%3E%3Cstop%20offset%3D%270%27%20stop-color%3D%27rgb%280%2C255%2C0%29%27/%3E%3Cstop%20offset%3D%27.22%27%20stop-color%3D%27rgb%280%2C128%2C0%29%27/%3E%3Cstop%20offset%3D%27.78%27%20stop-color%3D%27rgb%280%2C128%2C0%29%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27rgb%280%2C0%2C0%29%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width%3D%27100%27%20height%3D%27100%27%20fill%3D%27url%28%23x%29%27/%3E%3Crect%20width%3D%27100%27%20height%3D%27100%27%20fill%3D%27url%28%23y%29%27%20style%3D%27mix-blend-mode%3Ascreen%27/%3E%3C/svg%3E" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="map"/>
+      <feDisplacementMap in="SourceGraphic" in2="map" scale="30" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="lg-lens-s" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feImage href="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20width%3D%27100%27%20height%3D%27100%27%20viewBox%3D%270%200%20100%20100%27%20preserveAspectRatio%3D%27none%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27x%27%20x1%3D%270%27%20x2%3D%271%27%20y1%3D%270%27%20y2%3D%270%27%3E%3Cstop%20offset%3D%270%27%20stop-color%3D%27rgb%28255%2C0%2C0%29%27/%3E%3Cstop%20offset%3D%27.1%27%20stop-color%3D%27rgb%28128%2C0%2C0%29%27/%3E%3Cstop%20offset%3D%27.9%27%20stop-color%3D%27rgb%28128%2C0%2C0%29%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27rgb%280%2C0%2C0%29%27/%3E%3C/linearGradient%3E%3ClinearGradient%20id%3D%27y%27%20x1%3D%270%27%20x2%3D%270%27%20y1%3D%270%27%20y2%3D%271%27%3E%3Cstop%20offset%3D%270%27%20stop-color%3D%27rgb%280%2C255%2C0%29%27/%3E%3Cstop%20offset%3D%27.22%27%20stop-color%3D%27rgb%280%2C128%2C0%29%27/%3E%3Cstop%20offset%3D%27.78%27%20stop-color%3D%27rgb%280%2C128%2C0%29%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27rgb%280%2C0%2C0%29%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width%3D%27100%27%20height%3D%27100%27%20fill%3D%27url%28%23x%29%27/%3E%3Crect%20width%3D%27100%27%20height%3D%27100%27%20fill%3D%27url%28%23y%29%27%20style%3D%27mix-blend-mode%3Ascreen%27/%3E%3C/svg%3E" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="map"/>
+      <feDisplacementMap in="SourceGraphic" in2="map" scale="18" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </svg>
   <div id="app"></div>
 </body>
 </html>

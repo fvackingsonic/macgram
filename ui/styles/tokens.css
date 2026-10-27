@@ -80,7 +80,7 @@
 
   /* стекло (Liquid Glass) */
   --card-bg: rgba(255, 255, 255, .9);
-  --glass-bg: rgba(255, 255, 255, .6);
+  --glass-bg: rgba(255, 255, 255, .45);
   --glass-edge: rgba(0, 0, 0, .07);
   --glass-hi: rgba(255, 255, 255, .95);
   --glass-lo: rgba(255, 255, 255, .5);
