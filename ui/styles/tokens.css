@@ -1,5 +1,5 @@
 /*
-  Цвета взяты из палитр Telegram для macOS (тема «День» и «Ночь»),
+  Цвета взяты из актуальных палитр Telegram для macOS (whitePalette и nightAccentPalette, октябрь 2026),
   чтобы интерфейс совпадал с оригиналом.
 */
 :root {
@@ -54,20 +54,20 @@
   --row-active-text: #ffffff;
   --row-active-gray: rgba(255, 255, 255, .78);
 
-  --in-bg: #f4f4f4;
-  --in-border: #eaeaea;
+  --in-bg: #f7f7fa;
+  --in-border: #ededf2;
   --in-text: #000000;
   --in-gray: #999999;
   --in-link: #2481cc;
   --in-reply: #2481cc;
   --in-highlight: #eaeaea;
-  --out-bg: #4c91c7;
-  --out-border: #4c91c7;
+  --out-bg: #5097cb;
+  --out-border: #4d93c9;
   --out-text: #ffffff;
   --out-gray: rgba(239, 250, 255, .8);
   --out-link: #ffffff;
   --out-reply: #ffffff;
-  --out-highlight: #4b7bad;
+  --out-highlight: #5080b0;
   --code: #ff3b30;
 
   --date-bg: rgba(255, 255, 255, .92);
@@ -107,12 +107,12 @@
     --border: #213040;
     --gray-bg: #213040;
     --gray-fg: #213040;
-    --gray-icon: #8395a8;
+    --gray-icon: #b1c3d5;
     --gray-ui: #1c2733;
     --gray-highlight: #1e2a37;
     --badge: #2ea6ff;
-    --badge-muted: #4b5d70;
-    --list-bg: #131415;
+    --badge-muted: #b1c3d5;
+    --list-bg: #101820;
     --sidebar-bg: #18222d;
     --chat-bg: #18222d;
     --row-hover: #1e2b39;
@@ -120,20 +120,20 @@
     --row-active-text: #ffffff;
     --row-active-gray: rgba(255, 255, 255, .78);
 
-    --in-bg: #213040;
-    --in-border: #213040;
+    --in-bg: #1e2c3b;
+    --in-border: #293848;
     --in-text: #ffffff;
     --in-gray: #b1c3d5;
     --in-link: #62bcf9;
     --in-reply: #62bcf9;
-    --in-highlight: #2d3a49;
-    --out-bg: #3d6a97;
-    --out-border: #3d6a97;
+    --in-highlight: #283848;
+    --out-bg: #416ead;
+    --out-border: #3b6ba5;
     --out-text: #ffffff;
     --out-gray: rgba(239, 250, 255, .8);
     --out-link: #ffffff;
     --out-reply: #ffffff;
-    --out-highlight: #5079a1;
+    --out-highlight: #5280aa;
     --code: #ff8a80;
 
     --date-bg: rgba(33, 48, 64, .92);
@@ -168,12 +168,12 @@
   --border: #213040;
   --gray-bg: #213040;
   --gray-fg: #213040;
-  --gray-icon: #8395a8;
+  --gray-icon: #b1c3d5;
   --gray-ui: #1c2733;
   --gray-highlight: #1e2a37;
   --badge: #2ea6ff;
-  --badge-muted: #4b5d70;
-  --list-bg: #131415;
+  --badge-muted: #b1c3d5;
+  --list-bg: #101820;
   --sidebar-bg: #18222d;
   --chat-bg: #18222d;
   --row-hover: #1e2b39;
@@ -181,20 +181,20 @@
   --row-active-text: #ffffff;
   --row-active-gray: rgba(255, 255, 255, .78);
 
-  --in-bg: #213040;
-  --in-border: #213040;
+  --in-bg: #1e2c3b;
+  --in-border: #293848;
   --in-text: #ffffff;
   --in-gray: #b1c3d5;
   --in-link: #62bcf9;
   --in-reply: #62bcf9;
-  --in-highlight: #2d3a49;
-  --out-bg: #3d6a97;
-  --out-border: #3d6a97;
+  --in-highlight: #283848;
+  --out-bg: #416ead;
+  --out-border: #3b6ba5;
   --out-text: #ffffff;
   --out-gray: rgba(239, 250, 255, .8);
   --out-link: #ffffff;
   --out-reply: #ffffff;
-  --out-highlight: #5079a1;
+  --out-highlight: #5280aa;
   --code: #ff8a80;
 
   --date-bg: rgba(33, 48, 64, .92);

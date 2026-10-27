@@ -1,7 +1,7 @@
 import { html, useRef, useLayoutEffect, useState, useEffect } from '../lib.js';
 import {
   S, changed, sortedChats, selectChat, chatTitle, chatUser, isSaved, isGroup, isChannel, senderName, typingText,
-  search, loadContacts, openPrivate, openMenu, openModal, closeModal, setPref, logOut, showHud, position,
+  search, loadContacts, isMuted, openPrivate, openMenu, openModal, closeModal, setPref, logOut, showHud, position,
 } from '../store.js';
 import { send } from '../td.js';
 import { Icon } from '../icons.js';
@@ -15,7 +15,6 @@ const CONN = {
   connectionStateUpdating: 'Обновление…',
 };
 
-const isMuted = c => (c.notification_settings?.mute_for || 0) > 0;
 
 export function Sidebar() {
   const conn = CONN[S.connection];

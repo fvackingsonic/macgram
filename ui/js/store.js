@@ -31,6 +31,9 @@ export const S = {
   player: null,
   profile: false,
   viewer: null,
+  sendDialog: null,
+  dragging: false,
+  scopes: {},
   prefs: loadPrefs(),
 };
 
@@ -84,6 +87,19 @@ export function sortedChats(key) {
 export function chatUser(chat) {
   const t = chat?.type;
   return t && (t['@type'] === 'chatTypePrivate' || t['@type'] === 'chatTypeSecret') ? S.users.get(t.user_id) : null;
+}
+const scopeOf = chat => {
+  const t = chat?.type?.['@type'];
+  if (t === 'chatTypePrivate' || t === 'chatTypeSecret') return 'notificationSettingsScopePrivateChats';
+  if (t === 'chatTypeSupergroup' && chat.type.is_channel) return 'notificationSettingsScopeChannelChats';
+  return 'notificationSettingsScopeGroupChats';
+};
+// Учитываем и личную настройку чата, и общую для типа чатов (каналы часто без звука по умолчанию).
+export function isMuted(chat) {
+  const ns = chat?.notification_settings;
+  if (!ns) return false;
+  if (ns.use_default_mute_for) return (S.scopes[scopeOf(chat)]?.mute_for || 0) > 0;
+  return (ns.mute_for || 0) > 0;
 }
 export const isSaved = chat => chat && chat.id === S.myId;
 export const isChannel = chat => chat?.type?.['@type'] === 'chatTypeSupergroup' && chat.type.is_channel;
@@ -415,6 +431,7 @@ onUpdate(u => {
       if (!u.from_cache) for (const id of u.message_ids) removeMessage(u.chat_id, id);
       break;
     case 'updateChatAction': setTyping(u.chat_id, u.sender_id, u.action); break;
+    case 'updateScopeNotificationSettings': S.scopes[u.scope['@type']] = u.notification_settings; break;
     default: return;
   }
   changed();

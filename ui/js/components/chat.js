@@ -1,6 +1,6 @@
 import { html, useRef, useEffect, useState, useLayoutEffect } from '../lib.js';
 import {
-  S, changed, loadHistory, sendText, selectChat, chatTitle, chatUser, isSaved, isGroup, isChannel, typingText, senderName,
+  S, changed, loadHistory, sendText, selectChat, isMuted, chatTitle, chatUser, isSaved, isGroup, isChannel, typingText, senderName,
   openMenu, showHud, markRead,
 } from '../store.js';
 import { send } from '../td.js';
@@ -9,6 +9,7 @@ import { userStatus, count, dayLabel, sameDay, contentSummary, userName } from '
 import { Avatar, Spinner, TypingDots, dragHandlers } from './common.js';
 import { MessageRow, canReply, focusComposer, isServiceType } from './message.js';
 import { ProfilePanel } from './profile.js';
+import { pickAndSend, pasteImage } from './attach.js';
 import { player, progress } from '../player.js';
 import { duration } from '../format.js';
 
@@ -42,7 +43,7 @@ function status(chat) {
 
 function Chat({ chat }) {
   const st = status(chat);
-  const muted = (chat.notification_settings?.mute_for || 0) > 0;
+  const muted = isMuted(chat);
   const toggleMute = () => send({ '@type': 'setChatNotificationSettings', chat_id: chat.id, notification_settings: { ...(chat.notification_settings || {}), '@type': 'chatNotificationSettings', use_default_mute_for: false, mute_for: muted ? 0 : 2147483647 } })
     .then(() => showHud(muted ? 'Уведомления включены' : 'Уведомления выключены')).catch(e => showHud(e.message));
   const more = e => {
@@ -120,6 +121,12 @@ function Composer({ chat }) {
       send({ '@type': 'sendChatAction', chat_id: chat.id, message_thread_id: 0, action: { '@type': 'chatActionTyping' } }).catch(() => {});
     }
   };
+  const onPaste = e => {
+    const files = [...(e.clipboardData?.files || [])].filter(f => f.type.startsWith('image/'));
+    if (!files.length) return;
+    e.preventDefault();
+    files.forEach(f => pasteImage(f).catch(err => showHud(String(err))));
+  };
   const submit = () => {
     if (!text.trim()) return;
     sendText(chat.id, text);
@@ -146,9 +153,9 @@ function Composer({ chat }) {
       <button class="icon-btn gray" onClick=${() => { if (S.editing) setText(''); S.reply = null; S.editing = null; changed(); }}>${Icon.close(14)}</button>
     </div>`}
     <div class="compose-row">
-      <button class="icon-btn" title="Прикрепить" onClick=${soon('Отправка файлов')}>${Icon.attach()}</button>
+      <button class="icon-btn" title="Прикрепить файл" onClick=${() => pickAndSend(false)}>${Icon.attach()}</button>
       <textarea ref=${ref} class="compose-input" rows="1" placeholder=${isChannel(chat) ? 'Публикация…' : 'Сообщение'} value=${text}
-        onInput=${onInput} onKeyDown=${onKey}/>
+        onInput=${onInput} onKeyDown=${onKey} onPaste=${onPaste}/>
       <button class="icon-btn" title="Эмодзи и стикеры" onClick=${soon('Панель стикеров')}>${Icon.smile()}</button>
       <button class=${`icon-btn send-btn ${ready ? 'ready' : ''}`} title=${ready ? 'Отправить' : 'Голосовое сообщение'} onClick=${ready ? submit : soon('Голосовые сообщения')}>
         <span class=${ready ? 'hide' : ''} style="position:absolute;inset:0;display:grid;place-items:center;transition:transform .22s var(--spring),opacity .15s">${Icon.mic()}</span>

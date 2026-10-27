@@ -484,3 +484,52 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; bo
 .viewer-close { position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.14); display: grid; place-items: center; color: #fff; }
 .viewer-close:hover { background: rgba(255,255,255,.24); }
 @keyframes viewer-in { from { opacity: 0; transform: scale(.88); } }
+
+/* ───────── отправка файлов ───────── */
+.send-sheet { width: 420px; text-align: left; padding: 16px; }
+.sd-title { font-weight: 600; font-size: var(--fs-header); margin-bottom: 12px; }
+.sd-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-height: 330px; overflow-y: auto; margin-bottom: 12px; }
+.sd-grid.one { grid-template-columns: 1fr; }
+.sd-item { position: relative; border-radius: 8px; overflow: hidden; background: var(--bg); box-shadow: inset 0 0 0 1px var(--border); min-height: 56px; animation: pop .25s var(--spring); }
+.sd-item.img { aspect-ratio: 1; }
+.sd-grid.one .sd-item.img { aspect-ratio: auto; max-height: 300px; }
+.sd-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sd-grid.one .sd-item img { object-fit: contain; max-height: 300px; background: #000; }
+.sd-file { display: flex; align-items: center; gap: 10px; padding: 8px; }
+.sd-file .file-ic { width: 36px; height: 36px; }
+.sd-file span { font-size: var(--fs-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sd-remove { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; display: grid; place-items: center; opacity: 0; transition: opacity .15s; }
+.sd-item:hover .sd-remove { opacity: 1; }
+.sd-check { display: flex; gap: 8px; align-items: center; font-size: var(--fs-text); margin-bottom: 10px; }
+.sd-caption { width: 100%; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); padding: 0 10px; outline: 0; user-select: text; }
+.sd-caption:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.sd-btns { display: flex; gap: 8px; margin-top: 14px; }
+.sd-btns .btn { width: auto; padding: 0 16px; height: 30px; margin: 0; font-size: var(--fs-text); border-radius: 7px; }
+.sd-btns .btn.second { background: var(--bg); color: var(--text); box-shadow: 0 0 0 .5px rgba(0,0,0,.15), 0 1px 1px rgba(0,0,0,.08); }
+
+.drop-overlay { position: fixed; inset: 0; z-index: 44; display: grid; place-items: center; background: var(--accent-soft); backdrop-filter: blur(2px); animation: fade-in .15s var(--ease); pointer-events: none; }
+.drop-box { border: 2px dashed var(--accent); border-radius: 18px; padding: 40px 60px; color: var(--accent); font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 10px; background: var(--bg); animation: sheet-in .25s var(--spring); }
+
+.upload { position: absolute; inset: 0; display: grid; place-items: center; }
+.upload span { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,.45); color: #fff; font-size: 11px; padding: 1px 6px; border-radius: 8px; }
+.file .upload { inset: auto; left: 0; top: 0; width: 42px; height: 42px; }
+.file .upload svg { width: 42px; height: 42px; }
+.file .upload span { display: none; }
+
+/* ───────── реакции ───────── */
+.with-reactions { display: flex; flex-direction: column; max-width: min(480px, 72%); }
+.msg-row.out .with-reactions { align-items: flex-end; }
+.with-reactions .bubble { max-width: 100%; }
+.reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.reaction {
+  display: flex; align-items: center; gap: 4px; height: 26px; padding: 0 9px 0 6px; border-radius: 13px; font-size: 12px; font-weight: 600;
+  background: var(--in-bg); color: var(--accent); box-shadow: inset 0 0 0 1px var(--in-border); transition: transform .15s var(--spring), background .15s;
+  animation: pop .3s var(--spring);
+}
+.reaction .r-emoji { font-size: 15px; line-height: 1; }
+.reaction:hover { transform: scale(1.05); }
+.reaction.on { background: var(--accent); color: #fff; box-shadow: none; }
+.ctx-reactions { display: flex; gap: 2px; padding: 2px 2px 6px; border-bottom: 1px solid var(--menu-border); margin-bottom: 4px; }
+.ctx .ctx-reactions button { width: 30px; height: 30px; padding: 0; justify-content: center; font-size: 19px; border-radius: 50%; animation: pop .25s var(--spring) backwards; transition: transform .12s var(--spring); }
+.ctx .ctx-reactions button:hover { background: var(--accent-soft); transform: scale(1.2); color: inherit; }
+.ctx .ctx-reactions button.on { background: var(--accent-soft); }

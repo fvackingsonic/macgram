@@ -32,7 +32,7 @@ export function createMock(dispatch) {
       msg(11, 102, ME, 'Привет! Почти готово, делаю интерфейс как на Mac 🙂', now - D - 5 * H + 60),
       msg(11, 103, 11, 'Звучит круто', now - D - 5 * H + 90),
       msg(11, 104, 11, 'Покажешь, когда будет первая версия?', now - D - 5 * H + 95),
-      msg(11, 105, ME, 'Конечно', now - D - 4 * H),
+      msg(11, 105, ME, 'Конечно', now - D - 4 * H, { interaction_info: { reactions: { reactions: [{ type: { '@type': 'reactionTypeEmoji', emoji: '❤️' }, total_count: 1, is_chosen: false }, { type: { '@type': 'reactionTypeEmoji', emoji: '🔥' }, total_count: 2, is_chosen: true }] } } }),
       msg(11, 106, 11, '', now - 40 * 60, { content: fmt('Кстати, вот ссылка на макет: figma.com/file/demo и важное: дедлайн в пятницу', [
         { '@type': 'textEntity', offset: 29, length: 19, type: { '@type': 'textEntityTypeUrl' } },
         { '@type': 'textEntity', offset: 51, length: 6, type: { '@type': 'textEntityTypeBold' } },
@@ -145,7 +145,15 @@ export function createMock(dispatch) {
           const list = (hist[q.chat_id] || []).filter(m => !q.from_message_id || m.id < q.from_message_id).slice(-q.limit).reverse();
           return reply({ '@type': 'messages', total_count: list.length, messages: list }, 150);
         }
+        case 'sendMessageAlbum': return reply({ '@type': 'messages', messages: [] });
         case 'sendMessage': {
+          const ic = q.input_message_content;
+          if (ic['@type'] !== 'inputMessageText') {
+            const path = (ic.photo || ic.document || ic.video || ic.audio || ic.animation).path;
+            const m = msg(q.chat_id, ++nextId, ME, '', Math.floor(Date.now() / 1000), { content: { '@type': 'messageDocument', document: { file_name: path.split('/').pop(), document: { id: nextId, size: 120000, local: {} } }, caption: ic.caption } });
+            (hist[q.chat_id] ||= []).push(m);
+            return reply(m, 20);
+          }
           const m = msg(q.chat_id, ++nextId, ME, q.input_message_content.text.text, Math.floor(Date.now() / 1000),
             { sending_state: { '@type': 'messageSendingStatePending' }, reply_to: q.reply_to ? { '@type': 'messageReplyToMessage', chat_id: q.chat_id, message_id: q.reply_to.message_id } : undefined });
           reply(m, 20);

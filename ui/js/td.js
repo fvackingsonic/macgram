@@ -67,4 +67,9 @@ export const shell = {
   toggleMaximize: () => T?.window.getCurrentWindow().toggleMaximize(),
   close: () => T ? T.window.getCurrentWindow().close() : null,
   startDrag: () => T?.window.getCurrentWindow().startDragging(),
+  pickFiles: media => T ? T.core.invoke('pick_files', { media }) : Promise.resolve(['C:/Users/demo/Pictures/photo.jpg', 'C:/Users/demo/Documents/отчёт.pdf']),
+  savePaste: (data, ext) => T ? T.core.invoke('save_paste', { data, ext }) : Promise.resolve(`C:/demo/paste.${ext}`),
+  notify: (title, body) => T ? T.core.invoke('notify', { title, body }).catch(() => {}) : Promise.resolve(),
+  setBadge: png => T ? T.core.invoke('set_badge', { png }).catch(() => {}) : Promise.resolve(),
+  listen: (name, fn) => T ? T.event.listen(name, e => fn(e.payload)) : Promise.resolve(() => {}),
 };

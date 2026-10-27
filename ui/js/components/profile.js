@@ -1,5 +1,5 @@
 import { html, useEffect, useState } from '../lib.js';
-import { S, changed, chatTitle, chatUser, isSaved, isChannel, showHud, download, fileUrl } from '../store.js';
+import { S, changed, isMuted, chatTitle, chatUser, isSaved, isChannel, showHud, download, fileUrl } from '../store.js';
 import { send, shell } from '../td.js';
 import { Icon } from '../icons.js';
 import { userStatus, count, renderFormatted } from '../format.js';
@@ -23,7 +23,7 @@ export function ProfilePanel({ chat }) {
       .then(r => setMedia(r.messages || [])).catch(() => setMedia([]));
   }, [chat.id]);
 
-  const muted = (chat.notification_settings?.mute_for || 0) > 0;
+  const muted = isMuted(chat);
   const toggleMute = () => send({ '@type': 'setChatNotificationSettings', chat_id: chat.id, notification_settings: { ...(chat.notification_settings || {}), '@type': 'chatNotificationSettings', use_default_mute_for: false, mute_for: muted ? 0 : 2147483647 } })
     .catch(e => showHud(e.message));
 

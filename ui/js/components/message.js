@@ -189,6 +189,26 @@ function Doc({ name, size, icon }) {
 }
 
 // ── тело сообщения ──
+function uploadFile(c) {
+  switch (c['@type']) {
+    case 'messagePhoto': return [...c.photo.sizes].sort((a, b) => b.width - a.width)[0]?.photo;
+    case 'messageVideo': return c.video.video;
+    case 'messageAnimation': return c.animation.animation;
+    case 'messageDocument': return c.document.document;
+    case 'messageAudio': return c.audio.audio;
+    default: return null;
+  }
+}
+function Upload({ msg }) {
+  if (msg.sending_state?.['@type'] !== 'messageSendingStatePending') return null;
+  const f = fileOf(uploadFile(msg.content));
+  const total = f?.expected_size || f?.size || 0;
+  const pct = total ? Math.min(99, Math.round(100 * (f.remote?.uploaded_size || 0) / total)) : 0;
+  return html`<div class="upload"><svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="20" fill="rgba(0,0,0,.45)"/>
+    <circle cx="22" cy="22" r="16" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-dasharray=${`${Math.max(4, pct) * 1.005} 100.5`} transform="rotate(-90 22 22)" style="transition:stroke-dasharray .3s"/></svg>
+    <span>${pct}%</span></div>`;
+}
+
 function Body({ msg, showName, chat }) {
   const c = msg.content;
   const t = c['@type'];
@@ -204,7 +224,7 @@ function Body({ msg, showName, chat }) {
         : html`<div style="position:relative"><${Video} video=${t === 'messageVideo' ? c.video : c.animation} gif=${t === 'messageAnimation'}/>${!cap && html`<div class="meta-overlay">${metaInner(msg, chat)}</div>`}</div>`;
       return html`<div class=${`bubble media ${cap ? 'with-caption' : ''}`}>
         ${(nameEl || fwd) && html`<div style="padding:6px 10px 2px">${nameEl}${fwd}</div>`}
-        ${media}
+        <div style="position:relative">${media}<${Upload} msg=${msg}/></div>
         ${cap && html`<div class="caption"><span class="text selectable">${renderFormatted(c.caption, onLink)}</span>${meta}</div>`}
       </div>`;
     }
@@ -217,7 +237,7 @@ function Body({ msg, showName, chat }) {
     case 'messageVoiceNote':
       return html`<div class="bubble">${nameEl}<${ReplyQuote} msg=${msg}/><${Voice} msg=${msg}/>${meta}</div>`;
     case 'messageDocument':
-      return html`<div class="bubble">${nameEl}${fwd}<${ReplyQuote} msg=${msg}/><${Doc} name=${c.document.file_name || 'Файл'} size=${c.document.document?.size}/>
+      return html`<div class="bubble">${nameEl}${fwd}<${ReplyQuote} msg=${msg}/><div style="position:relative"><${Doc} name=${c.document.file_name || 'Файл'} size=${c.document.document?.size}/><${Upload} msg=${msg}/></div>
         ${c.caption?.text && html`<div class="text selectable">${renderFormatted(c.caption, onLink)}</div>`}${meta}</div>`;
     case 'messageAudio':
       return html`<div class="bubble">${nameEl}${fwd}<${ReplyQuote} msg=${msg}/><${Audio_} msg=${msg}/>
@@ -225,6 +245,28 @@ function Body({ msg, showName, chat }) {
     default:
       return html`<div class="bubble">${nameEl}${fwd}<span class="text" style="opacity:.8"><i>${contentSummary(c, id => userName(S.users.get(id)))}</i></span>${meta}</div>`;
   }
+}
+
+const QUICK = ['👍', '❤️', '🔥', '😂', '😮', '😢', '🙏', '👎'];
+const reactionList = msg => {
+  const r = msg.interaction_info?.reactions;
+  return (Array.isArray(r) ? r : r?.reactions) || [];
+};
+export function toggleReaction(msg, emoji, chosen) {
+  const reaction_type = { '@type': 'reactionTypeEmoji', emoji };
+  const req = chosen
+    ? { '@type': 'removeMessageReaction', chat_id: msg.chat_id, message_id: msg.id, reaction_type }
+    : { '@type': 'addMessageReaction', chat_id: msg.chat_id, message_id: msg.id, reaction_type, is_big: false, update_recent_reactions: true };
+  send(req).catch(e => showHud(e.message?.includes('REACTION') ? 'Эта реакция недоступна в чате' : e.message));
+}
+function Reactions({ msg }) {
+  const list = reactionList(msg).filter(r => r.total_count > 0);
+  if (!list.length) return null;
+  return html`<div class="reactions">${list.map(r => {
+    const emoji = r.type?.emoji || (r.type?.['@type'] === 'reactionTypePaid' ? '⭐' : '✨');
+    return html`<button class=${`reaction ${r.is_chosen ? 'on' : ''}`} key=${emoji} onClick=${e => { e.stopPropagation(); if (r.type?.emoji) toggleReaction(msg, emoji, r.is_chosen); }}>
+      <span class="r-emoji">${emoji}</span><span>${r.total_count}</span></button>`;
+  })}</div>`;
 }
 
 function forwardName(fi) {
@@ -264,7 +306,8 @@ export function MessageRow({ msg, chat, first, last }) {
 
   const onContext = e => {
     e.preventDefault();
-    const items = [];
+    const chosen = new Set(reactionList(msg).filter(r => r.is_chosen).map(r => r.type?.emoji));
+    const items = [{ reactions: QUICK, chosen, pick: emoji => toggleReaction(msg, emoji, chosen.has(emoji)) }];
     const text = c.text?.text || c.caption?.text;
     if (canReply(chat)) items.push({ label: 'Ответить', icon: Icon.reply(), action: () => { S.reply = msg; S.editing = null; changed(); focusComposer(); } });
     if (msg.is_outgoing && c['@type'] === 'messageText' && Date.now() / 1000 - msg.date < 48 * 3600) {
@@ -279,13 +322,14 @@ export function MessageRow({ msg, chat, first, last }) {
   const content = jumbo
     ? html`<div class="bubble jumbo">${jumbo}<${Meta} msg=${msg} chat=${chat}/></div>`
     : html`<${Body} msg=${msg} chat=${chat} showName=${group && !out && first}/>`;
+  const reacts = reactionList(msg).some(r => r.total_count > 0);
   const sender = S.users.get(msg.sender_id?.user_id);
   const senderChat = msg.sender_id?.chat_id ? S.chats.get(msg.sender_id.chat_id) : null;
   return html`<div data-mid=${msg.id}
       class=${`msg-row ${out ? 'out' : 'in'} ${first ? 'first' : ''} ${last ? 'last' : ''} ${fresh ? 'fresh' : ''} ${S.highlight === msg.id ? 'highlight' : ''}`}
       onContextMenu=${onContext} onDblClick=${() => { if (canReply(chat)) { S.reply = msg; changed(); focusComposer(); } }}>
     ${showAvatar && html`<div class="av-slot">${last && (sender || senderChat) && html`<${Avatar} user=${sender} chat=${senderChat} size=${34}/>`}</div>`}
-    ${content}
+    ${reacts ? html`<div class="with-reactions">${content}<${Reactions} msg=${msg}/></div>` : content}
   </div>`;
 }
 

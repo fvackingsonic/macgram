@@ -65,7 +65,8 @@ export function ContextMenu() {
   }, [m]);
   if (!m) return null;
   return html`<div class="ctx" ref=${ref} style=${`left:${m.x}px;top:${m.y}px;visibility:hidden`} onContextMenu=${e => e.preventDefault()}>
-    ${m.items.map(it => it === '-' ? html`<hr/>` : html`
+    ${m.items.map(it => it === '-' ? html`<hr/>` : it.reactions ? html`<div class="ctx-reactions">${it.reactions.map((r, i) => html`
+      <button class=${it.chosen?.has(r) ? 'on' : ''} style=${`animation-delay:${i * 18}ms`} onClick=${() => { closeMenu(); it.pick(r); }}>${r}</button>`)}</div>` : html`
       <button class=${it.danger ? 'danger' : ''} onClick=${() => { closeMenu(); it.action(); }}>${it.icon}${it.label}</button>`)}
   </div>`;
 }
