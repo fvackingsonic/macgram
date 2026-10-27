@@ -33,6 +33,32 @@ pub async fn pick_files(app: AppHandle, media: bool) -> Result<Vec<String>, Stri
     Ok(to_strings(&app, &paths))
 }
 
+/// Свой шрифт (интерфейса или смайликов): копируем в папку программы.
+#[tauri::command]
+pub async fn pick_font(app: AppHandle, kind: String) -> Result<Option<String>, String> {
+    let kind = if kind == "emoji" { "emoji" } else { "ui" };
+    let picked = app
+        .dialog()
+        .file()
+        .set_title(if kind == "emoji" { "Шрифт смайликов" } else { "Шрифт интерфейса" })
+        .add_filter("Шрифты", &["ttf", "otf", "woff", "woff2"])
+        .blocking_pick_file();
+    let Some(src) = picked.and_then(|p| p.into_path().ok()) else { return Ok(None) };
+    let ext = src.extension().and_then(|e| e.to_str()).unwrap_or("ttf").to_ascii_lowercase();
+    if !matches!(ext.as_str(), "ttf" | "otf" | "woff" | "woff2") {
+        return Err("нужен файл .ttf, .otf, .woff или .woff2".into());
+    }
+    let dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("fonts");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    for old in ["ttf", "otf", "woff", "woff2"] {
+        let _ = std::fs::remove_file(dir.join(format!("{kind}.{old}")));
+    }
+    let dst = dir.join(format!("{kind}.{ext}"));
+    std::fs::copy(&src, &dst).map_err(|e| format!("не удалось скопировать шрифт: {e}"))?;
+    allow(&app, &dst);
+    Ok(Some(dst.to_string_lossy().into_owned()))
+}
+
 /// Картинка из буфера обмена: сохраняем во временную папку программы.
 #[tauri::command]
 pub fn save_paste(app: AppHandle, data: String, ext: String) -> Result<String, String> {

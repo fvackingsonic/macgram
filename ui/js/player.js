@@ -28,20 +28,52 @@ export const player = {
     tryStart();
     changed();
   },
+  // Кружок играет в своём <video>, но управляется тем же плеером (полоска сверху), как на Mac.
+  playNote(msg, el, author) {
+    if (S.player?.el === el) { toggle(); return; }
+    if (S.player && !S.player.el) { audio.pause(); }
+    else if (S.player?.el) releaseNote(S.player.el);
+    S.player = {
+      chatId: msg.chat_id, msgId: msg.id, kind: 'note', el, file: msg.content.video_note.video,
+      title: 'Видеосообщение', performer: author || '', duration: msg.content.video_note.duration,
+      time: 0, playing: true, loading: false, rate: S.player?.rate || 1, volume: S.player?.volume ?? 1,
+    };
+    el.loop = false; el.currentTime = 0; el.muted = false; el.volume = S.player.volume; el.playbackRate = S.player.rate;
+    el.ontimeupdate = () => { if (S.player?.el === el) { S.player.time = el.currentTime; tick(); } };
+    el.onplay = () => { if (S.player?.el === el) { S.player.playing = true; changed(); } };
+    el.onpause = () => { if (S.player?.el === el) { S.player.playing = false; changed(); } };
+    el.onended = () => { if (S.player?.el === el) { releaseNote(el); S.player = null; changed(); } };
+    el.play().catch(() => {});
+    changed();
+  },
   toggle: () => toggle(),
   seek(fraction) {
     if (!S.player) return;
-    const d = audio.duration || S.player.duration || 0;
-    if (d) audio.currentTime = Math.max(0, Math.min(d, fraction * d));
+    const m = media();
+    const d = (isFinite(m.duration) && m.duration) || S.player.duration || 0;
+    if (d) m.currentTime = Math.max(0, Math.min(d, fraction * d));
   },
-  setRate(r) { if (S.player) { S.player.rate = r; audio.playbackRate = r; changed(); } },
-  setVolume(v) { if (S.player) { S.player.volume = v; audio.volume = v; changed(); } },
-  stop() { audio.pause(); audio.removeAttribute('src'); S.player = null; pendingFile = null; changed(); },
+  setRate(r) { if (S.player) { S.player.rate = r; media().playbackRate = r; changed(); } },
+  setVolume(v) { if (S.player) { S.player.volume = v; media().volume = v; changed(); } },
+  stop() {
+    if (S.player?.el) releaseNote(S.player.el);
+    else { audio.pause(); audio.removeAttribute('src'); }
+    S.player = null; pendingFile = null; changed();
+  },
 };
+
+const media = () => S.player?.el || audio;
+// Вернуть кружок в беззвучный повтор.
+function releaseNote(el) {
+  el.ontimeupdate = el.onplay = el.onpause = el.onended = null;
+  el.muted = true; el.loop = true; el.playbackRate = 1;
+  el.play().catch(() => {});
+}
 
 function toggle() {
   if (!S.player) return;
-  if (audio.paused) audio.play().catch(() => {}); else audio.pause();
+  const m = media();
+  if (m.paused) m.play().catch(() => {}); else m.pause();
 }
 
 function tryStart() {
@@ -81,7 +113,8 @@ audio.addEventListener('ended', () => {
 export const progress = () => {
   const p = S.player;
   if (!p) return 0;
-  const d = audio.duration && isFinite(audio.duration) ? audio.duration : p.duration;
+  const m = media();
+  const d = m.duration && isFinite(m.duration) ? m.duration : p.duration;
   return d ? Math.min(1, p.time / d) : 0;
 };
 export const downloadProgress = file => {
@@ -95,13 +128,14 @@ document.addEventListener('play', e => {
   const t = e.target;
   if (!(t instanceof HTMLMediaElement) || t.muted) return;
   if (!audio.paused) audio.pause();
+  if (S.player?.el && S.player.el !== t) { releaseNote(S.player.el); S.player = null; changed(); }
   document.querySelectorAll('audio, video').forEach(m => { if (m !== t && !m.muted && !m.paused) m.pause(); });
 }, true);
 audio.addEventListener('play', () => {
-  document.querySelectorAll('audio, video').forEach(m => { if (!m.muted && !m.paused) m.pause(); });
+  document.querySelectorAll('audio, video').forEach(m => { if (!m.muted && !m.paused && m !== S.player?.el) m.pause(); });
 });
 // Кружок, включённый со звуком, тоже ставит плеер на паузу (событие volumechange).
 document.addEventListener('volumechange', e => {
   const t = e.target;
-  if (t instanceof HTMLMediaElement && !t.muted && !t.paused && !audio.paused) audio.pause();
+  if (t instanceof HTMLMediaElement && !t.muted && !t.paused && !audio.paused && t !== S.player?.el) audio.pause();
 }, true);

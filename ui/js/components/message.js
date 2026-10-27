@@ -161,19 +161,16 @@ function useWave(b64) {
   } catch { return Array(40).fill(.3); }
 }
 
-// Кружок: без звука крутится, только когда виден; по клику — со звуком, кольцом прогресса,
-// громкостью и скоростью (как в Telegram для macOS). Повторный клик — пауза.
-const NOTE_RATES = [1, 1.5, 2];
-function VideoNote({ note }) {
+// Кружок как в Telegram для macOS: без звука крутится, пока виден; значок «без звука» сверху.
+// По клику играет со звуком через общий плеер (полоска сверху: громкость, скорость),
+// вокруг — белое кольцо прогресса, внизу слева — прошедшее время.
+function VideoNote({ msg }) {
+  useTick();
+  const note = msg.content.video_note;
   const ref = useRef();
   const box = useRef();
-  const [sound, setSound] = useState(false);
-  const [playing, setPlaying] = useState(false);
-  const [t, setT] = useState(0);
-  const [rate, setRate] = useState(1);
-  useEffect(() => { if (note.thumbnail?.file) download(note.thumbnail.file, 2); }, [note.video.id]);
-  // Видео качаем и запускаем, только когда кружок на экране.
   const [visible, setVisible] = useState(false);
+  useEffect(() => { if (note.thumbnail?.file) download(note.thumbnail.file, 2); }, [note.video.id]);
   useEffect(() => {
     const io = new IntersectionObserver(([e]) => setVisible(e.isIntersecting), { threshold: 0.2 });
     io.observe(box.current);
@@ -181,40 +178,30 @@ function VideoNote({ note }) {
   }, []);
   useEffect(() => { if (visible) download(note.video, 1); }, [visible]);
   const src = fileUrl(note.video);
+  const active = S.player?.kind === 'note' && S.player.msgId === msg.id && S.player.chatId === msg.chat_id;
   useEffect(() => {
-    const v = ref.current; if (!v) return;
-    if (!visible && !sound) v.pause(); else if (visible && !sound) v.play().catch(() => {});
-  }, [visible, src]);
+    const v = ref.current; if (!v || active) return;
+    if (visible) v.play().catch(() => {}); else v.pause();
+  }, [visible, src, active]);
   const thumb = note.thumbnail?.format?.['@type'] === 'thumbnailFormatJpeg' ? fileUrl(note.thumbnail.file) : '';
   const mini = note.minithumbnail?.data;
-  const click = () => {
-    const v = ref.current; if (!v) { download(note.video, 32); return; }
-    if (!sound) {
-      v.loop = false; v.currentTime = 0; v.muted = false; v.volume = S.prefs.noteVolume ?? 1; v.playbackRate = rate;
-      setSound(true); v.play().catch(() => {});
-    } else if (v.paused) v.play().catch(() => {}); else v.pause();
+  const click = e => {
+    e.stopPropagation();
+    const v = ref.current;
+    if (!v) { download(note.video, 32); return; }
+    player.playNote(msg, v, senderName(msg.sender_id));
   };
-  const stopSound = () => { const v = ref.current; if (v) { v.muted = true; v.loop = true; v.playbackRate = 1; v.play().catch(() => {}); } setSound(false); setT(0); };
   const d = note.duration || 1;
-  const C = 2 * Math.PI * 108;
-  return html`<div class="note-wrap" onClick=${e => e.stopPropagation()}>
-    <div class="video-note" ref=${box} onClick=${click}>
-      ${mini && html`<img class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
-      ${thumb && !src && html`<img src=${thumb} alt="" onError=${e => e.target.remove()}/>`}
-      ${src && html`<video ref=${ref} src=${src} muted loop playsinline preload="metadata"
-        onPlay=${() => setPlaying(true)} onPause=${() => setPlaying(false)}
-        onTimeUpdate=${e => sound && setT(e.target.currentTime)} onEnded=${stopSound}/>`}
-      ${sound && html`<svg class="note-ring" viewBox="0 0 220 220"><circle cx="110" cy="110" r="108" stroke-dasharray=${`${C * t / d} ${C}`}/></svg>`}
-      ${sound && !playing && html`<div class="play-badge">${Icon.play(20)}</div>`}
-      ${!sound && html`<span class="dur-badge note-dur">${duration(d)} ${Icon.muted(11)}</span>`}
-    </div>
-    ${sound && html`<div class="note-ctl">
-      <span class="note-time">${duration(Math.floor(t))}</span>
-      <button class="pb-rate" onClick=${() => { const r = NOTE_RATES[(NOTE_RATES.indexOf(rate) + 1) % NOTE_RATES.length]; setRate(r); if (ref.current) ref.current.playbackRate = r; }}>${rate}×</button>
-      <label class="pb-vol">${Icon.volume(14)}<input type="range" min="0" max="1" step="0.01" value=${S.prefs.noteVolume ?? 1}
-        onInput=${e => { const x = Number(e.target.value); if (ref.current) ref.current.volume = x; S.prefs.noteVolume = x; }}/></label>
-      <button class="icon-btn gray" title="Без звука" onClick=${stopSound}>${Icon.menu('Icon_ChatAction_Close')}</button>
-    </div>`}
+  const t = active ? S.player.time : 0;
+  const C = 2 * Math.PI * 108.5;
+  return html`<div class="video-note" ref=${box} onClick=${click}>
+    ${mini && html`<img class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
+    ${thumb && !src && html`<img src=${thumb} alt="" onError=${e => e.target.remove()}/>`}
+    ${src && html`<video ref=${ref} src=${src} muted loop playsinline preload="metadata"/>`}
+    ${active && html`<svg class="note-ring" viewBox="0 0 220 220"><circle cx="110" cy="110" r="108.5" stroke-dasharray=${`${C * Math.min(1, t / d)} ${C}`}/></svg>`}
+    ${!active && html`<span class="note-muted">${Icon.menu('Icon_VideoMessageMutedIcon')}</span>`}
+    ${active && !S.player.playing && html`<div class="play-badge">${Icon.play(20)}</div>`}
+    <span class="note-dur">${duration(Math.floor(active ? t : d))}${!msg.content.is_viewed && !msg.is_outgoing ? html`<i class="note-unread"/>` : null}</span>
   </div>`;
 }
 
@@ -382,7 +369,7 @@ function Body({ msg, showName, chat }) {
       return html`<div class="bubble jumbo">${c.emoji}${meta}</div>`;
     }
     case 'messageVideoNote':
-      return html`<div class="bubble round"><${ReplyQuote} msg=${msg}/><${VideoNote} note=${c.video_note}/><div><span class="meta-overlay">${metaInner(msg, chat)}</span></div></div>`;
+      return html`<div class="bubble round"><${ReplyQuote} msg=${msg}/><${VideoNote} msg=${msg}/><div><span class="meta-overlay">${metaInner(msg, chat)}</span></div></div>`;
     case 'messageVoiceNote':
       return html`<div class="bubble">${nameEl}<${ReplyQuote} msg=${msg}/><${Voice} msg=${msg}/>${meta}</div>`;
     case 'messageDocument':

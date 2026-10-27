@@ -269,7 +269,27 @@ function Appearance() {
     <div class="pane-sec">Размер текста сообщений</div>
     <div class="group"><div class="item"><span class="lbl">Размер</span>${seg('fontSize', [[13, '13'], [14, '14'], [15, '15'], [16, '16'], [17, '17']])}</div></div>
     <div class="sp-hint" style="padding:0 18px">«Авто» переключает Day Classic и Ночь вместе с темой Windows. Обои берутся из вашего аккаунта Telegram.</div>
+    <div class="pane-sec" style="margin-top:12px">Свои шрифты</div>
+    <div class="group">
+      ${[['customFont', 'ui', 'Шрифт интерфейса', 'Aa'], ['customEmoji', 'emoji', 'Смайлики', '😀']].map(([key, kind, label, sample]) => html`
+        <div class="item font-item">
+          <span class="font-sample" style=${kind === 'emoji' ? 'font-family:var(--font-emoji)' : ''}>${sample}</span>
+          <span class="lbl">${label}<small>${S.prefs[key]?.name || 'стандартный'}</small></span>
+          ${S.prefs[key] && html`<button class="sel-btn" onClick=${() => { setPref(key, null); }}>Сбросить</button>`}
+          <button class="sel-btn" onClick=${() => pickFont(key, kind)}>Выбрать…</button>
+        </div>`)}
+    </div>
+    <div class="sp-hint" style="padding:0 18px">Файл .ttf, .otf или .woff2 (сборники .ttc не подходят). Шрифт копируется в папку программы и применяется сразу.</div>
   </${Page}>`;
+}
+
+async function pickFont(key, kind) {
+  try {
+    const path = await shell.pickFont(kind);
+    if (!path) return;
+    setPref(key, { path, name: path.split(/[\\/]/).pop(), v: Date.now() });
+    showHud('Шрифт применён');
+  } catch (e) { showHud(String(e)); }
 }
 
 function Storage() {

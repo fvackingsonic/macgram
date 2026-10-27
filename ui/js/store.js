@@ -66,10 +66,35 @@ export function palette() {
   if (t === 'dark') return 'night';
   return darkQuery?.matches ? 'night' : 'classic';
 }
+const BASE_FONT = '"SF Pro Text", "Inter var", "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui';
+const BASE_EMOJI = '"Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+const loadedFonts = {};
+// Свои шрифты из настроек: интерфейса и смайликов (файлы лежат в папке программы).
+async function loadCustomFont(family, pref) {
+  if (!pref?.path) return false;
+  const key = `${pref.path}?${pref.v || 0}`;
+  if (loadedFonts[family] === key) return true;
+  try {
+    const face = new FontFace(family, `url("${shell.fileUrl(pref.path)}?v=${pref.v || 0}")`);
+    await face.load();
+    document.fonts.add(face);
+    loadedFonts[family] = key;
+    return true;
+  } catch (e) { console.warn('font', e); showHud('Не удалось загрузить шрифт'); return false; }
+}
+export async function applyFonts() {
+  const ui = await loadCustomFont('MacTeleUI', S.prefs.customFont);
+  const emoji = await loadCustomFont('MacTeleEmoji', S.prefs.customEmoji);
+  const root = document.documentElement;
+  const emojiStack = `${emoji ? '"MacTeleEmoji", ' : ''}${BASE_EMOJI}`;
+  root.style.setProperty('--font', `${ui ? '"MacTeleUI", ' : ''}${BASE_FONT}, ${emojiStack}`);
+  root.style.setProperty('--font-emoji', emojiStack);
+}
 export function applyPrefs() {
   const root = document.documentElement;
   root.dataset.palette = palette();
   root.style.setProperty('--fs-msg', `${S.prefs.fontSize}px`);
+  applyFonts();
 }
 darkQuery?.addEventListener?.('change', () => { applyPrefs(); changed(); });
 

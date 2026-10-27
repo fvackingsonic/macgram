@@ -929,7 +929,7 @@ button.item { width: 100%; text-align: left; }
 /* медиа с подписью: ширина пузыря = ширине фото/видео, подпись переносится */
 .bubble.media.with-caption { width: min-content; }
 .bubble.media.with-caption .caption { min-width: 100%; }
-.emoji-grid button, .bubble.jumbo, .r-emoji, .ctx-reactions button { font-family: "Apple Color Emoji", "Segoe UI Emoji", sans-serif; }
+.emoji-grid button, .bubble.jumbo, .r-emoji, .ctx-reactions button { font-family: var(--font-emoji, "Apple Color Emoji", "Segoe UI Emoji", sans-serif); }
 
 /* ── кружки ── */
 .note-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
@@ -939,3 +939,25 @@ button.item { width: 100%; text-align: left; }
 .note-ctl { display: flex; align-items: center; gap: 8px; padding: 4px 6px 4px 12px; border-radius: 16px; background: var(--glass-bg); backdrop-filter: blur(16px); box-shadow: var(--glass-shadow); animation: pop .25s var(--spring); }
 .note-time { font-size: var(--fs-short); font-variant-numeric: tabular-nums; min-width: 32px; }
 .note-ctl .pb-vol input { width: 70px; }
+
+/* ── кружок как в macOS ── */
+.video-note { width: 220px; height: 220px; }
+.note-ring circle { stroke-width: 3; stroke: rgba(255, 255, 255, .8); }
+.note-muted { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; border-radius: 50%; background: rgba(0, 0, 0, .6); display: grid; place-items: center; color: #fff; }
+.note-dur { position: absolute; left: 0; bottom: 0; background: var(--service-bg); color: #fff; font-size: 11px; padding: 2px 7px; border-radius: 10px; display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
+.note-unread { width: 6px; height: 6px; border-radius: 50%; background: #fff; display: inline-block; }
+
+/* ── плавная прокрутка: меньше дорогих эффектов поверх движущегося содержимого ── */
+.date-sep span, .service span, .unread-sep, .service-pill { backdrop-filter: none !important; }
+.chat-top .glass, .composer-wrap .glass, .top-bars .glass, .scroll-down {
+  backdrop-filter: blur(14px) !important; -webkit-backdrop-filter: blur(14px) !important;
+}
+.messages .day { content-visibility: auto; contain-intrinsic-size: auto 800px; }
+.row { content-visibility: auto; contain-intrinsic-size: auto 68px; }
+.messages, .list { will-change: scroll-position; overscroll-behavior: contain; }
+.msg-row .bubble { contain: layout paint; }
+.font-item { height: auto; padding: 8px 12px; }
+.font-item .lbl { display: flex; flex-direction: column; }
+.font-item small { color: var(--gray-text); font-size: var(--fs-small); }
+.font-sample { width: 30px; text-align: center; font-size: 18px; font-weight: 600; }
+.video-note .note-dur { left: 0; bottom: 0; top: auto; transform: none; }

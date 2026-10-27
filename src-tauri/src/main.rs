@@ -218,6 +218,7 @@ fn main() {
             creds_status,
             creds_save,
             desktop::pick_files,
+            desktop::pick_font,
             desktop::save_paste,
             desktop::notify,
             desktop::set_badge

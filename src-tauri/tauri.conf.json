@@ -23,13 +23,14 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data: blob:; media-src 'self' asset: http://asset.localhost blob:; font-src 'self' data:; connect-src ipc: http://ipc.localhost asset: http://asset.localhost",
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data: blob:; media-src 'self' asset: http://asset.localhost blob:; font-src 'self' data: asset: http://asset.localhost; connect-src ipc: http://ipc.localhost asset: http://asset.localhost",
       "assetProtocol": {
         "enable": true,
         "scope": {
           "allow": [
             "$APPLOCALDATA/tdlib/files/**",
-            "$APPLOCALDATA/tdlib/db/*/**"
+            "$APPLOCALDATA/tdlib/db/*/**",
+            "$APPLOCALDATA/fonts/**"
           ],
           "deny": [
             "$APPLOCALDATA/tdlib/db/*.binlog",
