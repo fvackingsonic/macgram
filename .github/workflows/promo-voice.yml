@@ -1,10 +1,8 @@
 name: Озвучка промо-ролика
 
 # Синтез русской озвучки (Piper, голоса rhasspy/piper-voices, лицензия MIT/CC) по promo/voice.txt.
+# Только вручную. Файлы кладутся в ЧЕРНОВИК релиза — пользователям его не видно.
 on:
-  push:
-    branches: [main]
-    paths: ['promo/voice.txt', '.github/workflows/promo-voice.yml']
   workflow_dispatch:
 
 permissions:
@@ -43,5 +41,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view promo-assets > /dev/null 2>&1 || gh release create promo-assets --title "Материалы для промо" --notes "Озвучка промо-ролика" --prerelease
+          gh release view promo-assets > /dev/null 2>&1 || gh release create promo-assets --title "Материалы для промо" --notes "Озвучка промо-ролика" --draft
           gh release upload promo-assets voice.zip --clobber
