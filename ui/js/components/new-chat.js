@@ -21,7 +21,7 @@ function close() { if (!S.newChat) return; S.newChat.out = true; changed(); setT
 export async function startSecretChat(userId) {
   try {
     const chat = await send({ '@type': 'createNewSecretChat', user_id: userId });
-    S.chats.set(chat.id, { ...(S.chats.get(chat.id) || {}), ...chat });
+    S.chats.set(chat.id, { ...(S.chats.get(chat.id) || {}), ...chat }); S.chatsVer++;
     S.tab = 'chats'; selectChat(chat.id);
     showHud('Секретный чат создан');
   } catch (e) { showHud(e.message); }

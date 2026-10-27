@@ -6,12 +6,13 @@ export * from './vendor/preact/hooks/src/index.js';
 export { h, render, Fragment, createContext, Component };
 
 // Пропускает перерисовку, если свойства не изменились (поверхностное сравнение).
-export function memo(C) {
+// ignore — свойства, которые не влияют на вид (их изменения учтены другими свойствами).
+export function memo(C, ignore = []) {
   class Memo extends Component {
     shouldComponentUpdate(next) {
       const a = this.props, ka = Object.keys(a), kb = Object.keys(next);
       if (ka.length !== kb.length) return true;
-      for (const k of ka) if (a[k] !== next[k]) return true;
+      for (const k of ka) if (a[k] !== next[k] && !ignore.includes(k)) return true;
       return false;
     }
     render(props) { return h(C, props); }

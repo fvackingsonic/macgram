@@ -7,7 +7,7 @@ import { send } from '../td.js';
 import { Icon } from '../icons.js';
 import { userStatus, count, dayLabel, sameDay, contentSummary, userName } from '../format.js';
 import { Avatar, Spinner, TypingDots, dragHandlers } from './common.js';
-import { MessageRow, AlbumRow, canReply, focusComposer, isServiceType } from './message.js';
+import { MessageRow, AlbumRow, msgDeps, canReply, focusComposer, isServiceType } from './message.js';
 import { ProfileScreen } from './profile.js';
 import { pickAndSend, pasteImage } from './attach.js';
 import { MediaPanel } from './media-panel.js';
@@ -125,8 +125,12 @@ function Messages({ chat }) {
     if (!sepDone && m.id > mark && !m.is_outgoing) { sepDone = true; rows.push(html`<div class="unread-sep" key="unread"><span>Непрочитанные сообщения</span></div>`); }
     const first = !same(prev && tail(prev), m), lastInGroup = !same(tail(u), next && head(next));
     rows.push(u.album && u.msgs.length > 1
-      ? html`<${AlbumRow} key=${`a${u.album}`} msgs=${u.msgs} chat=${chat} first=${first} last=${lastInGroup}/>`
-      : html`<${MessageRow} key=${m.id} msg=${m} chat=${chat} first=${first} last=${lastInGroup}/>`);
+      ? html`<${AlbumRow} key=${`a${u.album}`} msgs=${u.msgs} chat=${chat} first=${first} last=${lastInGroup}
+          dep=${u.msgs.map(msgDeps).join('/')} ids=${u.msgs.map(x => x.id).join(',')} m0=${u.msgs[0]} mN=${u.msgs[u.msgs.length - 1]}
+          readOut=${tail(u).id <= (chat.last_read_outbox_message_id || 0)} cid=${chat.id}/>`
+      : html`<${MessageRow} key=${m.id} msg=${m} chat=${chat} first=${first} last=${lastInGroup}
+          dep=${msgDeps(m)} sender=${S.users.get(m.sender_id?.user_id)}
+          readOut=${m.is_outgoing && m.id <= (chat.last_read_outbox_message_id || 0)} cid=${chat.id}/>`);
   }
   const items = days.map(d => html`<section class="day" key=${d.key}>
     <div class="date-sep"><span>${dayLabel(d.date)}</span></div>${d.rows}</section>`);

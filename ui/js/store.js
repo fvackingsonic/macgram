@@ -44,6 +44,7 @@ export const S = {
   sendDialog: null,
   dragging: false,
   scopes: {},
+  chatsVer: 0,
   prefs: loadPrefs(),
 };
 
@@ -92,6 +93,7 @@ export async function applyFonts() {
 }
 export function applyPrefs() {
   const root = document.documentElement;
+  root.classList.toggle('lite', S.prefs.glass === false);
   root.dataset.palette = palette();
   root.style.setProperty('--fs-msg', `${S.prefs.fontSize}px`);
   applyFonts();
@@ -133,7 +135,16 @@ export const listKey = l => !l ? 'main' : l['@type'] === 'chatListMain' ? 'main'
 export const listOf = key => key === 'main' ? { '@type': 'chatListMain' } : key === 'archive' ? { '@type': 'chatListArchive' } : { '@type': 'chatListFolder', chat_folder_id: Number(key.slice(1)) };
 export const position = (chat, key) => chat.positions?.find(p => listKey(p.list) === key);
 
+// Отсортированные списки кэшируются до следующего изменения чатов.
+const sortedCache = new Map();
 export function sortedChats(key) {
+  const hit = sortedCache.get(key);
+  if (hit && hit.ver === S.chatsVer) return hit.list;
+  const list = sortChats(key);
+  sortedCache.set(key, { ver: S.chatsVer, list });
+  return list;
+}
+function sortChats(key) {
   const out = [];
   for (const c of S.chats.values()) {
     const p = position(c, key);
@@ -427,7 +438,7 @@ export async function loadContacts() {
 export async function openPrivate(userId) {
   try {
     const chat = await send({ '@type': 'createPrivateChat', user_id: userId, force: false });
-    S.chats.set(chat.id, { ...(S.chats.get(chat.id) || {}), ...chat });
+    S.chats.set(chat.id, { ...(S.chats.get(chat.id) || {}), ...chat }); S.chatsVer++;
     S.tab = 'chats';
     selectChat(chat.id);
   } catch (e) { showHud(e.message); }
@@ -502,7 +513,9 @@ export function typingText(chatId) {
 }
 
 onUpdate(u => {
-  switch (u['@type']) {
+  const ut = u['@type'];
+  if (ut === 'updateNewChat' || ut.startsWith('updateChat') || ut === 'updateScopeNotificationSettings') S.chatsVer++;
+  switch (ut) {
     case 'updateAuthorizationState': {
       S.auth = u.authorization_state;
       const t = S.auth['@type'];
@@ -517,6 +530,7 @@ onUpdate(u => {
         send({ '@type': 'getMe' }).then(me => { S.myId = me.id; S.users.set(me.id, me); changed(); }).catch(() => {});
       } else if (t === 'authorizationStateClosed') {
         for (const k of ['users', 'chats', 'basicGroups', 'supergroups', 'files', 'history', 'typing']) S[k].clear();
+        S.chatsVer++;
         S.currentChatId = null; S.folders = []; S.folder = 'main'; S.contacts = null; S.myId = null;
         shell.restart();
       }

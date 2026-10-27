@@ -961,3 +961,18 @@ button.item { width: 100%; text-align: left; }
 .font-item small { color: var(--gray-text); font-size: var(--fs-small); }
 .font-sample { width: 30px; text-align: center; font-size: 18px; font-weight: 600; }
 .video-note .note-dur { left: 0; bottom: 0; top: auto; transform: none; }
+
+/* ── производительность: карточки поверх неподвижных обоев не размываем на каждом кадре ── */
+.sidebar.card, .ps-card, .ps-tabs, .ps-hero { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+.sidebar.card { background: color-mix(in srgb, var(--card-bg) 100%, transparent); }
+:root:not([data-palette="night"]) .sidebar.card { background: rgba(255, 255, 255, .96); }
+:root[data-palette="night"] .sidebar.card { background: rgba(24, 34, 45, .97); }
+.ps-card, .ps-tabs { background: var(--bg); }
+.tabbar { backdrop-filter: blur(10px) !important; }
+.sidebar .list { contain: strict; }
+
+/* Режим «без эффектов стекла» (Настройки → Оформление) */
+html.lite .glass, html.lite .tabbar, html.lite .media-panel, html.lite .ctx, html.lite .hud, html.lite .story-arrow, html.lite .note-ctl { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html.lite .glass, html.lite .tabbar { background: var(--bg); }
+html.lite .media-panel, html.lite .ctx { background: var(--bg); }
+html.lite *, html.lite *::before, html.lite *::after { animation-duration: .001s !important; transition-duration: .001s !important; }

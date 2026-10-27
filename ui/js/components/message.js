@@ -1,4 +1,4 @@
-import { html, useEffect, useState, useRef } from '../lib.js';
+import { html, useEffect, useState, useRef, memo } from '../lib.js';
 import { S, changed, useTick, jumpTo, download, fileUrl, fileOf, senderName, senderId, openMenu, openModal, closeModal, showHud, deleteMessages, isGroup, isChannel, chatUser } from '../store.js';
 import { send, shell } from '../td.js';
 import { Icon } from '../icons.js';
@@ -282,7 +282,8 @@ function AlbumTile({ m, w, h }) {
     <${Upload} msg=${m}/>
   </div>`;
 }
-export function AlbumRow({ msgs, chat, first, last }) {
+export const AlbumRow = memo(AlbumRowView, ['msgs', 'chat']);
+function AlbumRowView({ msgs, chat, first, last }) {
   const lead = msgs[0], end = msgs[msgs.length - 1];
   const out = lead.is_outgoing && !isChannel(chat);
   const group = isGroup(chat);
@@ -426,7 +427,33 @@ function metaInner(msg, chat) {
 const Meta = ({ msg, chat }) => html`<span class="meta-inline">${metaInner(msg, chat)}</span>`;
 
 // ── строка сообщения ──
-export function MessageRow({ msg, chat, first, last }) {
+// Ключ «внешнего» состояния сообщения: файлы, подсветка, выбор, плеер. Если он и само
+// сообщение не изменились — строка не перерисовывается.
+function collectFiles(o, out, depth = 0) {
+  if (!o || typeof o !== 'object' || depth > 6) return out;
+  if (o['@type'] === 'file') { out.push(o.id); return out; }
+  for (const k in o) { const v = o[k]; if (v && typeof v === 'object') collectFiles(v, out, depth + 1); }
+  return out;
+}
+const fileKeys = new WeakMap();
+export function msgDeps(m) {
+  let ids = fileKeys.get(m.content);
+  if (!ids) { ids = collectFiles(m.content, []); fileKeys.set(m.content, ids); }
+  let f = '';
+  for (const id of ids) {
+    const x = S.files.get(id);
+    if (!x) { f += '-'; continue; }
+    f += x.local?.is_downloading_completed ? 'c' : Math.floor(20 * (x.local?.downloaded_size || 0) / (x.size || 1));
+    f += x.remote?.is_uploading_completed ? 'u' : Math.floor(20 * (x.remote?.uploaded_size || 0) / (x.size || 1));
+    f += ',';
+  }
+  const pl = S.player && S.player.chatId === m.chat_id && S.player.msgId === m.id ? (S.player.playing ? 'P' : 'p') : '';
+  const sel = S.selection?.chatId === m.chat_id ? (S.selection.ids.has(m.id) ? 2 : 1) : 0;
+  return `${f}|${S.highlight === m.id ? 1 : 0}|${sel}|${S.fresh.has(m.id) ? 1 : 0}|${pl}`;
+}
+
+export const MessageRow = memo(MessageRowView, ['chat']);
+function MessageRowView({ msg, chat, first, last }) {
   const c = msg.content;
   const fresh = S.fresh.has(msg.id);
   useEffect(() => { if (fresh) setTimeout(() => S.fresh.delete(msg.id), 600); }, [fresh]);

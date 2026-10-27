@@ -266,6 +266,8 @@ function Appearance() {
       <div class="tt-prev" style=${v === 'night' ? 'background:#0e1621' : v === 'day' ? 'background:#fff' : 'background:linear-gradient(135deg,#dbddbb,#88b884)'}>
         <i style=${`background:${inc};align-self:flex-start`}/><i style=${`background:${out};align-self:flex-end`}/>
       </div><span>${l}</span></button>`)}</div>
+    <div class="group"><div class="item"><span class="lbl">Эффекты стекла и анимации</span><span class=${`switch ${S.prefs.glass !== false ? 'on' : ''}`} onClick=${() => setPref('glass', S.prefs.glass === false)}><i/></span></div></div>
+    <div class="sp-hint" style="padding:0 18px;margin-bottom:10px">Если программа тормозит на слабом компьютере — выключите.</div>
     <div class="pane-sec">Размер текста сообщений</div>
     <div class="group"><div class="item"><span class="lbl">Размер</span>${seg('fontSize', [[13, '13'], [14, '14'], [15, '15'], [16, '16'], [17, '17']])}</div></div>
     <div class="sp-hint" style="padding:0 18px">«Авто» переключает Day Classic и Ночь вместе с темой Windows. Обои берутся из вашего аккаунта Telegram.</div>
