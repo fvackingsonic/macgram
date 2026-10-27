@@ -1,4 +1,5 @@
 import { html } from './lib.js';
+import { MENU_ANIMS } from './menu-anims.js';
 
 // Простые собственные иконки в духе macOS (линии 1.6–1.8px, скруглённые концы).
 const S = (size, body, opts = {}) => html`<svg width=${size} height=${size} viewBox="0 0 24 24" fill=${opts.fill || 'none'}
@@ -102,5 +103,6 @@ Object.assign(Icon, {
   archive: (s = 18) => MI('menu_archive', s),
   verified: (s = 15) => html`<span style=${`color:var(--accent);display:inline-flex`}>${MI('Icon_Verified_Telegram', s)}</span>`,
   forward: (s = 18) => MI('menu_forward', s),
-  menu: name => MI(name, 18),
+  // Иконка пункта меню; для анимированных (как в macOS) помечаем имя Lottie-анимации.
+  menu: name => { const v = MI(name, 18); if (v && MENU_ANIMS.has(name)) v.__anim = name; return v; },
 });

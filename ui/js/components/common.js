@@ -1,3 +1,5 @@
+import { MenuAnim, animNameOf } from './tgs.js';
+import { MENU_ANIMS } from '../menu-anims.js';
 import { html, useEffect, useRef, useState } from '../lib.js';
 import { S, download, fileUrl, chatTitle, isSaved, closeMenu, closeModal } from '../store.js';
 import { initials, peerIndex, avatarGradient } from '../format.js';
@@ -43,6 +45,10 @@ export function dragHandlers() {
 export const Spinner = () => html`<div class="spinner"/>`;
 export const TypingDots = () => html`<span class="typing-dots"><i/><i/><i/></span>`;
 
+const menuIcon = icon => {
+  const name = animNameOf(icon);
+  return name && MENU_ANIMS.has(name) ? html`<${MenuAnim} key=${name} name=${name}/>` : icon;
+};
 export function ContextMenu() {
   const ref = useRef();
   const m = S.menu;
@@ -67,7 +73,7 @@ export function ContextMenu() {
   return html`<div class="ctx" ref=${ref} style=${`left:${m.x}px;top:${m.y}px;visibility:hidden`} onContextMenu=${e => e.preventDefault()}>
     ${m.items.map(it => it === '-' ? html`<hr/>` : it.reactions ? html`<div class="ctx-reactions">${it.reactions.map((r, i) => html`
       <button class=${it.chosen?.has(r) ? 'on' : ''} style=${`animation-delay:${i * 18}ms`} onClick=${() => { closeMenu(); it.pick(r); }}>${r}</button>`)}</div>` : html`
-      <button class=${it.danger ? 'danger' : ''} onClick=${() => { closeMenu(); it.action(); }}>${it.icon}${it.label}</button>`)}
+      <button class=${it.danger ? 'danger' : ''} onClick=${() => { closeMenu(); it.action(); }}>${menuIcon(it.icon)}${it.label}</button>`)}
   </div>`;
 }
 

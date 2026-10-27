@@ -312,15 +312,45 @@ function PlayerBar() {
   </div>`;
 }
 
+// Индикатор закрепов как VerticalParticleListControl (macOS): полоска 2×30, сегменты через 2px
+// (до 3 — делят высоту, больше — по 12px и список прокручивается), выбранный сегмент
+// цвета текста ездит на пружине 0.4 с, остальные — тот же цвет с прозрачностью 0.2.
+function PinIndicator({ count, index }) {
+  const H = 30, W = 2, n = Math.max(1, count);
+  const ih = n <= 3 ? Math.floor((H - (n - 1) * W) / n) : 12;
+  const total = ih * n + W * (n - 1);
+  // В macOS координаты снизу вверх: индекс 0 (последний закреп) — внизу.
+  const itemY = ih * index + W * index;
+  const maxDiff = -(total - H);
+  let pos = 0;
+  if (n > 3) pos = Math.max(Math.min(0, -(itemY + ih - H) - (H - ih) / 2), maxDiff);
+  const sel = pos === 0 ? itemY : pos === maxDiff ? H - ih : (H - ih) / 2;
+  const segs = Array.from({ length: n }, (_, i) => html`<i style=${`bottom:${i * (ih + W)}px;height:${ih}px`}/>`);
+  return html`<div class="pin-ind">
+    <div class="pin-ind-list" style=${`height:${total}px;transform:translateY(${-pos}px)`}>${segs}</div>
+    <b style=${`height:${ih}px;transform:translateY(${-sel}px)`}/>
+  </div>`;
+}
+
 // Плашка закреплённого сообщения под шапкой. Клик — переход к сообщению и к следующему закрепу.
+// Смена закрепа как в ChatPinnedView: старый текст уезжает вверх (к более новому) или вниз
+// и гаснет за 0.2 с, новый проявляется.
 function PinnedBar({ chat }) {
   const p = S.pinned.get(chat.id);
-  if (!p?.list?.length) return null;
-  const msg = p.list[Math.min(p.index, p.list.length - 1)];
+  const prev = useRef(null);
+  const [leaving, setLeaving] = useState(null);
+  const msg = p?.list?.length ? p.list[Math.min(p.index, p.list.length - 1)] : null;
+  useEffect(() => {
+    const old = prev.current;
+    prev.current = msg ? { id: msg.id, node: renderPin(msg) } : null;
+    if (old && msg && old.id !== msg.id) {
+      setLeaving({ node: old.node, dir: msg.id > old.id ? 'up' : 'down', key: Date.now() });
+      const t = setTimeout(() => setLeaving(null), 220);
+      return () => clearTimeout(t);
+    }
+  }, [msg?.id]);
+  if (!msg) return null;
   const n = p.list.length;
-  const c = msg.content;
-  const photo = c.photo ? [...c.photo.sizes].sort((a, b) => a.width - b.width)[0] : null;
-  const mini = (c.photo || c.video || c.animation)?.minithumbnail?.data;
   const go = () => { jumpTo(chat.id, msg.id); p.index = (p.index + 1) % n; changed(); };
   const unpin = e => {
     e.stopPropagation();
@@ -329,14 +359,22 @@ function PinnedBar({ chat }) {
     });
   };
   return html`<div class="pinned-bar glass" onClick=${go}>
-    <div class="pin-lines">${Array.from({ length: Math.min(n, 4) }, (_, i) => html`<i class=${i === Math.min(p.index, 3) ? 'on' : ''}/>`)}</div>
-    ${mini && html`<img class="pin-thumb" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
-    <div class="pin-body">
-      <div class="pin-title">Закреплённое сообщение${n > 1 ? ` #${n - p.index}` : ''}</div>
-      <div class="pin-text">${contentSummary(c, id => userName(S.users.get(id)))}</div>
+    <${PinIndicator} count=${n} index=${Math.min(p.index, n - 1)}/>
+    <div class="pin-stage">
+      ${leaving && html`<div class=${`pin-slide out-${leaving.dir}`} key=${leaving.key}>${leaving.node}</div>`}
+      <div class=${`pin-slide ${leaving ? 'in' : ''}`} key=${msg.id}>${renderPin(msg, n > 1 ? n - p.index : 0)}</div>
     </div>
     <button class="icon-btn gray" title="Открепить" onClick=${unpin}>${Icon.menu('Icon_ChatAction_Close')}</button>
   </div>`;
+}
+function renderPin(msg, num = 0) {
+  const c = msg.content;
+  const mini = (c.photo || c.video || c.animation)?.minithumbnail?.data;
+  return html`${mini && html`<img class="pin-thumb" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
+    <div class="pin-body">
+      <div class="pin-title">Закреплённое сообщение${num ? ` #${num}` : ''}</div>
+      <div class="pin-text">${contentSummary(c, id => userName(S.users.get(id)))}</div>
+    </div>`;
 }
 
 // Поиск по сообщениям чата: поле в шапке, стрелки ↑↓ и счётчик.

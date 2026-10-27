@@ -153,11 +153,45 @@ function Folders() {
   </div>`;
 }
 
+// Перестановка строк (закрепили чат, пришло сообщение) — строки плавно переезжают на новое
+// место на пружине, как в списке чатов Telegram для macOS. Меряем только при смене порядка.
+function useReorderAnimation(ref, order, scope) {
+  const prev = useRef({ order: '', scope: null, tops: new Map() });
+  useLayoutEffect(() => {
+    const el = ref.current; if (!el) return;
+    const p = prev.current;
+    if (p.order === order && p.scope === scope) return;
+    const rows = el.querySelectorAll(':scope > .row[data-id]');
+    const tops = new Map();
+    const viewTop = el.scrollTop - 200, viewBottom = el.scrollTop + el.clientHeight + 200;
+    for (const r of rows) tops.set(r.dataset.id, r.offsetTop);
+    if (p.scope === scope && p.order && S.prefs.glass !== false) {
+      for (const r of rows) {
+        const was = p.tops.get(r.dataset.id), now = tops.get(r.dataset.id);
+        if (was == null || was === now) continue;
+        if ((now < viewTop || now > viewBottom) && (was < viewTop || was > viewBottom)) continue;
+        const dy = was - now;
+        r.style.transition = 'none';
+        r.style.transform = `translateY(${dy}px)`;
+        r.style.zIndex = dy > 0 ? '2' : '';
+        requestAnimationFrame(() => {
+          r.style.transition = 'transform .45s cubic-bezier(.2, 1.15, .35, 1)';
+          r.style.transform = '';
+          setTimeout(() => { r.style.transition = ''; r.style.zIndex = ''; }, 470);
+        });
+      }
+    }
+    prev.current = { order, scope, tops };
+  });
+}
+
 function ChatList() {
   const list = sortedChats(S.folder);
   const ready = S.auth?.['@type'] === 'authorizationStateReady';
   if (!list.length) return html`<div class="list">${ready ? html`<div class="empty">${S.folder === 'main' ? 'Загрузка чатов…' : 'В этой папке пока нет чатов'}</div>` : null}</div>`;
-  return html`<div class="list list-anim">
+  const ref = useRef();
+  useReorderAnimation(ref, list.map(x => x.chat.id).join(','), S.folder);
+  return html`<div class="list list-anim" ref=${ref}>
     ${list.map(({ chat, pinned }) => html`<${ChatRow} key=${chat.id} chat=${chat} pinned=${pinned} ...${rowDeps(chat)}/>`)}
   </div>`;
 }
@@ -225,7 +259,7 @@ function ChatRowView({ chat, pinned, compact }) {
     ]);
   };
 
-  return html`<div class=${`row ${on ? 'on' : ''}`} onMouseDown=${e => e.button === 0 && selectChat(chat.id)} onContextMenu=${onContext}>
+  return html`<div class=${`row ${on ? 'on' : ''}`} data-id=${chat.id} onMouseDown=${e => e.button === 0 && selectChat(chat.id)} onContextMenu=${onContext}>
     <${Avatar} chat=${chat} size=${50} online=${online}/>
     <div class="body">
       <div class="line">

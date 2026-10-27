@@ -1074,3 +1074,26 @@ html.lite *, html.lite *::before, html.lite *::after { animation-duration: .001s
 .pb-vol-pop::before { content: ''; position: absolute; left: -14px; right: -14px; top: -14px; height: 14px; }
 .pb-vol:hover .pb-vol-pop, .pb-ratew:focus-within .pb-vol-pop, .pb-vol-pop:hover { visibility: visible; opacity: 1; transform: translateX(-50%) scale(1); transition: opacity .15s, transform .2s var(--spring), visibility 0s; }
 .pb-vol-pop input { cursor: pointer; }
+
+/* ───────── закреплённое сообщение: анимации из ChatPinnedView (macOS) ───────── */
+.pin-ind { position: relative; width: 2px; height: 30px; overflow: hidden; flex: none; border-radius: 1px; }
+.pin-ind-list { position: absolute; left: 0; bottom: 0; width: 2px; transition: transform .4s var(--spring); }
+.pin-ind-list i { position: absolute; left: 0; width: 2px; border-radius: 1px; background: color-mix(in srgb, var(--text) 20%, transparent); }
+.pin-ind > b { position: absolute; left: 0; bottom: 0; width: 2px; border-radius: 1px; background: var(--text); transition: transform .4s var(--spring), height .4s var(--spring); }
+.pin-stage { position: relative; flex: 1; min-width: 0; height: 44px; overflow: hidden; }
+.pin-slide { position: absolute; inset: 0; display: flex; align-items: center; gap: 10px; }
+.pin-slide.in { animation: pin-fade-in .2s ease-in-out; }
+.pin-slide.out-up { animation: pin-out-up .2s ease-in-out forwards; }
+.pin-slide.out-down { animation: pin-out-down .2s ease-in-out forwards; }
+@keyframes pin-fade-in { from { opacity: 0; } }
+@keyframes pin-out-up { to { transform: translateY(-100%); opacity: 0; } }
+@keyframes pin-out-down { to { transform: translateY(100%); opacity: 0; } }
+.pinned-bar .pin-title { color: var(--text); font-weight: 500; }
+.pinned-bar.glass { animation: pin-bar-in .3s var(--spring); }
+@keyframes pin-bar-in { from { opacity: 0; transform: translateY(-10px) scale(.97); } }
+
+/* ───────── анимированные иконки меню (MenuAnimation) ───────── */
+.menu-anim { display: inline-grid; place-items: center; flex: none; margin: -1px 0; }
+.menu-anim canvas { width: 100% !important; height: 100% !important; }
+.ctx button:hover .menu-anim canvas { filter: brightness(0) invert(1); }
+.list > .row { position: relative; }

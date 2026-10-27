@@ -152,3 +152,31 @@ export function PlayPauseAnim({ playing, size = 34, tone = '' }) {
   useEffect(() => () => st.current.anim?.destroy(), []);
   return html`<div class="pp-anim" ref=${ref} style=${`width:${size}px;height:${size}px`}/>`;
 }
+
+// Анимированная иконка пункта меню (как MenuAnimation в Telegram для macOS):
+// стоит на первом кадре и проигрывается один раз при наведении на пункт.
+export function MenuAnim({ name, size = 20 }) {
+  const ref = useRef();
+  useEffect(() => {
+    let anim, dead = false;
+    const el = ref.current;
+    const btn = el?.parentElement;
+    Promise.all([loadLottie(), loadJson(`anim/menu/${name}.tgs`)]).then(([lottie, data]) => {
+      if (dead || !el) return;
+      anim = lottie.loadAnimation({ container: el, renderer: 'canvas', loop: false, autoplay: false, animationData: recolor(data, cssRgb(el)), rendererSettings: { clearCanvas: true } });
+      anim.goToAndStop(0, true);
+      el.classList.add('ready');
+    }).catch(() => {});
+    const play = () => anim?.goToAndPlay(0, true);
+    btn?.addEventListener('mouseenter', play);
+    return () => { dead = true; btn?.removeEventListener('mouseenter', play); anim?.destroy(); };
+  }, [name]);
+  return html`<span class="menu-anim" ref=${ref} style=${`width:${size}px;height:${size}px`}/>`;
+}
+export function animNameOf(icon) {
+  if (!icon || typeof icon !== 'object') return null;
+  if (icon.__anim) return icon.__anim;
+  const p = icon.props || {};
+  const m = String(p.style || p.src || '').match(/icons\/(menu_[a-z_]+)\.png/);
+  return m ? m[1] : null;
+}
