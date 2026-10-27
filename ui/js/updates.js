@@ -5,7 +5,17 @@ import { S, changed, openModal, closeModal, showHud } from './store.js';
 import { isNative } from './td.js';
 
 export const REPO = 'fvackingsonic/macgram';
-const API = `https://api.github.com/repos/${REPO}/releases/tags/latest`;
+// Пока репозиторий не переименован, он доступен и по старому имени — пробуем оба.
+const API = [`https://api.github.com/repos/${REPO}/releases/tags/latest`, 'https://api.github.com/repos/fvackingsonic/mactele/releases/tags/latest'];
+async function fetchRelease() {
+  let last = null;
+  for (const url of API) {
+    const r = await fetch(url, { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' });
+    if (r.ok) return r.json();
+    last = r.status;
+  }
+  throw new Error(last === 404 ? 'релиз не найден' : `GitHub ответил ${last}`);
+}
 const T = window.__TAURI__;
 
 const parse = v => (String(v || '').match(/(\d+)\.(\d+)\.(\d+)/) || []).slice(1).map(Number);
@@ -17,9 +27,7 @@ export async function currentVersion() {
 
 export async function checkUpdates({ manual = false } = {}) {
   try {
-    const r = await fetch(API, { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' });
-    if (!r.ok) throw new Error(r.status === 404 ? 'релиз не найден' : `GitHub ответил ${r.status}`);
-    const rel = await r.json();
+    const rel = await fetchRelease();
     const version = parse(rel.name || rel.tag_name).join('.');
     const asset = (rel.assets || []).find(a => /_x64-setup\.exe$/.test(a.name));
     const sha = asset?.digest || (rel.body || '').match(/SHA-?256:\s*([0-9a-f]{64})/i)?.[1] || '';
