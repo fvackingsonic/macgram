@@ -5,6 +5,7 @@ import {
 } from '../store.js';
 import { send } from '../td.js';
 import { Counter } from '../mac-anim.js';
+import { UpdateBanner } from '../updates.js';
 import { Icon } from '../icons.js';
 import { listTime, contentSummary, userStatus, userName } from '../format.js';
 import { Avatar, Traffic, TypingDots, Spinner, dragHandlers } from './common.js';
@@ -64,13 +65,14 @@ const TABS = [
   { id: 'chats', icon: () => Icon.tabChats(S.tab === 'chats'), title: 'Чаты' },
   { id: 'settings', icon: () => Icon.tabSettings(), title: 'Настройки' },
 ];
+const tabs = () => (S.prefs.callsTab === false ? TABS.filter(t => t.id !== 'calls') : TABS);
 // Панель вкладок с «линзой» (TabBarView из Telegram для macOS): при нажатии выделение
 // приподнимается (+8px со всех сторон) и следует за курсором, при отпускании защёлкивается
 // пружиной 0.4s на ближайшей вкладке; иконка выбранной вкладки увеличивается до 1.15. Esc — отмена.
 function TabBar() {
   const ref = useRef();
   const [g, setG] = useState(null); // { start, center, pos, dragging, index }
-  const idx = TABS.findIndex(t => t.id === S.tab);
+  const idx = tabs().findIndex(t => t.id === S.tab);
   const unread = [...S.chats.values()].reduce((n, c) => n + (position(c, 'main') && !isMuted(c) && c.unread_count > 0 ? 1 : 0), 0);
   const pick = id => {
     if (id === S.tab && id === 'chats') document.querySelector('.list')?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -79,11 +81,11 @@ function TabBar() {
     if (id === 'contacts' && !S.contacts) loadContacts();
     changed();
   };
-  const metrics = () => { const r = ref.current.getBoundingClientRect(); return { left: r.left + 4, w: (r.width - 8) / TABS.length }; };
+  const metrics = () => { const r = ref.current.getBoundingClientRect(); return { left: r.left + 4, w: (r.width - 8) / tabs().length }; };
   const down = e => {
     if (e.button !== 0) return;
     const { left, w } = metrics();
-    const index = Math.max(0, Math.min(TABS.length - 1, Math.floor((e.clientX - left) / w)));
+    const index = Math.max(0, Math.min(tabs().length - 1, Math.floor((e.clientX - left) / w)));
     e.currentTarget.setPointerCapture(e.pointerId);
     setG({ start: e.clientX, center: left + w * (index + 0.5), pos: index, dragging: false, index });
   };
@@ -92,14 +94,14 @@ function TabBar() {
     if (!g.dragging && Math.abs(e.clientX - g.start) < 3) return;
     const { left, w } = metrics();
     const x = g.center + e.clientX - g.start;
-    const pos = Math.max(0, Math.min(TABS.length - 1, (x - left) / w - 0.5));
+    const pos = Math.max(0, Math.min(tabs().length - 1, (x - left) / w - 0.5));
     setG({ ...g, pos, dragging: true });
   };
   const up = () => {
     if (!g) return;
     const i = Math.round(g.pos);
     setG(null);
-    pick(TABS[i].id);
+    pick(tabs()[i].id);
   };
   useEffect(() => {
     if (!g) return;
@@ -109,12 +111,12 @@ function TabBar() {
   }, [!!g]);
   const pos = g ? g.pos : idx;
   const lifted = !!g;
-  const sel = `width:calc((100% - 8px) / ${TABS.length});transform:translateX(${pos * 100}%)`;
+  const sel = `width:calc((100% - 8px) / ${tabs().length});transform:translateX(${pos * 100}%)`;
   const lensIndex = Math.round(pos);
   return html`<nav ref=${ref} class=${`tabbar ${lifted ? 'lifted' : ''} ${g?.dragging ? 'dragging' : ''}`}
       onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${() => setG(null)}>
     <div class="tab-sel" style=${sel}><i class="tab-lens"/></div>
-    ${TABS.map((t, i) => html`<div class=${`tab ${(g ? lensIndex === i : S.tab === t.id) ? 'on' : ''} ${g && lensIndex === i ? 'grow' : ''}`} title=${t.title}>
+    ${tabs().map((t, i) => html`<div class=${`tab ${(g ? lensIndex === i : S.tab === t.id) ? 'on' : ''} ${g && lensIndex === i ? 'grow' : ''}`} title=${t.title}>
       ${t.id === 'settings' && S.users.get(S.myId) ? html`<span class="tab-avatar"><${Avatar} user=${S.users.get(S.myId)} size=${26}/></span>` : t.icon()}
       ${t.id === 'chats' && html`<${Counter} value=${unread > 99 ? '99+' : unread} show=${unread > 0}/>`}
     </div>`)}
@@ -144,6 +146,7 @@ function ChatsPane() {
         ${q && html`<button class="no-drag" style="color:var(--gray-icon)" onClick=${clear}>${Icon.close(13)}</button>`}
       </label>
     </div>
+    <${UpdateBanner}/>
     ${S.searchResults ? html`<${SearchResults}/>` : inArchive
       ? html`<button class="archive-btn back" onClick=${() => { S.folder = 'main'; changed(); }}>${Icon.back(14)} Все чаты</button><${ChatList} key="archive"/>`
       : html`<${Folders}/>

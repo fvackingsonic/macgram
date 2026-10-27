@@ -267,7 +267,9 @@ function Composer({ chat }) {
       if (e.shiftKey && e.code === 'KeyX') { e.preventDefault(); wrapSel('~~'); return; }
       if (marks[e.code] && !e.shiftKey) { e.preventDefault(); wrapSel(marks[e.code]); return; }
     }
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); submit(); }
+    // Отправка по Enter или по Ctrl+Enter — настройка «Общие → Отправка сообщений».
+    const ctrlMode = S.prefs.sendKey === 'ctrl';
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && (ctrlMode ? (e.ctrlKey || e.metaKey) : !(e.ctrlKey || e.metaKey))) { e.preventDefault(); submit(); }
     else if (e.key === 'Escape' && (S.reply || S.editing)) {
       if (S.editing) setText('');
       S.reply = null; S.editing = null; changed();
@@ -311,7 +313,7 @@ function Composer({ chat }) {
         <button class="icon-btn gray" onClick=${() => { if (S.editing) setText(''); S.reply = null; S.editing = null; changed(); }}>${Icon.menu('Icon_ChatAction_Close')}</button>
       </div>`}
       <div class="compose-row">
-        <textarea ref=${ref} class="compose-input" rows="1" placeholder=${isChannel(chat) ? 'Публикация…' : 'Сообщение'} value=${text}
+        <textarea ref=${ref} class="compose-input" rows="1" spellcheck=${S.prefs.spellcheck !== false} placeholder=${isChannel(chat) ? 'Публикация…' : 'Сообщение'} value=${text}
           onInput=${onInput} onKeyDown=${onKey} onPaste=${onPaste}/>
         <button class=${`icon-btn emoji-btn ${panel ? 'active' : ''}`} title="Эмодзи и стикеры" onClick=${() => setPanel(!panel)}>${Icon.smile()}</button>
       </div>

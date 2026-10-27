@@ -4,6 +4,8 @@ import { S, changed, setPref, showHud, openModal, closeModal, logOut } from '../
 import { send, shell } from '../td.js';
 import { Icon } from '../icons.js';
 import { setPasscode, lockNow } from '../passcode.js';
+import { checkUpdates, showUpdate, REPO } from '../updates.js';
+import { openLink } from '../links.js';
 
 // Версия из сборки (tauri.conf.json → CI подставляет номер), в демо-режиме — заглушка.
 let version = '';
@@ -37,6 +39,9 @@ export function SettingsPane() {
     case 'sessions': return html`<${Sessions}/>`;
     case 'appearance': return html`<${Appearance}/>`;
     case 'storage': return html`<${Storage}/>`;
+    case 'general': return html`<${General}/>`;
+    case 'power': return html`<${PowerSaving}/>`;
+    case 'about': return html`<${About}/>`;
     default: return html`<${Main}/>`;
   }
 }
@@ -73,15 +78,21 @@ function Main() {
       <${Row} icon=${MI('Icon_SettingsProfile', 24)} label="Мой аккаунт" onClick=${() => go('profile')}/>
     </div>
     <div class="group">
+      <${Row} icon=${MI('Icon_SettingsGeneral', 24)} label="Общие" onClick=${() => go('general')}/>
       <${Row} icon=${MI('Icon_SettingsNotifications', 24)} label="Уведомления и звуки" onClick=${() => go('notifications')}/>
       <${Row} icon=${MI('Icon_SettingsSecurity', 24)} label="Конфиденциальность" onClick=${() => go('privacy')}/>
       <${Row} icon=${MI('Icon_PrivacySettings_ActiveSessions', 24)} label="Активные сеансы" onClick=${() => go('sessions')}/>
       <${Row} icon=${Square('#5856d6', MI('menu_moon', 15))} label="Оформление" onClick=${() => go('appearance')}/>
       <${Row} icon=${MI('Icon_SettingsStorage', 24)} label="Данные и память" onClick=${() => go('storage')}/>
+      <${Row} icon=${Square('#ff9500', MI('menu_select_messages', 15))} label="Энергосбережение" onClick=${() => go('power')}/>
       <${Row} icon=${MI('Icon_SettingsLanguage', 24)} label="Язык" value="Русский"/>
     </div>
     <div class="group">
       <${Row} icon=${Square('#34c759', MI('menu_lock', 15))} label="Локальная база" value="зашифрована" chevron=${false}/>
+    </div>
+    <div class="group">
+      <${Row} icon=${Square('#007aff', html`<img src="icons/macgram-logo.svg" width="18" height="18" alt=""/>`)} label="О macgram" value=${S.update ? `есть ${S.update.version}` : appVersion()} onClick=${() => go('about')}/>
+      <${Row} icon=${Square('#ff3b30', MI('menu_report', 15) || MI('menu_delete', 15))} label="Сообщить об ошибке" onClick=${openBugReport}/>
     </div>
     <div class="group">
       <${Row} icon=${Square('var(--red)', MI('menu_leave', 15))} label="Выйти" danger onClick=${confirmLogout} chevron=${false}/>
@@ -165,7 +176,14 @@ function Notifications() {
     <div class="pane-sec">На этом компьютере</div>
     <div class="group">
       <div class="item"><span class="lbl">Показывать текст сообщения</span><${Switch} on=${S.prefs.notifyPreview !== false} onChange=${v => setPref('notifyPreview', v)}/></div>
-      <div class="item"><span class="lbl">Счётчик на значке</span><${Switch} on=${S.prefs.badge !== false} onChange=${v => setPref('badge', v)}/></div>
+      <div class="item"><span class="lbl">Показывать имя отправителя</span><${Switch} on=${S.prefs.notifyName !== false} onChange=${v => setPref('notifyName', v)}/></div>
+      <div class="item"><span class="lbl">Уведомлять, когда macgram открыт</span><${Switch} on=${S.prefs.notifyActive !== false} onChange=${v => setPref('notifyActive', v)}/></div>
+    </div>
+    <div class="pane-sec">Счётчик на значке</div>
+    <div class="group">
+      <div class="item"><span class="lbl">Показывать счётчик</span><${Switch} on=${S.prefs.badge !== false} onChange=${v => setPref('badge', v)}/></div>
+      <div class="item"><span class="lbl">Учитывать чаты без звука</span><${Switch} on=${S.prefs.badgeMuted === true} onChange=${v => setPref('badgeMuted', v)}/></div>
+      <div class="item wrap"><span class="lbl">Считать</span>${seg('badgeMode', [['chats', 'чаты'], ['messages', 'сообщения']], 'chats')}</div>
     </div>
   </${Page}>`;
 }
@@ -178,6 +196,9 @@ const PRIVACY = [
   ['userPrivacySettingShowBirthdate', 'Дата рождения'],
   ['userPrivacySettingAllowChatInvites', 'Приглашения в группы'],
   ['userPrivacySettingAllowCalls', 'Звонки'],
+  ['userPrivacySettingShowLinkInForwardedMessages', 'Пересылка сообщений'],
+  ['userPrivacySettingAllowPrivateVoiceAndVideoNoteMessages', 'Голосовые и видеосообщения'],
+  ['userPrivacySettingAllowPeerToPeerCalls', 'Звонки напрямую (P2P)'],
 ];
 const ruleLabel = rules => {
   const t = rules?.map(r => r['@type']) || [];
@@ -244,7 +265,7 @@ function PasscodeSection() {
         </form>`
       : S.hasPasscode ? html`
         <${Row} icon=${MI('menu_lock', 22)} label="Сменить код-пароль" onClick=${() => setMode('set')}/>
-        <div class="item"><span class="lbl">Автоблокировка</span><span class="choice inline">${AUTO.map(([m, l]) => html`<button class=${(S.prefs.autoLock ?? 60) === m ? 'on' : ''} onClick=${() => setPref('autoLock', m)}>${l}</button>`)}</span></div>
+        <div class="item wrap"><span class="lbl">Автоблокировка</span><span class="choice inline">${AUTO.map(([m, l]) => html`<button class=${(S.prefs.autoLock ?? 60) === m ? 'on' : ''} onClick=${() => setPref('autoLock', m)}>${l}</button>`)}</span></div>
         <div class="item"><span class="lbl">Блокировать при сворачивании</span><${Switch} on=${!!S.prefs.lockOnHide} onChange=${v => setPref('lockOnHide', v)}/></div>
         <${Row} label="Заблокировать сейчас (Ctrl+L)" onClick=${lockNow}/>
         <${Row} label="Выключить код-пароль" danger onClick=${() => setPasscode(null).then(() => showHud('Код-пароль выключен'))}/>`
@@ -293,6 +314,49 @@ function Sessions() {
   </${Page}>`;
 }
 
+const ACCENTS = [null, '#007aff', '#5856d6', '#af52de', '#ff2d55', '#ff3b30', '#ff9500', '#34c759', '#00c7be', '#8e8e93'];
+function seg(key, opts, def) {
+  const cur = S.prefs[key] ?? def;
+  return html`<div class="seg">${opts.map(([v, l]) => html`<button class=${cur === v ? 'on' : ''} onClick=${() => setPref(key, v)}>${l}</button>`)}</div>`;
+}
+const Toggle = ({ k, label, def = true, hint }) => html`<div class="item"><span class="lbl">${label}${hint && html`<small>${hint}</small>`}</span><${Switch} on=${(S.prefs[k] ?? def) === true} onChange=${v => setPref(k, v)}/></div>`;
+
+// «Общие» — как в Telegram для macOS.
+function General() {
+  return html`<${Page} title="Общие">
+    <div class="pane-sec">Отправка сообщений</div>
+    <div class="group">
+      <div class="item wrap"><span class="lbl">Отправлять по</span>${seg('sendKey', [['enter', 'Enter'], ['ctrl', 'Ctrl + Enter']], 'enter')}</div>
+    </div>
+    <div class="sp-hint" style="padding:0 18px">${S.prefs.sendKey === 'ctrl' ? 'Enter — новая строка, Ctrl + Enter — отправить.' : 'Shift + Enter — новая строка.'}</div>
+    <div class="pane-sec">Сообщения</div>
+    <div class="group">
+      <${Toggle} k="bigEmoji" label="Большие смайлики" hint="Сообщение из 1–3 смайликов без текста — крупно"/>
+      <${Toggle} k="linkPreview" label="Предпросмотр ссылок" hint="Карточка ссылки в отправленных сообщениях"/>
+      <${Toggle} k="spellcheck" label="Проверка орфографии"/>
+    </div>
+    <div class="pane-sec">Интерфейс</div>
+    <div class="group">
+      <${Toggle} k="callsTab" label="Вкладка «Звонки»"/>
+      <div class="item"><span class="lbl">Ширина списка чатов</span><button class="sel-btn" onClick=${() => setPref('sidebarW', null)}>Сбросить</button></div>
+    </div>
+    <div class="sp-hint" style="padding:0 18px">Ширину списка чатов можно менять, потянув за его правый край.</div>
+  </${Page}>`;
+}
+
+// «Энергосбережение» — меньше нагрузки на слабых ноутбуках, без потери функций.
+function PowerSaving() {
+  return html`<${Page} title="Энергосбережение">
+    <div class="group">
+      <${Toggle} k="animStickers" label="Анимированные стикеры" hint="Выкл. — оживают только под курсором"/>
+      <${Toggle} k="autoplayGif" label="Автовоспроизведение GIF"/>
+      <${Toggle} k="autoplayNotes" label="Автовоспроизведение кружочков"/>
+      <${Toggle} k="glass" label="Эффекты стекла и анимации интерфейса"/>
+    </div>
+    <div class="sp-hint" style="padding:0 18px">Если ноутбук работает от батареи или программа подтормаживает — выключите то, что не нужно.</div>
+  </${Page}>`;
+}
+
 function Appearance() {
   const seg = (key, opts) => html`<div class="seg">${opts.map(([v, l]) => html`
     <button class=${S.prefs[key] === v ? 'on' : ''} onClick=${() => setPref(key, v)}>${l}</button>`)}</div>`;
@@ -303,6 +367,8 @@ function Appearance() {
       <div class="tt-prev" style=${v === 'night' ? 'background:#0e1621' : v === 'day' ? 'background:#fff' : 'background:linear-gradient(135deg,#dbddbb,#88b884)'}>
         <i style=${`background:${inc};align-self:flex-start`}/><i style=${`background:${out};align-self:flex-end`}/>
       </div><span>${l}</span></button>`)}</div>
+    <div class="pane-sec">Цвет акцента</div>
+    <div class="accent-row">${ACCENTS.map(c => html`<button class=${`accent-dot ${(S.prefs.accent || null) === c ? 'on' : ''}`} style=${`background:${c || 'linear-gradient(135deg,#2481cc,#2ea6ff)'}`} title=${c ? '' : 'Как в теме'} onClick=${() => setPref('accent', c)}/>`)}</div>
     <div class="group"><div class="item"><span class="lbl">Эффекты стекла и анимации</span><span class=${`switch ${S.prefs.glass !== false ? 'on' : ''}`} onClick=${() => setPref('glass', S.prefs.glass === false)}><i/></span></div></div>
     <div class="sp-hint" style="padding:0 18px;margin-bottom:10px">Если программа тормозит на слабом компьютере — выключите.</div>
     <div class="pane-sec">Размер текста сообщений</div>
@@ -361,5 +427,67 @@ function Storage() {
       <div class="item"><span class="lbl">База сообщений</span><span class="val">${st ? fileSize(st.database_size || 0) || '0 Б' : '…'}</span></div>
     </div>
     <div class="group"><${Row} icon=${Square('var(--red)', MI('menu_delete', 15))} label=${busy ? 'Очищаю…' : 'Очистить кэш'} danger onClick=${busy ? null : clear} chevron=${false}/></div>
+    <div class="pane-sec">Автозагрузка и автовоспроизведение</div>
+    <div class="group">
+      <div class="item"><span class="lbl">Загружать фото автоматически</span><${Switch} on=${S.prefs.autoPhoto !== false} onChange=${v => setPref('autoPhoto', v)}/></div>
+      <div class="item"><span class="lbl">Проигрывать GIF</span><${Switch} on=${S.prefs.autoplayGif !== false} onChange=${v => setPref('autoplayGif', v)}/></div>
+      <div class="item"><span class="lbl">Проигрывать кружочки без звука</span><${Switch} on=${S.prefs.autoplayNotes !== false} onChange=${v => setPref('autoplayNotes', v)}/></div>
+    </div>
+    <div class="pane-sec">Хранить медиа</div>
+    <div class="group">
+      <div class="item wrap"><span class="lbl">Удалять неоткрытые файлы через</span>${seg('cacheTtl', [[3, '3 дня'], [7, 'неделю'], [30, 'месяц'], [0, 'никогда']], 0)}</div>
+    </div>
+    <div class="sp-hint" style="padding:0 18px">Удалённые из кэша файлы остаются в Telegram и скачаются снова, когда понадобятся.</div>
   </${Page}>`;
+}
+
+// «О macgram»: версия, обновления, ссылки на страницу проекта.
+function About() {
+  const [busy, setBusy] = useState(false);
+  const check = async () => { setBusy(true); await checkUpdates({ manual: true }); setBusy(false); };
+  return html`<${Page} title="О macgram">
+    <div class="profile" style="padding-top:6px">
+      <img src="icons/macgram-logo.svg" width="84" height="84" alt=""/>
+      <div class="pname">macgram</div>
+      <div class="psub">версия ${appVersion()} · pre-alpha</div>
+    </div>
+    <div class="group">
+      ${S.update ? html`<${Row} label=${`Установить версию ${S.update.version}`} onClick=${showUpdate}/>`
+        : html`<${Row} label=${busy ? 'Проверяю…' : 'Проверить обновления'} onClick=${busy ? null : check}/>`}
+      <${Row} label="Что нового" onClick=${() => openLink(`https://github.com/${REPO}/blob/main/CHANGELOG.md`)}/>
+      <${Row} label="Страница проекта" onClick=${() => openLink(`https://github.com/${REPO}`)}/>
+      <${Row} label="Сообщить об ошибке" onClick=${openBugReport}/>
+    </div>
+    <div class="sp-hint" style="padding:0 18px">macgram — неофициальный клиент Telegram с открытым исходным кодом. Работает через официальную библиотеку TDLib; переписка идёт напрямую между вашим компьютером и серверами Telegram.</div>
+  </${Page}>`;
+}
+
+// Сообщить об ошибке: короткая форма → готовая заявка на GitHub с версией и системой.
+export function openBugReport() {
+  let title = '', what = '', steps = '';
+  const send_ = () => {
+    if (!title.trim()) { showHud('Опишите проблему в двух словах'); return; }
+    closeModal();
+    const body = [
+      '### Что случилось', what || '—', '', '### Как повторить', steps || '—', '',
+      '### Система', `- macgram ${appVersion()}`, `- ${navigator.userAgent.match(/Windows NT [\d.]+/)?.[0]?.replace('Windows NT 10.0', 'Windows 10/11') || navigator.platform}`,
+      `- тема: ${S.prefs.theme || 'auto'}, стекло: ${S.prefs.glass === false ? 'выкл' : 'вкл'}`,
+    ].join('\n');
+    const url = `https://github.com/${REPO}/issues/new?labels=bug&title=${encodeURIComponent(title.trim())}&body=${encodeURIComponent(body)}`;
+    openLink(url);
+    showHud('Откроется GitHub — проверьте текст и нажмите «Create»');
+  };
+  openModal({
+    title: 'Сообщить об ошибке',
+    body: html`<div class="bug-form">
+      <input placeholder="Коротко: что не так" onInput=${e => { title = e.target.value; }} autofocus/>
+      <textarea rows="3" placeholder="Что произошло и что вы ожидали" onInput=${e => { what = e.target.value; }}/>
+      <textarea rows="2" placeholder="Как повторить (по шагам), если знаете" onInput=${e => { steps = e.target.value; }}/>
+      <div class="sp-hint">Версия программы и Windows добавятся сами. Ни переписка, ни номер телефона не отправляются. Нужен аккаунт GitHub.</div>
+    </div>`,
+    buttons: [
+      { label: 'Отправить', action: send_ },
+      { label: 'Отмена', kind: 'second', action: closeModal },
+    ],
+  });
 }

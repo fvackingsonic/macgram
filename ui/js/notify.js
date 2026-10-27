@@ -11,13 +11,13 @@ onUpdate(u => {
   const chat = S.chats.get(m.chat_id);
   if (!chat) return;
   if (isMuted(chat) && !m.contains_unread_mention) return;
-  if (document.hasFocus() && S.currentChatId === m.chat_id) return;
+  if (document.hasFocus() && (S.currentChatId === m.chat_id || S.prefs.notifyActive === false)) return;
   const text = contentSummary(m.content, id => userName(S.users.get(id)));
   const who = isGroup(chat) ? senderName(m.sender_id) : '';
   const body = S.prefs.notifyPreview === false ? 'Новое сообщение' : who ? `${who}: ${text}` : text;
   // Заблокировано код-паролем — не показываем ни имя, ни текст.
   if (S.locked) { shell.notify('macgram', 'Новое сообщение'); return; }
-  shell.notify(chatTitle(chat), body);
+  shell.notify(S.prefs.notifyName === false ? 'macgram' : chatTitle(chat), body);
 });
 
 let lastBadge = -1;
@@ -36,7 +36,12 @@ function badgePng(n) {
 
 export function updateBadge() {
   let n = 0;
-  for (const c of S.chats.values()) if (position(c, 'main') && !isMuted(c) && (c.unread_count > 0 || c.is_marked_as_unread)) n++;
+  // Как в macOS: считать чаты или сообщения, учитывать ли чаты без звука.
+  const withMuted = S.prefs.badgeMuted === true, byMessages = S.prefs.badgeMode === 'messages';
+  for (const c of S.chats.values()) {
+    if (!position(c, 'main') || (!withMuted && isMuted(c))) continue;
+    if (c.unread_count > 0 || c.is_marked_as_unread) n += byMessages ? Math.max(1, c.unread_count) : 1;
+  }
   if (S.prefs.badge === false) n = 0;
   if (n === lastBadge) return;
   lastBadge = n;

@@ -3,7 +3,7 @@ name: Сборка для Windows
 on:
   push:
     branches: [main]
-    paths-ignore: ['promo/**', '.github/workflows/promo-voice.yml']
+    paths-ignore: ['promo/**', 'docs/**', '.github/workflows/promo-voice.yml', '.github/ISSUE_TEMPLATE/**']
   workflow_dispatch:
 
 permissions:
@@ -107,7 +107,10 @@ jobs:
         run: |
           # Релиз не удаляем, а обновляем на месте — чтобы ссылка не пропадала во время сборки.
           FILE=$(ls src-tauri/target/release/bundle/nsis/*.exe | head -1)
-          NOTES="macgram $APP_VERSION pre-alpha (коммит ${GITHUB_SHA::7}). Скачайте файл macgram_${APP_VERSION}_x64-setup.exe и запустите. Это ранняя версия: возможны ошибки."
+          SUM=$(sha256sum "$FILE" | cut -d' ' -f1)
+          # Что нового — верхний раздел CHANGELOG.md (его показывает окно обновления в программе).
+          CHANGES=$(awk '/^## /{n++} n==1' CHANGELOG.md | tail -n +2)
+          NOTES=$(printf '%s\n\n%s\n\nСкачайте macgram_%s_x64-setup.exe и запустите. Ранняя версия: возможны ошибки — сообщайте через «Настройки → Сообщить об ошибке».\n\nSHA256: %s\nКоммит: %s' "## Что нового" "$CHANGES" "$APP_VERSION" "$SUM" "${GITHUB_SHA::7}")
           if gh release view latest > /dev/null 2>&1; then
             for a in $(gh release view latest --json assets -q '.assets[].name'); do
               [ "$a" != "$(basename "$FILE")" ] && gh release delete-asset latest "$a" -y || true

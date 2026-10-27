@@ -93,7 +93,7 @@ export function Modal() {
   const m = S.modal;
   useEffect(() => {
     if (!m) return;
-    const k = e => { if (e.key === 'Escape') closeModal(); if (e.key === 'Enter') m.buttons?.[0]?.action?.(); };
+    const k = e => { if (e.key === 'Escape') closeModal(); if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') m.buttons?.[0]?.action?.(); };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
   }, [m]);

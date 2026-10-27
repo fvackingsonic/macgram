@@ -2,6 +2,10 @@
 
 > Pre-alpha. Неофициальный клиент Telegram — не связан с Telegram FZ-LLC и Apple.
 
+**[⬇ Скачать для Windows](https://github.com/fvackingsonic/macgram/releases/tag/latest)** · [Сайт](https://fvackingsonic.github.io/macgram/) · [Что нового](CHANGELOG.md) · [Сообщить об ошибке](https://github.com/fvackingsonic/macgram/issues/new/choose)
+
+![macgram](docs/img/chat-classic.jpg)
+
 Неофициальный клиент Telegram для Windows с интерфейсом, повторяющим Telegram для macOS:
 цвета, размеры, шрифт, анимации, «парящая» панель вкладок, меню и всплывающие подсказки (HUD).
 

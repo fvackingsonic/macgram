@@ -1173,3 +1173,28 @@ html.lite .nav-prev, html.lite .nav-next { transition: none !important; animatio
 .side-resize:hover::after, body.resizing .side-resize::after { opacity: 1; }
 body.resizing, body.resizing * { cursor: col-resize !important; user-select: none !important; }
 body.resizing .sidebar.card, body.resizing .main { transition: none !important; }
+
+/* ───────── обновления, сообщения об ошибках, акцент ───────── */
+.upd-icon { display: flex; justify-content: center; }
+.upd-notes { text-align: left; max-height: 260px; overflow-y: auto; margin: 4px 0 10px; font-size: 13.5px; line-height: 1.45; }
+.upd-notes p { margin: 4px 0; }
+.upd-h { font-weight: 600; margin: 10px 0 4px; }
+.upd-li { position: relative; padding-left: 14px; margin: 3px 0; }
+.upd-li::before { content: ''; position: absolute; left: 3px; top: .6em; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+.upd-banner { position: relative; display: flex; align-items: center; gap: 8px; margin: 0 10px 8px; padding: 9px 12px; border-radius: 12px; background: var(--accent-soft); color: var(--text); font-size: 13px; overflow: hidden; flex: none; animation: bar-in .3s var(--ease-out); }
+.upd-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent); }
+.upd-text { flex: 1; text-align: left; font-weight: 500; }
+.upd-go { color: var(--accent); font-weight: 600; }
+.upd-bar { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--accent); transition: width .3s linear; }
+.bug-form { display: flex; flex-direction: column; gap: 8px; text-align: left; margin-bottom: 8px; }
+.bug-form input, .bug-form textarea { border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); padding: 8px 10px; font: inherit; resize: vertical; }
+.accent-row { display: flex; flex-wrap: wrap; gap: 10px; padding: 4px 18px 12px; }
+.accent-dot { width: 26px; height: 26px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,.1); transition: transform .2s var(--spring); }
+.accent-dot.on { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px currentColor; transform: scale(1.05); color: var(--text); }
+.item .lbl small { display: block; font-size: 11.5px; color: var(--gray-text); margin-top: 1px; }
+.group .item .lbl { flex: 1; min-width: 0; }
+.group .item .switch { flex: none; margin-left: 10px; }
+.group .item.wrap { flex-wrap: wrap; height: auto; min-height: 40px; padding-top: 6px; padding-bottom: 6px; row-gap: 6px; }
+.group .item.wrap .lbl { flex: 1 0 100%; }
+.group .item.wrap .seg, .group .item.wrap .choice.inline { margin-left: 0; }
+.group .item .lbl { white-space: normal; line-height: 1.25; }

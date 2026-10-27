@@ -58,12 +58,15 @@ function fit(w, h, maxW = 360, maxH = 420) {
 
 function Photo({ photo, overlay }) {
   const size = pickSize(photo.sizes);
-  useEffect(() => { if (size) download(size.photo, 2); }, [size?.photo.id]);
+  // Автозагрузка фото можно выключить (Данные и память) — тогда фото качается по щелчку.
+  const [want, setWant] = useState(S.prefs.autoPhoto !== false);
+  useEffect(() => { if (size && want) download(size.photo, 2); }, [size?.photo.id, want]);
   const [W, H] = fit(size?.width, size?.height);
   const url = size ? fileUrl(size.photo) : '';
   const mini = photo.minithumbnail?.data;
-  const open = e => { e.stopPropagation(); S.viewer = { photo, url }; changed(); };
+  const open = e => { e.stopPropagation(); if (!want && !url) { setWant(true); return; } S.viewer = { photo, url }; changed(); };
   return html`<div class="photo" style=${`width:${W}px;height:${H}px;cursor:zoom-in`} onClick=${open}>
+    ${!want && !url && html`<div class="play-badge"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M10 3v10m0 0l-4-4m4 4l4-4M4 16h12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`}
     ${mini && html`<img decoding="async" class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
     ${url && html`<img decoding="async" class="full" src=${url} alt="" draggable="false"/>`}
     ${overlay}
@@ -71,7 +74,7 @@ function Photo({ photo, overlay }) {
 }
 
 function Video({ video, gif }) {
-  const [play, setPlay] = useState(gif);
+  const [play, setPlay] = useState(gif && S.prefs.autoplayGif !== false);
   const file = video[gif ? 'animation' : 'video'];
   const thumb = video.thumbnail;
   useEffect(() => { if (thumb?.file) download(thumb.file, 2); }, [thumb?.file?.id]);
@@ -83,10 +86,11 @@ function Video({ video, gif }) {
   const cur = fileOf(file);
   const progress = cur?.size ? Math.round(100 * (cur.local?.downloaded_size || 0) / cur.size) : 0;
   const openViewer = e => { e.stopPropagation(); S.viewer = { video }; changed(); };
-  return html`<div class="photo" style=${`width:${W}px;height:${H}px;cursor:pointer`} onClick=${e => !gif && openViewer(e)}>
+  return html`<div class="photo" style=${`width:${W}px;height:${H}px;cursor:pointer`} onClick=${e => { if (gif) { e.stopPropagation(); setPlay(true); } else openViewer(e); }}>
     ${mini && html`<img decoding="async" class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
     ${tUrl && !src && html`<img decoding="async" class="full" src=${tUrl} alt="" onError=${e => e.target.remove()}/>`}
     ${src && html`<video class="full" src=${src} autoplay loop=${gif} muted=${gif} controls=${!gif} playsinline/>`}
+    ${!src && gif && !play && html`<div class="play-badge"><span style="font-size:11px;font-weight:700">GIF</span></div>`}
     ${!src && !gif && html`<div class="play-badge">${play ? html`<span style="font-size:11px">${progress}%</span>` : Icon.play(22)}</div>`}
     ${!gif && !src && html`<span class="dur-badge">${duration(video.duration || 0)}</span>`}
   </div>`;
@@ -96,9 +100,10 @@ function Sticker({ sticker }) {
   const fmt = sticker.format?.['@type'];
   useEffect(() => { if (fmt !== 'stickerFormatTgs') download(sticker.sticker, 3); }, [sticker.sticker.id]);
   const url = fileUrl(sticker.sticker);
-  if (fmt === 'stickerFormatWebm' && url) return html`<video class="sticker-img" src=${url} autoplay loop muted playsinline/>`;
+  const live = S.prefs.animStickers !== false;
+  if (fmt === 'stickerFormatWebm' && url) return html`<video class="sticker-img" src=${url} autoplay=${live} loop muted playsinline onMouseEnter=${e => !live && e.target.play()} onMouseLeave=${e => !live && e.target.pause()}/>`;
   if (fmt === 'stickerFormatWebp' && url) return html`<img decoding="async" class="sticker-img" src=${url} alt=${sticker.emoji} draggable="false"/>`;
-  if (fmt === 'stickerFormatTgs') return html`<${Tgs} file=${sticker.sticker} size=${160} fallback=${sticker.emoji || '🙂'}/>`;
+  if (fmt === 'stickerFormatTgs') return html`<${Tgs} file=${sticker.sticker} size=${160} autoplay=${live} hover=${!live} fallback=${sticker.emoji || '🙂'}/>`;
   return html`<div class="sticker-emoji">${sticker.emoji || '🙂'}</div>`;
 }
 
@@ -179,12 +184,13 @@ function VideoNote({ msg }) {
     io.observe(box.current);
     return () => io.disconnect();
   }, []);
-  useEffect(() => { if (visible) download(note.video, 1); }, [visible]);
+  const autoNote = S.prefs.autoplayNotes !== false;
+  useEffect(() => { if (visible && autoNote) download(note.video, 1); }, [visible]);
   const src = fileUrl(note.video);
   const active = S.player?.kind === 'note' && S.player.msgId === msg.id && S.player.chatId === msg.chat_id;
   useEffect(() => {
     const v = ref.current; if (!v || active) return;
-    if (visible) v.play().catch(() => {}); else v.pause();
+    if (visible && autoNote) v.play().catch(() => {}); else v.pause();
   }, [visible, src, active]);
   const thumb = note.thumbnail?.format?.['@type'] === 'thumbnailFormatJpeg' ? fileUrl(note.thumbnail.file) : '';
   const mini = note.minithumbnail?.data;
@@ -434,7 +440,7 @@ const Meta = ({ msg, chat }) => html`<span class="meta-inline">${metaInner(msg, 
 // сообщение не изменились — строка не перерисовывается.
 function collectFiles(o, out, depth = 0) {
   if (!o || typeof o !== 'object' || depth > 6) return out;
-  if (o['@type'] === 'file') { out.push(o.id); return out; }
+  if (o['@type'] === 'file' || (typeof o.id === 'number' && o.local && typeof o.local === 'object')) { out.push(o.id); return out; }
   for (const k in o) { const v = o[k]; if (v && typeof v === 'object') collectFiles(v, out, depth + 1); }
   return out;
 }
@@ -470,7 +476,7 @@ function MessageRowView({ msg, chat, first, last }) {
   const out = msg.is_outgoing && !isChannel(chat);
   const group = isGroup(chat);
   const showAvatar = group && !out;
-  const jumbo = jumboEmoji(c);
+  const jumbo = S.prefs.bigEmoji === false ? null : jumboEmoji(c);
 
   const onContext = e => {
     e.preventDefault();

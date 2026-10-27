@@ -5,6 +5,7 @@
 //  • раз в 5 минут — та же уборка для давно не открывавшихся чатов.
 import { S } from './store.js';
 import { dropTgsCaches } from './components/tgs.js';
+import { send } from './td.js';
 
 const KEEP = 40;
 const lastSeen = new Map(); // chatId -> время последнего открытия
@@ -37,3 +38,12 @@ document.addEventListener('visibilitychange', () => {
   clearTimeout(hideTimer);
   if (document.hidden) hideTimer = setTimeout(() => { trimHistories(true); dropTgsCaches(); }, 60000);
 });
+
+// «Удалять файлы, которые не открывали» (Данные и память): уборка кэша TDLib раз в сутки.
+function autoClean() {
+  const days = S.prefs.cacheTtl || 0;
+  if (!days || S.auth?.['@type'] !== 'authorizationStateReady') return;
+  send({ '@type': 'optimizeStorage', size: -1, ttl: days * 86400, count: -1, immunity_delay: -1, file_types: [], chat_ids: [], exclude_chat_ids: [], return_deleted_file_statistics: false, chat_limit: 0 }).catch(() => {});
+}
+setTimeout(autoClean, 60000);
+setInterval(autoClean, 24 * 3600e3);

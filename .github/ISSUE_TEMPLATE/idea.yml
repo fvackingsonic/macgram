@@ -1,0 +1,9 @@
+name: Идея
+description: Предложить функцию или улучшение
+labels: [idea]
+body:
+  - type: textarea
+    attributes:
+      label: Что хочется
+    validations:
+      required: true

@@ -3,6 +3,7 @@
 mod desktop;
 mod secrets;
 mod tdjson;
+mod updater;
 
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -252,6 +253,7 @@ fn main() {
             desktop::pick_font,
             desktop::save_paste,
             desktop::notify,
+            updater::update_install,
             desktop::set_badge
         ])
         .run(tauri::generate_context!())

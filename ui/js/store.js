@@ -162,6 +162,12 @@ export function applyPrefs() {
   root.dataset.palette = palette();
   root.style.setProperty('--fs-msg', `${S.prefs.fontSize}px`);
   if (S.prefs.sidebarW) root.style.setProperty('--sidebar-w', `${S.prefs.sidebarW}px`); else root.style.removeProperty('--sidebar-w');
+  // Цвет акцента (Оформление): кнопки, ссылки, выделение, счётчики.
+  if (S.prefs.accent) {
+    root.style.setProperty('--accent', S.prefs.accent);
+    root.style.setProperty('--accent-select', S.prefs.accent);
+    root.style.setProperty('--accent-soft', `color-mix(in srgb, ${S.prefs.accent} 14%, transparent)`);
+  } else ['--accent', '--accent-select', '--accent-soft'].forEach(v => root.style.removeProperty(v));
   applyFonts();
 }
 darkQuery?.addEventListener?.('change', () => { applyPrefs(); changed(); });
@@ -505,6 +511,7 @@ export async function sendText(chatId, text, opts = {}) {
   const editing = S.editing, reply = S.reply;
   S.editing = null; S.reply = null; changed();
   const content = { '@type': 'inputMessageText', text: await parseText(body) };
+  if (S.prefs.linkPreview === false) content.link_preview_options = { '@type': 'linkPreviewOptions', is_disabled: true };
   try {
     if (editing) {
       await send({ '@type': 'editMessageText', chat_id: chatId, message_id: editing.id, input_message_content: content });

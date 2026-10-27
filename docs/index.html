@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>macgram — Telegram в стиле macOS для Windows</title>
+<meta name="description" content="macgram — неофициальный клиент Telegram для Windows с интерфейсом и анимациями Telegram для macOS.">
+<link rel="icon" href="img/macgram-logo.svg">
+<style>
+  :root { --bg: #f5f6f8; --card: #fff; --text: #0f1115; --muted: #6b7280; --accent: #2481cc; --line: rgba(0,0,0,.08); }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0d1117; --card: #161b22; --text: #e6edf3; --muted: #8b949e; --accent: #4ba3ff; --line: rgba(255,255,255,.08); } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 -apple-system, "Segoe UI", Inter, system-ui, sans-serif; }
+  a { color: var(--accent); text-decoration: none; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+  header { padding: 64px 0 28px; text-align: center; }
+  header img.logo { width: 112px; height: 112px; filter: drop-shadow(0 12px 28px rgba(30,111,224,.35)); }
+  h1 { font-size: clamp(40px, 7vw, 64px); letter-spacing: -.02em; margin: 14px 0 4px; }
+  .tag { font-size: 20px; color: var(--muted); margin: 0 0 26px; }
+  .btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 13px 22px; border-radius: 14px; font-weight: 600; background: var(--accent); color: #fff; box-shadow: 0 6px 20px rgba(36,129,204,.35); }
+  .btn.second { background: var(--card); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+  .note { font-size: 13px; color: var(--muted); margin-top: 12px; }
+  .shot { margin: 34px auto 0; max-width: 980px; border-radius: 16px; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,.25); }
+  .shot img { display: block; width: 100%; height: auto; }
+  .shot .dark { display: none; }
+  @media (prefers-color-scheme: dark) { .shot .light { display: none; } .shot .dark { display: block; } }
+  section { padding: 54px 0 10px; }
+  h2 { font-size: 28px; margin: 0 0 18px; text-align: center; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+  .card { background: var(--card); border-radius: 16px; padding: 18px 18px 14px; box-shadow: inset 0 0 0 1px var(--line); }
+  .card b { display: block; margin-bottom: 4px; }
+  .card span { color: var(--muted); font-size: 14.5px; }
+  ol.steps { max-width: 640px; margin: 0 auto; padding-left: 22px; }
+  ol.steps li { margin: 8px 0; }
+  details { background: var(--card); border-radius: 14px; padding: 14px 18px; margin: 10px auto; max-width: 760px; box-shadow: inset 0 0 0 1px var(--line); }
+  summary { cursor: pointer; font-weight: 600; }
+  details p { color: var(--muted); margin: 8px 0 0; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; padding: 50px 0 40px; }
+</style>
+</head>
+<body>
+  <header class="wrap">
+    <img class="logo" src="img/macgram-logo.svg" alt="macgram">
+    <h1>macgram</h1>
+    <p class="tag">Telegram в стиле macOS — для Windows</p>
+    <div class="btns">
+      <a class="btn" href="https://github.com/fvackingsonic/macgram/releases/tag/latest">⬇ Скачать для Windows</a>
+      <a class="btn second" href="https://github.com/fvackingsonic/macgram">Исходный код</a>
+    </div>
+    <div class="note">Windows 10 и 11, 64 бита · ранняя версия (pre-alpha) · бесплатно</div>
+    <div class="shot">
+      <img class="light" src="img/chat-classic.jpg" alt="macgram: список чатов и переписка">
+      <img class="dark" src="img/chat-night.jpg" alt="macgram в тёмной теме">
+    </div>
+  </header>
+
+  <section class="wrap">
+    <h2>Как на Mac</h2>
+    <div class="grid">
+      <div class="card"><b>Жидкое стекло</b><span>Новый дизайн Telegram для macOS: плавающий список чатов, стеклянные панели и кнопки.</span></div>
+      <div class="card"><b>Анимации с Mac</b><span>Меню растёт из точки клика, иконки оживают, счётчики прокручиваются, кнопки тянутся за курсором.</span></div>
+      <div class="card"><b>Плееры</b><span>Музыка, видео, голосовые и кружочки — с теми же панелями управления, что на Mac.</span></div>
+      <div class="card"><b>Всё нужное</b><span>Папки, архив, истории, стикеры и GIF, реакции, опросы, пересылка, отложенные сообщения, кнопки ботов.</span></div>
+      <div class="card"><b>Безопасно</b><span>Официальная библиотека TDLib, шифрованная база, ключи в «Диспетчере учётных данных» Windows, код-пароль.</span></div>
+      <div class="card"><b>Обновляется сама</b><span>Когда выходит новая версия, macgram покажет, что изменилось, и установит её в один клик.</span></div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <h2>Установка</h2>
+    <ol class="steps">
+      <li>Скачайте файл <b>macgram_…_x64-setup.exe</b> на странице <a href="https://github.com/fvackingsonic/macgram/releases/tag/latest">последней версии</a>.</li>
+      <li>Запустите его. Если Windows покажет «Windows защитила ваш компьютер» — нажмите <b>Подробнее → Выполнить в любом случае</b>.</li>
+      <li>Войдите по QR-коду из приложения Telegram на телефоне или по номеру телефона.</li>
+    </ol>
+  </section>
+
+  <section class="wrap">
+    <h2>Вопросы</h2>
+    <details><summary>Это официальный Telegram?</summary><p>Нет. macgram — неофициальный клиент с открытым исходным кодом. Он не связан с Telegram FZ-LLC и Apple. Вход и переписка идут напрямую через серверы Telegram с помощью официальной библиотеки TDLib.</p></details>
+    <details><summary>Почему Windows или антивирус предупреждают?</summary><p>У программы пока нет платной цифровой подписи, а каждая версия новая — поэтому SmartScreen и некоторые антивирусы с «машинным обучением» осторожничают. Исходный код открыт, его можно проверить.</p></details>
+    <details><summary>Где хранятся мои данные?</summary><p>Только на вашем компьютере и в Telegram. Локальная база зашифрована случайным ключом, ключ хранится в «Диспетчере учётных данных» Windows. macgram ничего не отправляет разработчикам.</p></details>
+    <details><summary>Нашёл ошибку — куда писать?</summary><p>В программе: <b>Настройки → Сообщить об ошибке</b>, или сразу на <a href="https://github.com/fvackingsonic/macgram/issues/new/choose">GitHub</a>. Не прикладывайте скриншоты с личной перепиской.</p></details>
+  </section>
+
+  <footer class="wrap">
+    macgram · <a href="https://github.com/fvackingsonic/macgram/blob/main/CHANGELOG.md">что нового</a> · лицензия GPL-2.0<br>
+    Telegram — товарный знак Telegram FZ-LLC. Mac и macOS — товарные знаки Apple Inc. macgram не связан с этими компаниями.
+  </footer>
+</body>
+</html>
