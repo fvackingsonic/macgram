@@ -1578,3 +1578,21 @@ html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble
 
 /* размытие под пузырями стабильнее без отдельного слоя прокрутки */
 html.glass-bubbles .messages { will-change: auto; }
+
+/* «Запечённое» стекло (фон-картинка): размытая копия фона, закреплённая к окну, — без backdrop-filter,
+   поэтому не моргает и не пропадает при прокрутке и почти ничего не стоит */
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble.media.with-caption,
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments {
+  background: linear-gradient(var(--lg-tint), var(--lg-tint)), var(--wall-blur) 0 0 / 100vw 100vh no-repeat fixed !important;
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .bubble.media.with-caption {
+  background: linear-gradient(var(--lg-out), var(--lg-out)), var(--wall-blur) 0 0 / 100vw 100vh no-repeat fixed !important;
+}
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble:not(.z1):not(.z2):not(.z3):not(.z4):not(.z5) { background: transparent !important; }
+.ap-glass { flex-direction: column; align-items: stretch; height: auto; gap: 4px; padding-top: 8px; padding-bottom: 8px; }
+.ap-glass .ap-glass-top { display: flex; align-items: center; }
+.ap-glass .ap-glass-top .lbl { flex: 1; }
+.ap-glass input { width: 100%; accent-color: var(--accent); }

@@ -129,7 +129,40 @@ async function liveTint(url, kind) {
   } catch { return null; }
 }
 
-export function Wallpaper() {
+// Поля вокруг вписанной картинки — спокойный цвет самой картинки (а не её копия).
+function marginColor() {
+  const t = S.wallTint;
+  if (!t) return '#111';
+  return `hsl(${Math.round(t.h)} ${Math.round(Math.min(45, t.s * .7))}% ${Math.round(Math.max(8, Math.min(40, t.l * .45)))}%)`;
+}
+
+// ── «запечённое» стекло: размытая копия фона для стеклянных пузырей ──
+// Пузыри рисуют её как фиксированный фон (background-attachment: fixed) — выглядит как размытие
+// того, что под пузырём, но без backdrop-filter, который в WebView2 «моргал» и пропадал при прокрутке.
+let bakedUrl = '';
+async function bakeWall(url, fit, extraBlur) {
+  const W = innerWidth, H = innerHeight, k = .5;
+  const bmp = await createImageBitmap(await (await fetch(url)).blob());
+  const iw = bmp.width, ih = bmp.height;
+  const sc = fit === 'contain' ? Math.min(W / iw, H / ih) : fit === 'width' ? W / iw : fit === 'center' ? 1 : Math.max(W / iw, H / ih);
+  const dw = iw * sc, dh = ih * sc, dx = (W - dw) / 2, dy = fit === 'width' ? 0 : (H - dh) / 2;
+  const c = document.createElement('canvas'); c.width = Math.round(W * k); c.height = Math.round(H * k);
+  const g = c.getContext('2d');
+  g.fillStyle = fit === 'cover' ? '#000' : marginColor(); g.fillRect(0, 0, c.width, c.height);
+  g.filter = `blur(${(extraBlur ? 12 : 2.5) * k}px) saturate(1.5) brightness(1.06)`;
+  g.drawImage(bmp, dx * k - 2, dy * k - 2, dw * k + 4, dh * k + 4);
+  const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', .88));
+  return blob ? URL.createObjectURL(blob) : '';
+}
+function setBaked(u) {
+  const root = document.documentElement;
+  if (bakedUrl) URL.revokeObjectURL(bakedUrl);
+  bakedUrl = u;
+  if (u) { root.style.setProperty('--wall-blur', `url("${u}")`); root.classList.add('wall-baked'); }
+  else { root.style.removeProperty('--wall-blur'); root.classList.remove('wall-baked'); }
+}
+
+export function Wallpaper({ main }) {
   const dark = palette() === 'night';
   const plain = palette() === 'day' && !S.backgrounds?.light;
   const own = S.backgrounds?.[dark ? 'dark' : 'light'];
@@ -165,19 +198,28 @@ export function Wallpaper() {
   }, [tintKey]);
   // Живой фон (GIF / видео) — свой, хранится на этом компьютере.
   // Как вписать картинку в окно: «Заполнить» обрезает края, «Целиком»/«По ширине»/«Как есть» — без
-  // увеличения, а пустые поля закрывает размытая копия той же картинки.
+  // увеличения, а пустые поля закрашены спокойным цветом самой картинки.
   const fit = S.prefs.wallFit || 'cover';
   const fitCss = { cover: 'center/cover', contain: 'center/contain', width: 'center top/100% auto', center: 'center/auto' }[fit] || 'center/cover';
   const objFit = { cover: 'cover', contain: 'contain', width: 'cover', center: 'none' }[fit] || 'cover';
-  if (liveUrl) return html`<div class="wallpaper live" style=${`background:${dark ? '#000' : '#888'}`}>
-    ${fit !== 'cover' && (live.kind === 'video' ? null : html`<img class="wp-fill" src=${liveUrl} alt=""/>`)}
+  const fitted = isPhoto && photoUrl && fit !== 'cover';
+  const bakeKey = main && !liveUrl && isPhoto && photoUrl ? `${photoUrl}|${fit}|${!!type.is_blurred}|${S.wallTint?.h ?? ''}` : '';
+  useEffect(() => {
+    if (!main) return;
+    if (!bakeKey) { setBaked(''); return; }
+    let alive = true, t = 0;
+    const run = () => bakeWall(photoUrl, fit, type.is_blurred).then(u => { if (alive) setBaked(u); else if (u) URL.revokeObjectURL(u); }).catch(() => alive && setBaked(''));
+    run();
+    const onResize = () => { clearTimeout(t); t = setTimeout(run, 250); };
+    window.addEventListener('resize', onResize);
+    return () => { alive = false; clearTimeout(t); window.removeEventListener('resize', onResize); };
+  }, [bakeKey]);
+  if (liveUrl) return html`<div class="wallpaper live" style=${`background:${fit !== 'cover' ? marginColor() : dark ? '#000' : '#888'}`}>
     ${live.kind === 'video' ? html`<video src=${liveUrl} autoplay loop muted playsinline disablepictureinpicture style=${`object-fit:${objFit}`}/>` : html`<img src=${liveUrl} alt="" style=${`object-fit:${objFit}`}/>`}
     ${live.blur && html`<div class="wp-blur"/>`}
     ${dark && html`<div class="wp-dim"/>`}
   </div>`;
-  const fitted = isPhoto && photoUrl && fit !== 'cover';
-  return html`<div class="wallpaper" style=${`background:${isPhoto && photoUrl ? (fitted ? '#000' : `center/cover no-repeat url("${photoUrl}")`) : base}`}>
-    ${fitted && html`<div class="wp-fill" style=${`background:center/cover no-repeat url("${photoUrl}")`}/>`}
+  return html`<div class="wallpaper" style=${`background:${isPhoto && photoUrl ? (fitted ? marginColor() : `center/cover no-repeat url("${photoUrl}")`) : base}`}>
     ${fitted && html`<div class="wp-img" style=${`background:${fitCss} no-repeat url("${photoUrl}")`}/>`}
     ${isPhoto && type.is_blurred && html`<div class="wp-blur"/>`}
     ${!plain && isPattern && pattern && html`<div class="wp-pattern" style=${`-webkit-mask-image:url("${pattern}");mask-image:url("${pattern}");background:${inverted ? '#fff' : '#000'};opacity:${inverted ? intensity * 0.12 : intensity * 0.32}`}/>`}

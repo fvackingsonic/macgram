@@ -89,9 +89,10 @@ export function Appearance() {
       <div class="item"><span class="lbl">Тёмный режим</span><${Switch} on=${dark} onChange=${v => pickTheme(v ? (S.prefs.nightTheme === 'black' ? 'black' : 'night') : (['classic', 'day'].includes(S.prefs.dayTheme) ? S.prefs.dayTheme : 'classic'))}/></div>
       <div class="item"><span class="lbl">Пузыри сообщений</span><${Switch} on=${S.prefs.bubbles !== false} onChange=${v => setPref('bubbles', v)}/></div>
       ${S.prefs.bubbles !== false && html`<div class="item"><span class="lbl">Стеклянные пузыри<small>Как Liquid Glass в iOS 26 — стандартный вид macgram</small></span><${Switch} on=${S.prefs.glassBubbles !== false} onChange=${v => setPref('glassBubbles', v)}/></div>`}
-      <div class="item ap-size"><span class="lbl" style="flex:none">Прозрачность стекла</span>
-        <input type="range" min="0" max="45" step="1" value=${Math.round(45 - (S.prefs.glassTint ?? .14) * 100)} onInput=${e => setPref('glassTint', (45 - Number(e.target.value)) / 100)} style="flex:1;accent-color:var(--accent)"/>
-        ${typeof S.prefs.glassTint === 'number' && html`<button class="sel-btn" onClick=${() => setPref('glassTint', undefined)}>Стандарт</button>`}</div>
+      <div class="item ap-glass">
+        <div class="ap-glass-top"><span class="lbl">Прозрачность стекла</span>${typeof S.prefs.glassTint === 'number' && html`<button class="sel-btn" onClick=${() => setPref('glassTint', undefined)}>Стандарт</button>`}</div>
+        <input type="range" min="0" max="45" step="1" value=${Math.round(45 - (S.prefs.glassTint ?? .14) * 100)} onInput=${e => setPref('glassTint', (45 - Number(e.target.value)) / 100)}/>
+      </div>
       ${S.prefs.bubbles !== false && html`<div class="item wrap"><span class="lbl">Фон-картинка</span><div class="seg">${[['cover', 'Заполнить'], ['contain', 'Целиком'], ['width', 'По ширине'], ['center', 'Как есть']].map(([v, l]) => html`<button class=${(S.prefs.wallFit || 'cover') === v ? 'on' : ''} onClick=${() => setPref('wallFit', v)}>${l}</button>`)}</div></div>`}
       ${S.prefs.bubbles !== false && html`<button class="item" onClick=${() => go('wallpaper')}><span class="lbl">Фон чата</span><span class="chev">${Icon.chevron(11)}</span></button>`}
       <div class="item"><span class="lbl">Цвета под фон<small>${S.prefs.tint ? 'Цвета темы подобраны под ваш фон' : S.wallTint ? 'Подобрать акцент, свои сообщения и панели под цвет фона' : 'Сначала поставьте свой фон'}</small></span>

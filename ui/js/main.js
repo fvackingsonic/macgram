@@ -65,7 +65,7 @@ function App() {
   // Заблокировано код-паролем — ничего из переписки не рисуем вообще.
   if (S.locked) return html`<div class=${`window ${focused ? '' : 'blurred'}`}><${LockScreen}/><${Modal}/></div>`;
   return html`<div class=${`window ${focused ? '' : 'blurred'}`}>
-    ${ready ? html`<${Wallpaper}/><${Sidebar}/><${Main}/>` : html`<${Auth}/>`}
+    ${ready ? html`<${Wallpaper} main=${true}/><${Sidebar}/><${Main}/>` : html`<${Auth}/>`}
     <${DropOverlay}/>
     <${SendDialog}/>
     <${ForwardDialog}/>
