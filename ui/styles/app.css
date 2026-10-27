@@ -1565,3 +1565,24 @@ html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble
   background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; box-shadow: none !important; transform: none;
 }
 html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble:not(.z1):not(.z2):not(.z3):not(.z4):not(.z5)::before { display: none; }
+
+/* Пока лента прокручивается — стекло без линзы (дешёвое размытие): прокрутка не тормозит.
+   Когда прокрутка остановилась, линза возвращается и размытие перерисовывается заново —
+   так больше не «пропадает» эффект после прокрутки. */
+html.is-scrolling.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
+html.is-scrolling.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble.media.with-caption,
+html.is-scrolling.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments {
+  backdrop-filter: blur(2.5px) saturate(1.5) brightness(1.06) !important;
+  -webkit-backdrop-filter: blur(2.5px) saturate(1.5) brightness(1.06) !important;
+}
+html.is-scrolling:not(.lite) .chat-top .glass, html.is-scrolling:not(.lite) .composer-wrap .glass, html.is-scrolling:not(.lite) .top-bars .glass, html.is-scrolling:not(.lite) .scroll-down.glass {
+  backdrop-filter: blur(3px) saturate(1.5) brightness(1.06) !important; -webkit-backdrop-filter: blur(3px) saturate(1.5) brightness(1.06) !important;
+}
+/* поля вокруг вписанного фона — размытая копия картинки (под основным слоем) */
+.wallpaper { isolation: isolate; }
+.wallpaper > .wp-fill { position: absolute; inset: -40px; z-index: -1; filter: blur(30px) brightness(.85); object-fit: cover; width: calc(100% + 80px); height: calc(100% + 80px); }
+.wallpaper > .wp-fill { z-index: 0; }
+.wallpaper > .wp-img { position: absolute; inset: 0; z-index: 1; }
+.wallpaper > .wp-blur, .wallpaper > .wp-pattern, .wallpaper > .wp-dim { z-index: 2; }
+.wallpaper.live > img, .wallpaper.live > video { z-index: 1; }
+.wallpaper.live > img.wp-fill { z-index: 0; }

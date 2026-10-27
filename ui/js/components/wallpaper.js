@@ -164,12 +164,21 @@ export function Wallpaper() {
     return () => { alive = false; };
   }, [tintKey]);
   // Живой фон (GIF / видео) — свой, хранится на этом компьютере.
+  // Как вписать картинку в окно: «Заполнить» обрезает края, «Целиком»/«По ширине»/«Как есть» — без
+  // увеличения, а пустые поля закрывает размытая копия той же картинки.
+  const fit = S.prefs.wallFit || 'cover';
+  const fitCss = { cover: 'center/cover', contain: 'center/contain', width: 'center top/100% auto', center: 'center/auto' }[fit] || 'center/cover';
+  const objFit = { cover: 'cover', contain: 'contain', width: 'cover', center: 'none' }[fit] || 'cover';
   if (liveUrl) return html`<div class="wallpaper live" style=${`background:${dark ? '#000' : '#888'}`}>
-    ${live.kind === 'video' ? html`<video src=${liveUrl} autoplay loop muted playsinline disablepictureinpicture/>` : html`<img src=${liveUrl} alt=""/>`}
+    ${fit !== 'cover' && (live.kind === 'video' ? null : html`<img class="wp-fill" src=${liveUrl} alt=""/>`)}
+    ${live.kind === 'video' ? html`<video src=${liveUrl} autoplay loop muted playsinline disablepictureinpicture style=${`object-fit:${objFit}`}/>` : html`<img src=${liveUrl} alt="" style=${`object-fit:${objFit}`}/>`}
     ${live.blur && html`<div class="wp-blur"/>`}
     ${dark && html`<div class="wp-dim"/>`}
   </div>`;
-  return html`<div class="wallpaper" style=${`background:${isPhoto && photoUrl ? `center/cover no-repeat url("${photoUrl}")` : base}`}>
+  const fitted = isPhoto && photoUrl && fit !== 'cover';
+  return html`<div class="wallpaper" style=${`background:${isPhoto && photoUrl ? (fitted ? '#000' : `center/cover no-repeat url("${photoUrl}")`) : base}`}>
+    ${fitted && html`<div class="wp-fill" style=${`background:center/cover no-repeat url("${photoUrl}")`}/>`}
+    ${fitted && html`<div class="wp-img" style=${`background:${fitCss} no-repeat url("${photoUrl}")`}/>`}
     ${isPhoto && type.is_blurred && html`<div class="wp-blur"/>`}
     ${!plain && isPattern && pattern && html`<div class="wp-pattern" style=${`-webkit-mask-image:url("${pattern}");mask-image:url("${pattern}");background:${inverted ? '#fff' : '#000'};opacity:${inverted ? intensity * 0.12 : intensity * 0.32}`}/>`}
   </div>`;

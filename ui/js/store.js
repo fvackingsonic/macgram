@@ -182,7 +182,13 @@ export function applyPrefs() {
   root.dataset.palette = palette();
   root.dataset.variant = effectiveTheme() === 'black' ? 'dark' : '';
   root.classList.toggle('no-bubbles', S.prefs.bubbles === false);
-  root.classList.toggle('glass-bubbles', S.prefs.glassBubbles === true);
+  // Стекло как в iOS 26 — вид по умолчанию; прозрачность настраивается ползунком.
+  root.classList.toggle('glass-bubbles', S.prefs.glassBubbles !== false);
+  root.classList.toggle('lg-panels', S.prefs.glass !== false);
+  if (typeof S.prefs.glassTint === 'number') {
+    const v = S.prefs.glassTint, dark = palette() === 'night';
+    root.style.setProperty('--lg-tint', dark ? `rgba(16,18,24,${Math.min(.85, v * 2).toFixed(2)})` : `rgba(255,255,255,${v.toFixed(2)})`);
+  } else root.style.removeProperty('--lg-tint');
   const icon = S.prefs.appIcon || 'blue';
   if (icon !== appliedIcon && (appliedIcon || icon !== 'blue')) window.__TAURI__?.core.invoke('set_app_icon', { name: icon }).catch(() => {});
   appliedIcon = icon;

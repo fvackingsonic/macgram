@@ -58,7 +58,7 @@ function resetAppearance() {
   openModal({
     title: 'Сбросить оформление?', text: 'Тема, цвета, размер текста, пузыри, автоночь и значок вернутся к стандартным.',
     buttons: [
-      { label: 'Сбросить', kind: 'danger', action: () => { closeModal(); for (const k of ['theme', 'dayTheme', 'nightTheme', 'accent', 'bubbles', 'fontSize', 'autoNight', 'nightFrom', 'nightTo', 'appIcon', 'autoTint']) setPref(k, k === 'fontSize' ? 14 : k === 'appIcon' ? 'blue' : undefined); showHud('Оформление сброшено'); } },
+      { label: 'Сбросить', kind: 'danger', action: () => { closeModal(); for (const k of ['theme', 'dayTheme', 'nightTheme', 'accent', 'bubbles', 'fontSize', 'autoNight', 'nightFrom', 'nightTo', 'appIcon', 'autoTint', 'glassBubbles', 'glassTint', 'wallFit', 'tint']) setPref(k, k === 'fontSize' ? 14 : k === 'appIcon' ? 'blue' : undefined); showHud('Оформление сброшено'); } },
       { label: 'Отмена', kind: 'second', action: closeModal },
     ],
   });
@@ -88,7 +88,11 @@ export function Appearance() {
     <div class="group">
       <div class="item"><span class="lbl">Тёмный режим</span><${Switch} on=${dark} onChange=${v => pickTheme(v ? (S.prefs.nightTheme === 'black' ? 'black' : 'night') : (['classic', 'day'].includes(S.prefs.dayTheme) ? S.prefs.dayTheme : 'classic'))}/></div>
       <div class="item"><span class="lbl">Пузыри сообщений</span><${Switch} on=${S.prefs.bubbles !== false} onChange=${v => setPref('bubbles', v)}/></div>
-      ${S.prefs.bubbles !== false && html`<div class="item"><span class="lbl">Стеклянные пузыри<small>Полупрозрачные, с размытием фона (в Telegram для Mac пузыри обычные)</small></span><${Switch} on=${S.prefs.glassBubbles === true} onChange=${v => setPref('glassBubbles', v)}/></div>`}
+      ${S.prefs.bubbles !== false && html`<div class="item"><span class="lbl">Стеклянные пузыри<small>Как Liquid Glass в iOS 26 — стандартный вид macgram</small></span><${Switch} on=${S.prefs.glassBubbles !== false} onChange=${v => setPref('glassBubbles', v)}/></div>`}
+      <div class="item ap-size"><span class="lbl" style="flex:none">Прозрачность стекла</span>
+        <input type="range" min="0" max="45" step="1" value=${Math.round(45 - (S.prefs.glassTint ?? .14) * 100)} onInput=${e => setPref('glassTint', (45 - Number(e.target.value)) / 100)} style="flex:1;accent-color:var(--accent)"/>
+        ${typeof S.prefs.glassTint === 'number' && html`<button class="sel-btn" onClick=${() => setPref('glassTint', undefined)}>Стандарт</button>`}</div>
+      ${S.prefs.bubbles !== false && html`<div class="item wrap"><span class="lbl">Фон-картинка</span><div class="seg">${[['cover', 'Заполнить'], ['contain', 'Целиком'], ['width', 'По ширине'], ['center', 'Как есть']].map(([v, l]) => html`<button class=${(S.prefs.wallFit || 'cover') === v ? 'on' : ''} onClick=${() => setPref('wallFit', v)}>${l}</button>`)}</div></div>`}
       ${S.prefs.bubbles !== false && html`<button class="item" onClick=${() => go('wallpaper')}><span class="lbl">Фон чата</span><span class="chev">${Icon.chevron(11)}</span></button>`}
       <div class="item"><span class="lbl">Цвета под фон<small>${S.prefs.tint ? 'Цвета темы подобраны под ваш фон' : S.wallTint ? 'Подобрать акцент, свои сообщения и панели под цвет фона' : 'Сначала поставьте свой фон'}</small></span>
         ${S.prefs.tint && html`<span class="ap-dot" style=${`background:hsl(${Math.round(S.prefs.tint.h)} ${Math.round(Math.min(85, S.prefs.tint.s + 15))}% 50%)`}/>`}
