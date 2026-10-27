@@ -1510,21 +1510,40 @@ html.glass-bubbles .msg-row.last .bubble, html.no-bubbles .msg-row.last .bubble 
 
 /* ── «жидкое стекло» как в iOS 26 / macOS 26 (по референсам): почти без заливки, фон под стеклом
    виден, слегка размыт и ПРЕЛОМЛЯЕТСЯ линзой по краям (SVG-фильтр #lg-lens), тонкий яркий кант. ── */
-:root { --lg-tint: rgba(255,255,255,.14); --lg-out: color-mix(in srgb, var(--out-bg) 22%, transparent); --lg-hi: rgba(255,255,255,.75); --lg-lo: rgba(255,255,255,.22);
+:root { --lg-top: rgba(255,255,255,.42); --lg-mid: rgba(255,255,255,.12); --lg-bot: rgba(255,255,255,.18); --lg-in-top: rgba(255,255,255,.7); --lg-in-bot: rgba(255,255,255,.35); --lg-rim: rgba(255,255,255,.95); --lg-rim2: rgba(255,255,255,.65);
+  --lg-tint: rgba(255,255,255,.1); --lg-out: color-mix(in srgb, var(--out-bg) 22%, transparent); --lg-hi: rgba(255,255,255,.75); --lg-lo: rgba(255,255,255,.22);
   --lg-edge: rgba(255,255,255,.3); --lg-text: #0b0b0c; --lg-shadow: 0 8px 24px rgba(0,0,0,.16); --lg-meta: rgba(0,0,0,.5); }
-:root[data-palette="night"] { --lg-tint: rgba(12,14,20,.26); --lg-out: color-mix(in srgb, var(--out-bg) 28%, transparent); --lg-hi: rgba(255,255,255,.45);
+:root[data-palette="night"] { --lg-top: rgba(255,255,255,.16); --lg-mid: rgba(255,255,255,.04); --lg-bot: rgba(255,255,255,.06); --lg-in-top: rgba(255,255,255,.3); --lg-in-bot: rgba(255,255,255,.12); --lg-rim: rgba(255,255,255,.6); --lg-rim2: rgba(255,255,255,.3);
+  --lg-tint: rgba(14,16,22,.3); --lg-out: color-mix(in srgb, var(--out-bg) 28%, transparent); --lg-hi: rgba(255,255,255,.45);
   --lg-lo: rgba(255,255,255,.1); --lg-edge: rgba(255,255,255,.16); --lg-text: #fff; --lg-shadow: 0 8px 24px rgba(0,0,0,.4); --lg-meta: rgba(255,255,255,.6); }
+/* пузыри: без SVG-линзы (на многих элементах она моргала при прокрутке) — стекло собрано из
+   размытия, светлого градиента сверху, внутреннего свечения и яркого двустороннего блика по краю */
 html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
 html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble.media.with-caption,
 html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments {
-  position: relative; color: var(--lg-text) !important; contain: none !important;
-  background: var(--lg-tint) !important;
-  backdrop-filter: url(#lg-lens-s) blur(8px) saturate(1.6) brightness(1.06) !important;
-  -webkit-backdrop-filter: url(#lg-lens-s) blur(8px) saturate(1.6) brightness(1.06) !important;
-  box-shadow: var(--lg-shadow), inset 0 0 0 1px var(--lg-edge), inset 1.5px 1.5px 1px -.5px var(--lg-hi), inset -1px -1.5px 1px -.5px var(--lg-lo) !important;
+  position: relative; color: var(--lg-text) !important; contain: none !important; transform: translateZ(0);
+  background: linear-gradient(180deg, var(--lg-top) 0%, var(--lg-mid) 48%, var(--lg-bot) 100%), var(--lg-tint) !important;
+  backdrop-filter: blur(14px) saturate(1.9) brightness(1.08) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(1.9) brightness(1.08) !important;
+  box-shadow: 0 10px 28px rgba(0,0,0,.18), 0 2px 6px rgba(0,0,0,.1),
+    inset 0 10px 18px -12px var(--lg-in-top), inset 0 -8px 14px -12px var(--lg-in-bot), inset 0 0 0 .5px var(--lg-edge) !important;
 }
 html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
-html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .bubble.media.with-caption { background: var(--lg-out) !important; }
+html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .bubble.media.with-caption {
+  background: linear-gradient(180deg, var(--lg-top) 0%, var(--lg-mid) 48%, var(--lg-bot) 100%), var(--lg-out) !important;
+}
+/* яркий кант: светлый сверху-слева и снизу-справа, почти прозрачный посередине (как у iOS 26) */
+html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo)::before,
+html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble.media.with-caption::before,
+html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; pointer-events: none; z-index: 2;
+  background: linear-gradient(140deg, var(--lg-rim) 0%, transparent 28%, transparent 70%, var(--lg-rim2) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude;
+}
+html.glass-bubbles .msg-row .with-comments > .bubble::before { display: none; }
+/* в стеклянном режиме секции дней не выгружаются при прокрутке — иначе размытие «моргало» */
+html.glass-bubbles .messages .day { content-visibility: visible; }
 html.glass-bubbles .msg-row .with-comments > .bubble { backdrop-filter: none !important; background: transparent !important; box-shadow: none !important; }
 html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble, html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments { text-shadow: 0 0 8px var(--lg-glow-text, rgba(255,255,255,.6)); }
 :root[data-palette="night"] { --lg-glow-text: rgba(0,0,0,.6); }
@@ -1542,3 +1561,8 @@ html:not(.lite) .chat-top .glass, html:not(.lite) .composer-wrap .glass, html:no
   backdrop-filter: url(#lg-lens) blur(7px) saturate(1.7) brightness(1.05) !important;
   -webkit-backdrop-filter: url(#lg-lens) blur(7px) saturate(1.7) brightness(1.05) !important;
 }
+/* пост с комментариями: стекло только у общей обёртки, внутренний пузырь прозрачный */
+html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble:not(.z1):not(.z2):not(.z3):not(.z4):not(.z5) {
+  background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; box-shadow: none !important; transform: none;
+}
+html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble:not(.z1):not(.z2):not(.z3):not(.z4):not(.z5)::before { display: none; }
