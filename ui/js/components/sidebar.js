@@ -37,10 +37,10 @@ export function Sidebar() {
 
 // ── вкладки внизу ──
 const TABS = [
-  { id: 'contacts', icon: Icon.contacts, title: 'Контакты' },
-  { id: 'calls', icon: Icon.calls, title: 'Звонки' },
-  { id: 'chats', icon: Icon.chats, title: 'Чаты' },
-  { id: 'settings', icon: Icon.settings, title: 'Настройки' },
+  { id: 'contacts', icon: () => Icon.tabContacts(), title: 'Контакты' },
+  { id: 'calls', icon: () => Icon.tabCalls(), title: 'Звонки' },
+  { id: 'chats', icon: () => Icon.tabChats(S.tab === 'chats'), title: 'Чаты' },
+  { id: 'settings', icon: () => Icon.tabSettings(), title: 'Настройки' },
 ];
 function TabBar() {
   const [lifted, setLifted] = useState(false);
@@ -158,11 +158,11 @@ function ChatRow({ chat, pinned, compact }) {
   const onContext = e => {
     e.preventDefault();
     openMenu(e.clientX, e.clientY, [
-      { label: pinned ? 'Открепить' : 'Закрепить', icon: Icon.pin(), action: () => send({ '@type': 'toggleChatIsPinned', chat_list: { '@type': 'chatListMain' }, chat_id: chat.id, is_pinned: !pinned }).catch(err => showHud(err.message)) },
-      { label: muted ? 'Включить уведомления' : 'Выключить уведомления', icon: Icon.muted(15), action: () => send({ '@type': 'setChatNotificationSettings', chat_id: chat.id, notification_settings: { ...(chat.notification_settings || {}), '@type': 'chatNotificationSettings', use_default_mute_for: false, mute_for: muted ? 0 : 2147483647 } }).catch(err => showHud(err.message)) },
+      { label: pinned ? 'Открепить' : 'Закрепить', icon: Icon.menu(pinned ? 'menu_unpin' : 'menu_pin'), action: () => send({ '@type': 'toggleChatIsPinned', chat_list: { '@type': 'chatListMain' }, chat_id: chat.id, is_pinned: !pinned }).catch(err => showHud(err.message)) },
+      { label: muted ? 'Включить уведомления' : 'Выключить уведомления', icon: Icon.menu(muted ? 'menu_unmuted' : 'menu_mute'), action: () => send({ '@type': 'setChatNotificationSettings', chat_id: chat.id, notification_settings: { ...(chat.notification_settings || {}), '@type': 'chatNotificationSettings', use_default_mute_for: false, mute_for: muted ? 0 : 2147483647 } }).catch(err => showHud(err.message)) },
       unread
-        ? { label: 'Отметить как прочитанное', icon: Icon.check(15), action: () => m && send({ '@type': 'viewMessages', chat_id: chat.id, message_ids: [m.id], force_read: true }).then(() => chat.is_marked_as_unread && send({ '@type': 'toggleChatIsMarkedAsUnread', chat_id: chat.id, is_marked_as_unread: false })).catch(() => {}) }
-        : { label: 'Отметить как непрочитанное', icon: Icon.chats(15), action: () => send({ '@type': 'toggleChatIsMarkedAsUnread', chat_id: chat.id, is_marked_as_unread: true }).catch(() => {}) },
+        ? { label: 'Отметить как прочитанное', icon: Icon.menu('menu_read'), action: () => m && send({ '@type': 'viewMessages', chat_id: chat.id, message_ids: [m.id], force_read: true }).then(() => chat.is_marked_as_unread && send({ '@type': 'toggleChatIsMarkedAsUnread', chat_id: chat.id, is_marked_as_unread: false })).catch(() => {}) }
+        : { label: 'Отметить как непрочитанное', icon: Icon.menu('menu_unread'), action: () => send({ '@type': 'toggleChatIsMarkedAsUnread', chat_id: chat.id, is_marked_as_unread: true }).catch(() => {}) },
     ]);
   };
 

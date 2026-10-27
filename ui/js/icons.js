@@ -66,3 +66,41 @@ export const AppLogo = ({ size = 96 }) => html`
     <path d="M48 24c14.9 0 27 9.7 27 21.7S62.9 67.4 48 67.4c-2.9 0-5.7-.4-8.3-1.1L27 72.5l3.6-10.4C25 58.2 21 52.3 21 45.7 21 33.7 33.1 24 48 24z" fill="#fff"/>
     <circle cx="37.5" cy="46" r="3.4" fill="#2a8ad8"/><circle cx="48" cy="46" r="3.4" fill="#2a8ad8"/><circle cx="58.5" cy="46" r="3.4" fill="#2a8ad8"/>
   </svg>`;
+
+// ── Заменяем свои иконки на настоящие из Telegram для macOS там, где они есть ──
+import { MI } from './mac-icons.js';
+Object.assign(Icon, {
+  search: (s = 14) => MI('Icon_SearchField', s),
+  compose: (s = 20) => MI('Icon_NewMessage', s),
+  contacts: (s = 22) => MI('menu_open_profile', s),
+  tabContacts: () => MI('Icon_TabContacts'),
+  tabCalls: () => MI('Icon_TabRecentCalls'),
+  tabChats: on => MI(on ? 'Icon_TabChatList_Highlighted' : 'Icon_TabChatList'),
+  tabSettings: () => MI('Icon_TabSettings'),
+  calls: (s = 22) => MI('menu_call', s),
+  chats: (s = 22) => MI('menu_message', s),
+  settings: (s = 22) => MI('menu_gear', s),
+  attach: (s = 24) => MI('Icon_ChatAttach', s + 6),
+  smile: (s = 24) => MI('Icon_Entertainments', s + 6),
+  send: (s = 22) => MI('Icon_SendMessage', s),
+  mic: (s = 24) => MI('Icon_RecordVoice', s + 6),
+  check: (s = 13) => MI('Icon_MessageCheckMark1', s),
+  checks: (s = 13) => html`<span class="mi-checks">${MI('Icon_MessageCheckMark1', s)}${MI('Icon_MessageCheckmark2', s)}</span>`,
+  clock: (s = 12) => MI('Icon_ChatStateSending', s),
+  pin: (s = 16) => MI('Icon_ChatListPinned', s + 2),
+  muted: (s = 13) => MI('Icon_DialogMute', s),
+  reply: (s = 18) => MI('menu_reply', s),
+  copy: (s = 18) => MI('menu_copy', s),
+  trash: (s = 18) => MI('menu_delete', s),
+  edit: (s = 18) => MI('menu_edit', s),
+  play: (s = 16) => MI('Icon_ChatMusicPlay', s),
+  pause: (s = 16) => MI('Icon_ChatMusicPause', s),
+  lock: (s = 16) => MI('menu_lock', s),
+  volume: (s = 18) => MI('Icon_InlinePlayer_VolumeOn', s + 6),
+  expand: (s = 18) => MI('Icon_VideoPlayer_EnterFullScreen', s + 8),
+  back: (s = 14) => MI('Icon_ChatNavigationBack', s),
+  archive: (s = 18) => MI('menu_archive', s),
+  verified: (s = 15) => html`<span style=${`color:var(--accent);display:inline-flex`}>${MI('Icon_Verified_Telegram', s)}</span>`,
+  forward: (s = 18) => MI('menu_forward', s),
+  menu: name => MI(name, 18),
+});

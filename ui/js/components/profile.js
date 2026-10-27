@@ -199,15 +199,15 @@ function VideoPlayer({ video }) {
       onLoadedMetadata=${e => setSt(s => ({ ...s, d: e.target.duration || s.d }))}/>`}
     ${!src && html`<div class="vp-loading"><svg width="56" height="56" viewBox="0 0 44 44"><circle cx="22" cy="22" r="20" fill="rgba(0,0,0,.5)"/>
       <circle cx="22" cy="22" r="16" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-dasharray=${`${Math.max(4, pct) * 1.005} 100.5`} transform="rotate(-90 22 22)" style="transition:stroke-dasharray .3s"/></svg><span>${pct}%</span></div>`}
-    ${src && !st.playing && html`<button class="vp-big" onClick=${toggle}>${Icon.play(30)}</button>`}
+    ${src && !st.playing && html`<button class="vp-big" onClick=${toggle}>${Icon.play(26)}</button>`}
     ${src && html`<div class="vp-bar">
-      <button onClick=${toggle}>${st.playing ? Icon.pause(18) : Icon.play(18)}</button>
+      <button onClick=${toggle}>${Icon.menu(st.playing ? 'Icon_VideoPlayer_Pause' : 'Icon_VideoPlayer_Play')}</button>
       <span class="vp-time">${duration(Math.floor(st.t))}</span>
       <div class="vp-track" onClick=${seek}><i style=${`width:${st.d ? st.t / st.d * 100 : 0}%`}/></div>
       <span class="vp-time">${duration(Math.floor(st.d))}</span>
-      <button onClick=${() => { const el = v(); if (el) { el.muted = !el.muted; setSt(s => ({ ...s, muted: el.muted })); } }}>${st.muted ? Icon.muted(16) : Icon.volume(16)}</button>
+      <button onClick=${() => { const el = v(); if (el) { el.muted = !el.muted; setSt(s => ({ ...s, muted: el.muted })); } }}>${Icon.menu(st.muted ? 'Icon_VideoPlayer_VolumeOff' : 'Icon_VideoPlayer_Volume')}</button>
       <input type="range" min="0" max="1" step="0.01" value=${st.muted ? 0 : st.vol} onInput=${e => { const el = v(); const x = Number(e.target.value); if (el) { el.volume = x; el.muted = x === 0; } setSt(s => ({ ...s, vol: x, muted: x === 0 })); }}/>
-      <button onClick=${full} title="Во весь экран">${Icon.expand()}</button>
+      <button onClick=${full} title="Во весь экран">${Icon.menu(document.fullscreenElement ? 'Icon_VideoPlayer_ExitFullScreen' : 'Icon_VideoPlayer_EnterFullScreen')}</button>
     </div>`}
   </div>`;
 }

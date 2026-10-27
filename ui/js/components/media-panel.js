@@ -5,6 +5,8 @@ import { send } from '../td.js';
 import { Icon } from '../icons.js';
 import { EMOJI } from '../emoji-data.js';
 import { Tgs } from './tgs.js';
+import { MI } from '../mac-icons.js';
+const CAT_ICON = { recent: 'Icon_EmojiTabRecent', people: 'Icon_EmojiTabSmiles', nature: 'Icon_EmojiTabNature', food: 'Icon_EmojiTabFood', activity: 'Icon_EmojiTabSports', travel: 'Icon_EmojiTabCar', objects: 'Icon_EmojiTabObjects', symbols: 'Icon_EmojiTabSymbols', flags: 'Icon_EmojiTabFlag' };
 
 const RECENT_KEY = 'recentEmoji';
 const recentEmoji = () => { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch { return []; } };
@@ -34,8 +36,8 @@ export function MediaPanel({ chatId, onEmoji, onClose }) {
   const pick = t => { setTab(t); try { localStorage.setItem('panelTab', t); } catch {} };
   return html`<div class="media-panel" ref=${ref}>
     <div class="mp-tabs">
-      ${[['emoji', 'Эмодзи'], ['stickers', 'Стикеры'], ['gifs', 'GIF']].map(([id, t]) => html`
-        <button class=${tab === id ? 'on' : ''} onClick=${() => pick(id)}>${t}</button>`)}
+      ${[['emoji', 'Эмодзи', 'Icon_Entertainment_Emoji'], ['stickers', 'Стикеры', 'Icon_Entertainment_Stickers'], ['gifs', 'GIF', 'Icon_Entertainment_Gifs']].map(([id, t, ic]) => html`
+        <button class=${tab === id ? 'on' : ''} title=${t} onClick=${() => pick(id)}>${MI(ic, 24)}</button>`)}
     </div>
     ${tab === 'emoji' && html`<${EmojiTab} onEmoji=${onEmoji}/>`}
     ${tab === 'stickers' && html`<${StickersTab} chatId=${chatId} onClose=${onClose}/>`}
@@ -55,7 +57,7 @@ function EmojiTab({ onEmoji }) {
         <div class="emoji-grid">${c.list.map(e => html`<button onClick=${() => { pushRecent(e); onEmoji(e); }}>${e}</button>`)}</div>
       </div>`)}
     </div>
-    <div class="mp-foot">${cats.map(c => html`<button title=${c.title} onClick=${() => jump(c.id)}>${c.icon}</button>`)}</div>`;
+    <div class="mp-foot">${cats.map(c => html`<button title=${c.title} onClick=${() => jump(c.id)}>${MI(CAT_ICON[c.id], 22)}</button>`)}</div>`;
 }
 
 function StickerCell({ st, onSend }) {

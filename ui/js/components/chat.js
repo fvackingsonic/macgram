@@ -52,8 +52,8 @@ function Chat({ chat }) {
   const more = e => {
     const r = e.currentTarget.getBoundingClientRect();
     openMenu(r.right - 200, r.bottom + 4, [
-      { label: muted ? 'Включить уведомления' : 'Выключить уведомления', icon: Icon.muted(15), action: toggleMute },
-      { label: 'Обновить историю', icon: Icon.reply(15), action: () => { S.history.delete(chat.id); loadHistory(chat.id); } },
+      { label: muted ? 'Включить уведомления' : 'Выключить уведомления', icon: Icon.menu(muted ? 'menu_unmuted' : 'menu_mute'), action: toggleMute },
+      { label: 'Обновить историю', icon: Icon.menu('menu_select_all'), action: () => { S.history.delete(chat.id); loadHistory(chat.id); } },
     ]);
   };
   const openProfile = () => { S.profile = true; changed(); };
@@ -154,8 +154,8 @@ function Composer({ chat }) {
       if (mine) { e.preventDefault(); S.editing = mine; S.reply = null; changed(); setText(mine.content.text.text); focusComposer(); }
     }
   };
-  const bar = S.editing ? { title: 'Редактирование', text: contentSummary(S.editing.content), icon: Icon.edit(18) }
-    : S.reply ? { title: `Ответ ${senderName(S.reply.sender_id) || chatTitle(chat)}`, text: contentSummary(S.reply.content, id => userName(S.users.get(id))), icon: Icon.reply(18) } : null;
+  const bar = S.editing ? { title: 'Редактирование', text: contentSummary(S.editing.content), icon: Icon.menu('Icon_ChatAction_EditMessage') }
+    : S.reply ? { title: `Ответ ${senderName(S.reply.sender_id) || chatTitle(chat)}`, text: contentSummary(S.reply.content, id => userName(S.users.get(id))), icon: Icon.menu('Icon_ChatAction_ReplyMessage') } : null;
   const ready = !!text.trim();
   const soon = what => () => showHud(`${what} — в следующем обновлении`);
   return html`<div class="composer-wrap">
@@ -165,7 +165,7 @@ function Composer({ chat }) {
       ${bar && html`<div class="compose-bar" key=${S.editing?.id || S.reply?.id}>
         <span style="color:var(--accent)">${bar.icon}</span>
         <div class="bar-body"><div class="bar-title">${bar.title}</div><div class="bar-text">${bar.text}</div></div>
-        <button class="icon-btn gray" onClick=${() => { if (S.editing) setText(''); S.reply = null; S.editing = null; changed(); }}>${Icon.close(14)}</button>
+        <button class="icon-btn gray" onClick=${() => { if (S.editing) setText(''); S.reply = null; S.editing = null; changed(); }}>${Icon.menu('Icon_ChatAction_Close')}</button>
       </div>`}
       <div class="compose-row">
         <textarea ref=${ref} class="compose-input" rows="1" placeholder=${isChannel(chat) ? 'Публикация…' : 'Сообщение'} value=${text}
@@ -196,7 +196,7 @@ function PlayerBar() {
     </div>
     <button class="pb-rate" title="Скорость" onClick=${() => player.setRate(RATES[(RATES.indexOf(p.rate) + 1) % RATES.length])}>${p.rate}×</button>
     <label class="pb-vol" title="Громкость">${Icon.volume(15)}<input type="range" min="0" max="1" step="0.01" value=${p.volume} onInput=${e => player.setVolume(Number(e.target.value))}/></label>
-    <button class="icon-btn gray" title="Закрыть" onClick=${player.stop}>${Icon.close(14)}</button>
+    <button class="icon-btn gray" title="Закрыть" onClick=${player.stop}>${Icon.menu('Icon_ChatAction_Close')}</button>
     <div class="pb-progress" onClick=${seek}><i style=${`width:${progress() * 100}%`}/></div>
   </div>`;
 }

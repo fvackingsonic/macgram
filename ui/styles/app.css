@@ -736,3 +736,11 @@ button.ps-row:hover { background: var(--row-hover); }
 .ps-tabs button { padding: 6px 12px; border-radius: 10px; color: var(--gray-text); font-weight: 500; white-space: nowrap; transition: background .15s, color .15s; }
 .ps-tabs button.on { color: var(--accent); background: var(--accent-soft); }
 .ps-body .media-grid { padding: 0; border-radius: 16px; overflow: hidden; }
+
+/* иконки из Telegram для macOS */
+.mi { display: inline-block; flex: none; background: currentColor; -webkit-mask-size: contain; mask-size: contain; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; vertical-align: middle; }
+img.mi { background: none; }
+.mi-checks { display: inline-flex; position: relative; width: 17px; height: 13px; }
+.mi-checks .mi { position: absolute; top: 0; }
+.mi-checks .mi:first-child { left: 0; }
+.mi-checks .mi:last-child { left: 4px; }
