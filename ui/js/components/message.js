@@ -63,8 +63,8 @@ function Photo({ photo, overlay }) {
   const mini = photo.minithumbnail?.data;
   const open = e => { e.stopPropagation(); S.viewer = { photo, url }; changed(); };
   return html`<div class="photo" style=${`width:${W}px;height:${H}px;cursor:zoom-in`} onClick=${open}>
-    ${mini && html`<img class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
-    ${url && html`<img class="full" src=${url} alt="" draggable="false"/>`}
+    ${mini && html`<img decoding="async" class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
+    ${url && html`<img decoding="async" class="full" src=${url} alt="" draggable="false"/>`}
     ${overlay}
   </div>`;
 }
@@ -83,8 +83,8 @@ function Video({ video, gif }) {
   const progress = cur?.size ? Math.round(100 * (cur.local?.downloaded_size || 0) / cur.size) : 0;
   const openViewer = e => { e.stopPropagation(); S.viewer = { video }; changed(); };
   return html`<div class="photo" style=${`width:${W}px;height:${H}px;cursor:pointer`} onClick=${e => !gif && openViewer(e)}>
-    ${mini && html`<img class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
-    ${tUrl && !src && html`<img class="full" src=${tUrl} alt="" onError=${e => e.target.remove()}/>`}
+    ${mini && html`<img decoding="async" class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
+    ${tUrl && !src && html`<img decoding="async" class="full" src=${tUrl} alt="" onError=${e => e.target.remove()}/>`}
     ${src && html`<video class="full" src=${src} autoplay loop=${gif} muted=${gif} controls=${!gif} playsinline/>`}
     ${!src && !gif && html`<div class="play-badge">${play ? html`<span style="font-size:11px">${progress}%</span>` : Icon.play(22)}</div>`}
     ${!gif && !src && html`<span class="dur-badge">${duration(video.duration || 0)}</span>`}
@@ -96,7 +96,7 @@ function Sticker({ sticker }) {
   useEffect(() => { if (fmt !== 'stickerFormatTgs') download(sticker.sticker, 3); }, [sticker.sticker.id]);
   const url = fileUrl(sticker.sticker);
   if (fmt === 'stickerFormatWebm' && url) return html`<video class="sticker-img" src=${url} autoplay loop muted playsinline/>`;
-  if (fmt === 'stickerFormatWebp' && url) return html`<img class="sticker-img" src=${url} alt=${sticker.emoji} draggable="false"/>`;
+  if (fmt === 'stickerFormatWebp' && url) return html`<img decoding="async" class="sticker-img" src=${url} alt=${sticker.emoji} draggable="false"/>`;
   if (fmt === 'stickerFormatTgs') return html`<${Tgs} file=${sticker.sticker} size=${160} fallback=${sticker.emoji || '🙂'}/>`;
   return html`<div class="sticker-emoji">${sticker.emoji || '🙂'}</div>`;
 }
@@ -197,8 +197,8 @@ function VideoNote({ msg }) {
   const t = active ? S.player.time : 0;
   const C = 2 * Math.PI * 108.5;
   return html`<div class="video-note" ref=${box} onClick=${click}>
-    ${mini && html`<img class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
-    ${thumb && !src && html`<img src=${thumb} alt="" onError=${e => e.target.remove()}/>`}
+    ${mini && html`<img decoding="async" class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
+    ${thumb && !src && html`<img decoding="async" src=${thumb} alt="" onError=${e => e.target.remove()}/>`}
     ${src && html`<video ref=${ref} src=${src} muted loop playsinline preload="metadata"/>`}
     ${active && html`<svg class="note-ring" viewBox="0 0 220 220"><circle cx="110" cy="110" r="108.5" stroke-dasharray=${`${C * Math.min(1, t / d)} ${C}`}/></svg>`}
     ${!active && html`<span class="note-muted">${Icon.menu('Icon_VideoMessageMutedIcon')}</span>`}
@@ -227,8 +227,8 @@ function LinkPreview({ lp }) {
       ${lp.title && html`<div class="lp-title">${lp.title}</div>`}
       ${desc && html`<div class="lp-desc">${desc}</div>`}
     </div>
-    ${url && !big && html`<img class="lp-thumb" src=${url} alt=""/>`}
-    ${url && big && html`<img class="lp-big" src=${url} alt=""/>`}
+    ${url && !big && html`<img decoding="async" class="lp-thumb" src=${url} alt=""/>`}
+    ${url && big && html`<img decoding="async" class="lp-big" src=${url} alt=""/>`}
   </div>`;
 }
 
@@ -278,8 +278,8 @@ function AlbumTile({ m, w, h }) {
   const url = info.file ? fileUrl(info.file) : info.thumb?.format?.['@type'] === 'thumbnailFormatJpeg' ? fileUrl(info.thumb.file) : '';
   const open = e => { e.stopPropagation(); S.viewer = info.kind === 'video' ? { video: info.video } : { photo: info.photo, url }; changed(); };
   return html`<div class="album-tile photo" style=${`width:${w}px;height:${h}px`} data-mid=${m.id} onClick=${open}>
-    ${info.mini && html`<img class="blur" src=${`data:image/jpeg;base64,${info.mini}`} alt=""/>`}
-    ${url && html`<img class="full" src=${url} alt="" draggable="false"/>`}
+    ${info.mini && html`<img decoding="async" class="blur" src=${`data:image/jpeg;base64,${info.mini}`} alt=""/>`}
+    ${url && html`<img decoding="async" class="full" src=${url} alt="" draggable="false"/>`}
     ${info.kind === 'video' && html`<div class="play-badge" style="width:36px;height:36px">${Icon.play(14)}</div>`}
     <${Upload} msg=${m}/>
   </div>`;

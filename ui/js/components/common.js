@@ -22,8 +22,8 @@ export function Avatar({ chat, user, size = 48, online = false }) {
   const style = `width:${size}px;height:${size}px;font-size:${Math.round(size * 0.38)}px;background:${avatarGradient(idx)}`;
   let inner;
   if (chat && isSaved(chat)) inner = Icon.bookmark(Math.round(size * 0.46));
-  else if (url && bad !== url) inner = html`<img src=${url} alt="" draggable="false" onError=${() => setBad(url)}/>`;
-  else if (mini) inner = html`<img src=${`data:image/jpeg;base64,${mini}`} style="filter:blur(3px);transform:scale(1.1)" alt=""/>`;
+  else if (url && bad !== url) inner = html`<img decoding="async" src=${url} alt="" draggable="false" onError=${() => setBad(url)}/>`;
+  else if (mini) inner = html`<img decoding="async" src=${`data:image/jpeg;base64,${mini}`} style="filter:blur(3px);transform:scale(1.1)" alt=""/>`;
   else inner = initials(title);
   return html`<div class="av-wrap" ref=${wrap}><div class="avatar" style=${style}>${inner}</div>${online && html`<i class="online-dot"/>`}</div>`;
 }

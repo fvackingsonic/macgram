@@ -1146,3 +1146,4 @@ html.lite .nav-prev, html.lite .nav-next { transition: none !important; animatio
 .choice.inline { display: inline-flex; gap: 4px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
 .choice.inline button { padding: 3px 8px; border-radius: 6px; font-size: 12px; background: var(--glass-sel); color: var(--text); }
 .choice.inline button.on { background: var(--accent); color: #fff; }
+.list-pad { flex: none; }

@@ -132,8 +132,8 @@ export function StoryViewer() {
   const caption = story?.caption?.text;
   return html`<div class="story-veil" onClick=${closeStories}>
     <div class="story-frame" onClick=${e => e.stopPropagation()} onMouseDown=${() => setPaused(true)} onMouseUp=${() => setPaused(false)}>
-      ${mini && html`<img class="story-media blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
-      ${url && !isVideo && html`<img class="story-media" src=${url} alt=""/>`}
+      ${mini && html`<img decoding="async" class="story-media blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
+      ${url && !isVideo && html`<img decoding="async" class="story-media" src=${url} alt=""/>`}
       ${url && isVideo && html`<video ref=${vid} class="story-media" key=${url} src=${url} autoplay playsinline muted=${muted || volume === 0}
         onLoadedMetadata=${e => { e.target.volume = volume; e.target.play().catch(() => { e.target.muted = true; setMuted(true); e.target.play().catch(() => {}); }); }}
         onError=${() => { if (!useMain && c.alternative_video) setUseMain(true); else showHud('Это видео не поддерживается на Windows'); }}

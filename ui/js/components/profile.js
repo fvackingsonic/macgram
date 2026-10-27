@@ -145,8 +145,8 @@ function MediaThumb({ msg }) {
   const mini = (photo || c.video)?.minithumbnail?.data;
   const open = () => { if (photo) { S.viewer = { photo }; changed(); } };
   return html`<button class="media-cell" onClick=${open}>
-    ${mini && html`<img class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
-    ${url && html`<img src=${url} alt="" onError=${e => e.target.remove()}/>`}
+    ${mini && html`<img decoding="async" class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
+    ${url && html`<img decoding="async" src=${url} alt="" onError=${e => e.target.remove()}/>`}
     ${c.video && html`<span class="dur-badge" style="top:auto;bottom:4px;left:4px">▶</span>`}
   </button>`;
 }
@@ -171,8 +171,8 @@ export function Viewer() {
   if (v.video) return html`<div class=${`viewer ${closing ? 'out' : ''}`} onClick=${close}><${VideoPlayer} video=${v.video}/>
     <button class="viewer-close" onClick=${close}>${Icon.close(18)}</button></div>`;
   return html`<div class=${`viewer ${closing ? 'out' : ''}`} onClick=${close}>
-    ${url ? html`<img src=${url} alt="" onClick=${e => e.stopPropagation()}/>`
-      : mini ? html`<img src=${`data:image/jpeg;base64,${mini}`} style=${`filter:blur(10px);width:${Math.min(best?.width || 600, innerWidth * .8)}px`} alt=""/>` : html`<${Spinner}/>`}
+    ${url ? html`<img decoding="async" src=${url} alt="" onClick=${e => e.stopPropagation()}/>`
+      : mini ? html`<img decoding="async" src=${`data:image/jpeg;base64,${mini}`} style=${`filter:blur(10px);width:${Math.min(best?.width || 600, innerWidth * .8)}px`} alt=""/>` : html`<${Spinner}/>`}
     <button class="viewer-close" onClick=${close}>${Icon.close(18)}</button>
   </div>`;
 }
@@ -273,8 +273,8 @@ function VideoPlayer({ video }) {
   return html`<div class=${`vplayer ${hideCtl ? 'idle' : ''} ${compact ? 'compact' : ''}`} ref=${wrap}
     onClick=${e => { if (e.target.closest('.vp-ctl, video')) e.stopPropagation(); }}>
     <div class="vp-frame" style=${st.full ? 'width:100%;height:100%' : `width:${W}px;height:${H}px`}>
-    ${!src && mini && html`<img class="vp-poster blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
-    ${!src && thumb && html`<img class="vp-poster" src=${thumb} alt=""/>`}
+    ${!src && mini && html`<img decoding="async" class="vp-poster blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
+    ${!src && thumb && html`<img decoding="async" class="vp-poster" src=${thumb} alt=""/>`}
     ${src && html`<video ref=${ref} src=${src} autoplay playsinline onClick=${toggle} onDblClick=${full}
       onPlay=${() => setSt(s => ({ ...s, playing: true }))} onPause=${() => setSt(s => ({ ...s, playing: false }))}
       onEnterPictureInPicture=${() => setSt(s => ({ ...s, pip: true }))} onLeavePictureInPicture=${() => setSt(s => ({ ...s, pip: false }))}

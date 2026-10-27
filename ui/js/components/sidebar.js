@@ -186,14 +186,30 @@ function useReorderAnimation(ref, order, scope) {
   });
 }
 
+// Длинный список рисуем «окном»: в DOM только видимые строки (± запас), сверху и снизу —
+// пустые отступы нужной высоты. Это экономит память и время на каждом обновлении.
+const ROW_H = 68, OVERSCAN = 10, WINDOW_FROM = 80;
 function ChatList() {
   const list = sortedChats(S.folder);
   const ready = S.auth?.['@type'] === 'authorizationStateReady';
-  if (!list.length) return html`<div class="list">${ready ? html`<div class="empty">${S.folder === 'main' ? 'Загрузка чатов…' : 'В этой папке пока нет чатов'}</div>` : null}</div>`;
   const ref = useRef();
+  const [win, setWin] = useState([0, 40]);
+  const big = list.length > WINDOW_FROM;
   useReorderAnimation(ref, list.map(x => x.chat.id).join(','), S.folder);
-  return html`<div class="list list-anim" ref=${ref}>
-    ${list.map(({ chat, pinned }) => html`<${ChatRow} key=${chat.id} chat=${chat} pinned=${pinned} ...${rowDeps(chat)}/>`)}
+  const onScroll = () => {
+    if (!big) return;
+    const el = ref.current; if (!el) return;
+    const a = Math.max(0, Math.floor(el.scrollTop / ROW_H) - OVERSCAN);
+    const b = Math.ceil((el.scrollTop + el.clientHeight) / ROW_H) + OVERSCAN;
+    if (a !== win[0] || b !== win[1]) setWin([a, b]);
+  };
+  useEffect(onScroll, [big, S.folder]);
+  if (!list.length) return html`<div class="list">${ready ? html`<div class="empty">${S.folder === 'main' ? 'Загрузка чатов…' : 'В этой папке пока нет чатов'}</div>` : null}</div>`;
+  const [a, b] = big ? [win[0], Math.min(list.length, win[1])] : [0, list.length];
+  return html`<div class="list list-anim" ref=${ref} onScroll=${onScroll}>
+    ${a > 0 && html`<div class="list-pad" style=${`height:${a * ROW_H}px`}/>`}
+    ${list.slice(a, b).map(({ chat, pinned }) => html`<${ChatRow} key=${chat.id} chat=${chat} pinned=${pinned} ...${rowDeps(chat)}/>`)}
+    ${b < list.length && html`<div class="list-pad" style=${`height:${(list.length - b) * ROW_H}px`}/>`}
   </div>`;
 }
 
@@ -215,7 +231,7 @@ function preview(chat) {
   const text = contentSummary(m.content, id => userName(S.users.get(id)));
   const mc = m.content;
   const mini = (mc.photo || mc.video || mc.animation || mc.video_note)?.minithumbnail?.data;
-  const thumb = mini && html`<img class="pv-thumb" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`;
+  const thumb = mini && html`<img decoding="async" class="pv-thumb" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`;
   let who = null;
   if (m.is_outgoing && !isSaved(chat) && !isChannel(chat)) who = 'Вы';
   else if (isGroup(chat)) who = senderName(m.sender_id).split(' ')[0];

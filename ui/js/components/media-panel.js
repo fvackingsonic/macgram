@@ -109,14 +109,14 @@ function StickerCell({ st, onSend, root }) {
     const url = fileUrl(sFile);
     if (fmt === 'stickerFormatTgs') {
       inner = hover && url ? html`<${Tgs} file=${st.sticker} size=${60} autoplay=${true} fallback=${st.emoji}/>`
-        : thumbUrl ? html`<img src=${thumbUrl} alt=${st.emoji} draggable="false"/>`
+        : thumbUrl ? html`<img decoding="async" src=${thumbUrl} alt=${st.emoji} draggable="false"/>`
           : url ? html`<${TgsStill} url=${url} size=${60} alt=${st.emoji}/>` : inner;
     } else if (fmt === 'stickerFormatWebm') {
       inner = hover && url ? html`<video src=${url} muted loop autoplay playsinline/>`
-        : thumbUrl ? html`<img src=${thumbUrl} alt=${st.emoji} draggable="false"/>` : inner;
+        : thumbUrl ? html`<img decoding="async" src=${thumbUrl} alt=${st.emoji} draggable="false"/>` : inner;
     } else {
       const u = url || thumbUrl;
-      if (u) inner = html`<img src=${u} alt=${st.emoji} draggable="false" decoding="async"/>`;
+      if (u) inner = html`<img decoding="async" src=${u} alt=${st.emoji} draggable="false" decoding="async"/>`;
     }
   }
   return html`<button class="st-cell" ref=${ref} title=${st.emoji} onClick=${onSend}
@@ -150,7 +150,7 @@ function SetIcon({ set }) {
   const thUrl = th && th.format?.['@type'] === 'thumbnailFormatWebp' ? fileUrl(thF) : '';
   useEffect(() => { if (th && th.format?.['@type'] === 'thumbnailFormatWebp') download(th.file, 1); else if (st?.thumbnail) download(st.thumbnail.file, 1); }, [set.id]);
   const coverUrl = !thUrl && st?.thumbnail && st.thumbnail.format?.['@type'] === 'thumbnailFormatWebp' ? fileUrl(cF) : '';
-  return thUrl || coverUrl ? html`<img src=${thUrl || coverUrl} alt=""/>` : html`<span>${st?.emoji || '🙂'}</span>`;
+  return thUrl || coverUrl ? html`<img decoding="async" src=${thUrl || coverUrl} alt=""/>` : html`<span>${st?.emoji || '🙂'}</span>`;
 }
 
 function StickersTab({ chatId, onClose }) {
@@ -187,8 +187,8 @@ function GifCell({ a, onSend, root }) {
   const src = hover ? fileUrl(aF) : '';
   const mini = a.minithumbnail?.data;
   return html`<button class="gif-cell" ref=${ref} onMouseEnter=${() => setHover(true)} onMouseLeave=${() => setHover(false)} onClick=${onSend}>
-    ${mini && !thumbUrl && html`<img class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
-    ${thumbUrl && html`<img src=${thumbUrl} alt="" decoding="async"/>`}
+    ${mini && !thumbUrl && html`<img decoding="async" class="blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
+    ${thumbUrl && html`<img decoding="async" src=${thumbUrl} alt="" decoding="async"/>`}
     ${src && html`<video src=${src} autoplay muted loop playsinline/>`}
   </button>`;
 }
