@@ -81,11 +81,16 @@ function faceInfo(name) {
   else if (n.includes('extrabold')) weight = 800;
   return { weight, style: n.includes('italic') ? 'italic' : 'normal', display: n.includes('display') };
 }
+// Шрифт смайликов используется только для символов-смайликов: обычные буквы и цифры
+// браузер в нём даже не ищет (иначе огромный цветной шрифт проверяется для каждого символа).
+const EMOJI_RANGE = 'U+00A9, U+00AE, U+203C, U+2049, U+20E3, U+2122, U+2139, U+2194-21AA, U+231A-23FF, U+24C2, U+25AA-27BF, U+2934-2935, U+2B05-2B55, U+3030, U+303D, U+3297, U+3299, U+FE0F, U+200D, U+1F000-1FAFF, U+E0020-E007F';
 async function loadFace(family, path, v, desc) {
   const key = `${family}|${path}|${v}|${desc.weight}|${desc.style}`;
   if (loadedFonts[key]) return true;
   try {
-    const face = new FontFace(family, `url("${shell.fileUrl(path)}?v=${v || 0}")`, { weight: String(desc.weight), style: desc.style });
+    const opts = { weight: String(desc.weight), style: desc.style };
+    if (desc.emoji) opts.unicodeRange = EMOJI_RANGE;
+    const face = new FontFace(family, `url("${shell.fileUrl(path)}?v=${v || 0}")`, opts);
     await face.load();
     document.fonts.add(face);
     loadedFonts[key] = true;
@@ -106,17 +111,49 @@ async function loadUiFonts(pref) {
   if (!text && !display) showHud('Не удалось загрузить шрифт');
   return { text, display };
 }
+// Защита от «шрифта, который роняет программу»: перед загрузкой своих шрифтов ставим метку,
+// снимаем её, когда окно несколько секунд проработало. Если при следующем запуске метка
+// осталась — значит, прошлый запуск завис или упал на шрифтах: отключаем их и сообщаем.
+const FONT_GUARD = 'fontGuard';
+let fontGuardChecked = false;
+function fontGuard() {
+  if (fontGuardChecked) return true;
+  fontGuardChecked = true;
+  let crashed = false;
+  try { crashed = localStorage.getItem(FONT_GUARD) === '1'; } catch {}
+  if (crashed && (S.prefs.customFont || S.prefs.customEmoji)) {
+    S.prefs.customFont = null; S.prefs.customEmoji = null;
+    try { localStorage.setItem('prefs', JSON.stringify(S.prefs)); } catch {}
+    try { localStorage.removeItem(FONT_GUARD); } catch {}
+    setTimeout(() => showHud('Свои шрифты отключены: из-за них программа зависла при прошлом запуске'), 1500);
+    return false;
+  }
+  return true;
+}
+function armFontGuard() {
+  try { localStorage.setItem(FONT_GUARD, '1'); } catch {}
+  setTimeout(() => { try { localStorage.removeItem(FONT_GUARD); } catch {} }, 8000);
+}
+let lastFontVars = '';
 export async function applyFonts() {
+  fontGuard();
+  const hasCustom = !!(S.prefs.customFont || S.prefs.customEmoji);
+  if (hasCustom) armFontGuard();
   const ui = await loadUiFonts(S.prefs.customFont);
   const emojiFiles = S.prefs.customEmoji?.files || (S.prefs.customEmoji?.path ? [S.prefs.customEmoji] : []);
-  const emoji = emojiFiles.length ? await loadFace('MacTeleEmoji', emojiFiles[0].path, S.prefs.customEmoji.v, { weight: 400, style: 'normal' }) : false;
+  const emoji = emojiFiles.length ? await loadFace('MacTeleEmoji', emojiFiles[0].path, S.prefs.customEmoji.v, { weight: 400, style: 'normal', emoji: true }) : false;
   const root = document.documentElement;
   const emojiStack = `${emoji ? '"MacTeleEmoji", ' : ''}${BASE_EMOJI}`;
   // Если есть только Display (или только Text) — используем его для всего.
   const textFam = ui.text ? '"MacTeleUI", ' : ui.display ? '"MacTeleDisplay", ' : '';
   const dispFam = ui.display ? '"MacTeleDisplay", ' : ui.text ? '"MacTeleUI", ' : '';
-  root.style.setProperty('--font', `${textFam}${BASE_FONT}, ${emojiStack}`);
-  root.style.setProperty('--font-display', `${dispFam}${BASE_FONT.replace('"SF Pro Text"', '"SF Pro Display"')}, ${emojiStack}`);
+  const font = `${textFam}${BASE_FONT}, ${emojiStack}`;
+  const disp = `${dispFam}${BASE_FONT.replace('"SF Pro Text"', '"SF Pro Display"')}, ${emojiStack}`;
+  // Переменные меняем только при настоящей смене — иначе пересчитываются стили всего окна.
+  if (font + disp === lastFontVars) return;
+  lastFontVars = font + disp;
+  root.style.setProperty('--font', font);
+  root.style.setProperty('--font-display', disp);
   root.style.setProperty('--font-emoji', emojiStack);
 }
 export function applyPrefs() {

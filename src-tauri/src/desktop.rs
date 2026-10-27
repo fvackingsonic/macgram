@@ -51,6 +51,20 @@ pub async fn pick_font(app: AppHandle, kind: String) -> Result<Vec<String>, Stri
     if picked.is_empty() {
         return Ok(vec![]);
     }
+    // Проверяем размер до того, как удалить прежние шрифты.
+    for src in picked.iter() {
+        // Очень большие шрифты (сотни МБ картинок-смайликов) подвешивают окно: не принимаем их.
+        let limit: u64 = if emoji { 60 } else { 30 } * 1024 * 1024;
+        let size = std::fs::metadata(src).map(|m| m.len()).unwrap_or(0);
+        if size > limit {
+            return Err(format!(
+                "Файл {} слишком большой ({} МБ). Можно до {} МБ — такие шрифты подвешивают программу.",
+                src.file_name().and_then(|n| n.to_str()).unwrap_or("шрифта"),
+                size / 1024 / 1024,
+                limit / 1024 / 1024
+            ));
+        }
+    }
     let dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("fonts").join(if emoji { "emoji" } else { "ui" });
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
