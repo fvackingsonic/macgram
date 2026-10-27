@@ -11,6 +11,7 @@ import { MessageRow, AlbumRow, msgDeps, canReply, focusComposer, isServiceType }
 import { ProfileScreen } from './profile.js';
 import { pickAndSend, pasteImage } from './attach.js';
 import { MediaPanel } from './media-panel.js';
+import { PlayPauseAnim } from './tgs.js';
 import { MI } from '../mac-icons.js';
 import { SelectionBar } from './forward.js';
 import { startRecording, finishRecording, cancelRecording } from '../voice.js';
@@ -260,7 +261,6 @@ function Composer({ chat }) {
 // Плеер как InlineAudioPlayerView из Telegram для macOS: стеклянная карточка 52px (радиус 20),
 // «назад / пауза / вперёд», название и исполнитель, повтор, скорость, громкость, закрыть;
 // тонкая полоска прогресса снизу, при наведении — толще, карточка растёт до 66px, подсказка времени.
-const RATES = [0.5, 1, 1.25, 1.5, 1.75, 2];
 function PlayerBar() {
   useTick();
   const p = S.player;
@@ -273,10 +273,6 @@ function PlayerBar() {
   const prog = progress();
   const d = p.duration || 0;
   const hasPrev = p.kind !== 'note', hasNext = !!player.neighbor(1);
-  const rateMenu = e => {
-    const r = e.currentTarget.getBoundingClientRect();
-    openMenu(r.left, r.bottom + 6, RATES.map(x => ({ label: `${x}×${x === p.rate ? '  ✓' : ''}`, action: () => player.setRate(x) })));
-  };
   const nextRepeat = { none: 'all', all: 'one', one: 'none' }[p.repeat || 'none'];
   const title = p.kind === 'audio' ? p.title : p.performer || p.title;
   const artist = p.kind === 'audio' ? p.performer : (p.kind === 'note' ? 'Видеосообщение' : 'Голосовое сообщение');
@@ -286,8 +282,7 @@ function PlayerBar() {
     <div class="pb-row">
       <button class="pb-btn" title="Предыдущий" disabled=${!hasPrev} onClick=${player.prev}>${MI('Icon_InlinePlayerNext', 22, 'transform:scaleX(-1)')}</button>
       <button class="pb-btn pb-play" title=${p.playing ? 'Пауза' : 'Играть'} onClick=${player.toggle}>
-        <span class=${p.playing ? 'hide' : ''}>${MI('Icon_ChatMusicPlay', 18)}</span>
-        <span class=${p.playing ? '' : 'hide'}>${MI('Icon_ChatMusicPause', 16)}</span>
+        <${PlayPauseAnim} playing=${p.playing} size=${34} tone=${S.prefs.theme + document.documentElement.dataset.palette}/>
       </button>
       <button class="pb-btn" title="Следующий" disabled=${!hasNext} onClick=${player.next}>${MI('Icon_InlinePlayerNext', 22)}</button>
       <div class="pb-info" onClick=${goto}>
@@ -296,7 +291,14 @@ function PlayerBar() {
       </div>
       ${p.kind === 'audio' && html`<button class=${`pb-btn ${p.repeat && p.repeat !== 'none' ? 'on' : 'dim'}`} title="Повтор" onClick=${() => player.setRepeat(nextRepeat)}>
         ${MI(p.repeat === 'one' ? 'Icon_InlinePlayer_RepeatOne' : p.repeat === 'all' ? 'Icon_InlinePlayer_Repeat' : 'Icon_AudioPlayer_List', 24)}</button>`}
-      <button class=${`pb-rate ${p.rate === 1 ? 'dim' : ''}`} title="Скорость" onClick=${rateMenu}>${String(p.rate).replace(/^(\d)$/, '$1.0')}x</button>
+      <label class="pb-vol pb-ratew" title="Скорость">
+        <button class=${`pb-rate ${p.rate === 1 ? 'dim' : ''}`} onClick=${e => { e.preventDefault(); e.currentTarget.focus(); }}>${Number(p.rate).toFixed(1)}x</button>
+        <span class="pb-vol-pop pb-rate-pop">
+          <span class="pb-rate-val">${Number(p.rate).toFixed(1)}x</span>
+          <input type="range" min="0.2" max="2.5" step="0.1" value=${p.rate} onInput=${e => player.setRate(Number(e.target.value))}/>
+          ${p.rate !== 1 && html`<button class="pb-rate-reset" onClick=${e => { e.preventDefault(); player.setRate(1); }}>Сбросить</button>`}
+        </span>
+      </label>
       <label class="pb-vol" title="Громкость">
         <button class=${`pb-btn ${p.muted ? 'dim' : ''}`} onClick=${e => { e.preventDefault(); player.toggleMute(); }}>${MI(p.muted ? 'Icon_InlinePlayer_VolumeOff' : 'Icon_InlinePlayer_VolumeOn', 24)}</button>
         <span class="pb-vol-pop"><input type="range" min="0" max="1" step="0.01" value=${p.volume} onInput=${e => player.setVolume(Number(e.target.value))}/></span>

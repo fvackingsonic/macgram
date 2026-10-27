@@ -33,30 +33,49 @@ pub async fn pick_files(app: AppHandle, media: bool) -> Result<Vec<String>, Stri
     Ok(to_strings(&app, &paths))
 }
 
-/// Свой шрифт (интерфейса или смайликов): копируем в папку программы.
+/// Свои шрифты: для интерфейса можно выбрать сразу несколько файлов (разные начертания),
+/// для смайликов — один. Файлы копируются в папку программы.
 #[tauri::command]
-pub async fn pick_font(app: AppHandle, kind: String) -> Result<Option<String>, String> {
-    let kind = if kind == "emoji" { "emoji" } else { "ui" };
-    let picked = app
+pub async fn pick_font(app: AppHandle, kind: String) -> Result<Vec<String>, String> {
+    let emoji = kind == "emoji";
+    let dialog = app
         .dialog()
         .file()
-        .set_title(if kind == "emoji" { "Шрифт смайликов" } else { "Шрифт интерфейса" })
-        .add_filter("Шрифты", &["ttf", "otf", "woff", "woff2"])
-        .blocking_pick_file();
-    let Some(src) = picked.and_then(|p| p.into_path().ok()) else { return Ok(None) };
-    let ext = src.extension().and_then(|e| e.to_str()).unwrap_or("ttf").to_ascii_lowercase();
-    if !matches!(ext.as_str(), "ttf" | "otf" | "woff" | "woff2") {
-        return Err("нужен файл .ttf, .otf, .woff или .woff2".into());
+        .set_title(if emoji { "Шрифт смайликов" } else { "Шрифты интерфейса (можно выбрать несколько)" })
+        .add_filter("Шрифты", &["ttf", "otf", "woff", "woff2"]);
+    let picked: Vec<PathBuf> = if emoji {
+        dialog.blocking_pick_file().and_then(|p| p.into_path().ok()).into_iter().collect()
+    } else {
+        dialog.blocking_pick_files().unwrap_or_default().into_iter().filter_map(|p| p.into_path().ok()).collect()
+    };
+    if picked.is_empty() {
+        return Ok(vec![]);
     }
-    let dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("fonts");
+    let dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("fonts").join(if emoji { "emoji" } else { "ui" });
+    let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    for old in ["ttf", "otf", "woff", "woff2"] {
-        let _ = std::fs::remove_file(dir.join(format!("{kind}.{old}")));
+    let mut out = Vec::new();
+    for src in picked.iter().take(32) {
+        let ext = src.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
+        if !matches!(ext.as_str(), "ttf" | "otf" | "woff" | "woff2") {
+            continue;
+        }
+        let name: String = src
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("font")
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.' { c } else { '_' })
+            .collect();
+        let dst = dir.join(&name);
+        std::fs::copy(src, &dst).map_err(|e| format!("не удалось скопировать шрифт: {e}"))?;
+        allow(&app, &dst);
+        out.push(dst.to_string_lossy().into_owned());
     }
-    let dst = dir.join(format!("{kind}.{ext}"));
-    std::fs::copy(&src, &dst).map_err(|e| format!("не удалось скопировать шрифт: {e}"))?;
-    allow(&app, &dst);
-    Ok(Some(dst.to_string_lossy().into_owned()))
+    if out.is_empty() {
+        return Err("нужны файлы .ttf, .otf, .woff или .woff2".into());
+    }
+    Ok(out)
 }
 
 /// Картинка из буфера обмена: сохраняем во временную папку программы.

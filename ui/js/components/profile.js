@@ -2,6 +2,7 @@ import { html, useEffect, useState } from '../lib.js';
 import { S, changed, isMuted, chatTitle, chatUser, isSaved, isChannel, showHud, download, fileUrl, openMenu } from '../store.js';
 import { send, shell } from '../td.js';
 import { Icon } from '../icons.js';
+import { MI } from '../mac-icons.js';
 import { userStatus, count, renderFormatted, duration, avatarGradient, peerIndex } from '../format.js';
 import { fileOf } from '../store.js';
 import { useRef } from '../lib.js';
@@ -170,12 +171,20 @@ export function Viewer() {
   </div>`;
 }
 
-// Видеоплеер со своими кнопками (в духе macOS: полупрозрачная панель снизу).
+// Видеоплеер как SVideoControlsView из Telegram для macOS: тёмная размытая карточка
+// шириной до 510px и высотой 94px (радиус 15) в 24px от низа. Верхний ряд: громкость
+// со слайдером 60px слева; «−15 / пауза / +15» по центру (шаг 36px); картинка в картинке,
+// во весь экран и меню скорости справа. Нижний ряд: время, полоса 5px с кружком 8px,
+// длительность (белый, medium 11). Полоса начинается под слайдером громкости.
+const VRATES = [0.5, 1, 1.25, 1.5, 1.75, 2];
 function VideoPlayer({ video }) {
   const ref = useRef();
   const wrap = useRef();
-  const [st, setSt] = useState({ playing: false, t: 0, d: video.duration || 0, vol: 1, muted: false });
+  const fillRef = useRef(), knobRef = useRef(), curRef = useRef(), bufRef = useRef();
+  const [st, setSt] = useState({ playing: false, d: video.duration || 0, vol: 1, muted: false, rate: 1, full: false, pip: false });
   const [idle, setIdle] = useState(false);
+  const [hover, setHover] = useState(null);
+  const [scrub, setScrub] = useState(false);
   const file = video.video;
   useEffect(() => { download(file, 32); }, [file.id]);
   const src = fileUrl(file);
@@ -186,32 +195,109 @@ function VideoPlayer({ video }) {
   const [W, H] = (() => { const k = Math.min(innerWidth * .9 / (video.width || 16), innerHeight * .82 / (video.height || 9)); return [Math.round((video.width || 16) * k), Math.round((video.height || 9) * k)]; })();
   const v = () => ref.current;
   const toggle = () => { const el = v(); if (!el) return; el.paused ? el.play().catch(() => {}) : el.pause(); };
-  const seek = e => { const el = v(); if (!el || !st.d) return; const r = e.currentTarget.getBoundingClientRect(); el.currentTime = Math.max(0, Math.min(st.d, (e.clientX - r.left) / r.width * st.d)); };
+  const skip = dt => { const el = v(); if (el) el.currentTime = Math.max(0, Math.min(el.duration || 0, el.currentTime + dt)); };
   const full = () => { if (document.fullscreenElement) document.exitFullscreen(); else wrap.current?.requestFullscreen?.(); };
+  const canPip = !!document.pictureInPictureEnabled;
+  const pip = () => { const el = v(); if (!el) return; document.pictureInPictureElement ? document.exitPictureInPicture() : el.requestPictureInPicture?.().catch(() => {}); };
+  const setVol = x => { const el = v(); x = Math.max(0, Math.min(1, x)); if (el) { el.volume = x; el.muted = x === 0; } setSt(s => ({ ...s, vol: x, muted: x === 0 })); };
+  const rateMenu = e => {
+    e.stopPropagation();
+    const r = e.currentTarget.getBoundingClientRect();
+    openMenu(r.left, r.top - 8 - VRATES.length * 30, VRATES.map(x => ({ label: `${x === 1 ? 'Обычная' : `${x}×`}${x === st.rate ? '  ✓' : ''}`, action: () => { const el = v(); if (el) el.playbackRate = x; setSt(s => ({ ...s, rate: x })); } })));
+  };
+  // Полоса и время двигаются каждый кадр напрямую, без перерисовки компонента.
   useEffect(() => {
-    let t; const move = () => { setIdle(false); clearTimeout(t); t = setTimeout(() => setIdle(true), 2200); };
-    const key = e => { if (e.key === ' ') { e.preventDefault(); toggle(); } if (e.key === 'ArrowRight' && v()) v().currentTime += 5; if (e.key === 'ArrowLeft' && v()) v().currentTime -= 5; if (e.key.toLowerCase() === 'f') full(); };
-    window.addEventListener('mousemove', move); window.addEventListener('keydown', key); move();
-    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('keydown', key); clearTimeout(t); };
+    let raf;
+    const loop = () => {
+      const el = v();
+      if (el && el.duration) {
+        const k = el.currentTime / el.duration;
+        if (fillRef.current) fillRef.current.style.width = `${k * 100}%`;
+        if (knobRef.current) knobRef.current.style.left = `${k * 100}%`;
+        if (curRef.current) curRef.current.textContent = duration(Math.floor(el.currentTime));
+        if (bufRef.current && el.buffered.length) {
+          let html_ = '';
+          for (let i = 0; i < el.buffered.length; i++) html_ += `<i style="left:${el.buffered.start(i) / el.duration * 100}%;width:${(el.buffered.end(i) - el.buffered.start(i)) / el.duration * 100}%"></i>`;
+          if (bufRef.current.__h !== html_) { bufRef.current.innerHTML = html_; bufRef.current.__h = html_; }
+        }
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [src]);
+  const posAt = (e, el) => { const r = el.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); };
+  const trackDown = e => {
+    e.stopPropagation();
+    const el = v(), tr = e.currentTarget; if (!el || !el.duration) return;
+    tr.setPointerCapture(e.pointerId); setScrub(true);
+    const wasPlaying = !el.paused; el.pause();
+    const go = ev => { el.currentTime = posAt(ev, tr) * el.duration; setHover(posAt(ev, tr)); };
+    go(e);
+    const up = ev => { tr.removeEventListener('pointermove', go); tr.removeEventListener('pointerup', up); setScrub(false); if (wasPlaying) el.play().catch(() => {}); };
+    tr.addEventListener('pointermove', go); tr.addEventListener('pointerup', up);
+  };
+  const volDown = e => {
+    e.stopPropagation();
+    const tr = e.currentTarget; tr.setPointerCapture(e.pointerId);
+    const go = ev => setVol(posAt(ev, tr)); go(e);
+    const up = () => { tr.removeEventListener('pointermove', go); tr.removeEventListener('pointerup', up); };
+    tr.addEventListener('pointermove', go); tr.addEventListener('pointerup', up);
+  };
+  useEffect(() => {
+    let t; const move = () => { setIdle(false); clearTimeout(t); t = setTimeout(() => setIdle(true), 2500); };
+    const key = e => {
+      if (e.key === ' ') { e.preventDefault(); toggle(); }
+      if (e.key === 'ArrowRight') skip(e.shiftKey ? 15 : 5);
+      if (e.key === 'ArrowLeft') skip(e.shiftKey ? -15 : -5);
+      if (e.key === 'ArrowUp') { e.preventDefault(); setVol((v()?.volume ?? 1) + .1); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); setVol((v()?.volume ?? 1) - .1); }
+      if (e.key.toLowerCase() === 'f' || e.key.toLowerCase() === 'а') full();
+      if (e.key.toLowerCase() === 'm' || e.key.toLowerCase() === 'ь') { const el = v(); if (el) { el.muted = !el.muted; setSt(s => ({ ...s, muted: el.muted })); } }
+    };
+    const fs = () => setSt(s => ({ ...s, full: !!document.fullscreenElement }));
+    window.addEventListener('mousemove', move); window.addEventListener('keydown', key); document.addEventListener('fullscreenchange', fs); move();
+    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('keydown', key); document.removeEventListener('fullscreenchange', fs); clearTimeout(t); };
   }, []);
-  return html`<div class=${`vplayer ${idle && st.playing ? 'idle' : ''}`} ref=${wrap} style=${`width:${W}px;height:${H}px`} onClick=${e => e.stopPropagation()}>
+  const vol = st.muted ? 0 : st.vol;
+  const hideCtl = idle && st.playing && !scrub;
+  return html`<div class=${`vplayer ${hideCtl ? 'idle' : ''}`} ref=${wrap} style=${st.full ? '' : `width:${W}px;height:${H}px`} onClick=${e => e.stopPropagation()}>
     ${!src && mini && html`<img class="vp-poster blur" src=${`data:image/jpeg;base64,${mini}`} alt=""/>`}
     ${!src && thumb && html`<img class="vp-poster" src=${thumb} alt=""/>`}
     ${src && html`<video ref=${ref} src=${src} autoplay playsinline onClick=${toggle} onDblClick=${full}
       onPlay=${() => setSt(s => ({ ...s, playing: true }))} onPause=${() => setSt(s => ({ ...s, playing: false }))}
-      onTimeUpdate=${e => setSt(s => ({ ...s, t: e.target.currentTime }))}
+      onEnterPictureInPicture=${() => setSt(s => ({ ...s, pip: true }))} onLeavePictureInPicture=${() => setSt(s => ({ ...s, pip: false }))}
       onLoadedMetadata=${e => setSt(s => ({ ...s, d: e.target.duration || s.d }))}/>`}
-    ${!src && html`<div class="vp-loading"><svg width="56" height="56" viewBox="0 0 44 44"><circle cx="22" cy="22" r="20" fill="rgba(0,0,0,.5)"/>
-      <circle cx="22" cy="22" r="16" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-dasharray=${`${Math.max(4, pct) * 1.005} 100.5`} transform="rotate(-90 22 22)" style="transition:stroke-dasharray .3s"/></svg><span>${pct}%</span></div>`}
-    ${src && !st.playing && html`<button class="vp-big" onClick=${toggle}>${Icon.play(26)}</button>`}
-    ${src && html`<div class="vp-bar">
-      <button onClick=${toggle}>${Icon.menu(st.playing ? 'Icon_VideoPlayer_Pause' : 'Icon_VideoPlayer_Play')}</button>
-      <span class="vp-time">${duration(Math.floor(st.t))}</span>
-      <div class="vp-track" onClick=${seek}><i style=${`width:${st.d ? st.t / st.d * 100 : 0}%`}/></div>
-      <span class="vp-time">${duration(Math.floor(st.d))}</span>
-      <button onClick=${() => { const el = v(); if (el) { el.muted = !el.muted; setSt(s => ({ ...s, muted: el.muted })); } }}>${Icon.menu(st.muted ? 'Icon_VideoPlayer_VolumeOff' : 'Icon_VideoPlayer_Volume')}</button>
-      <input type="range" min="0" max="1" step="0.01" value=${st.muted ? 0 : st.vol} onInput=${e => { const el = v(); const x = Number(e.target.value); if (el) { el.volume = x; el.muted = x === 0; } setSt(s => ({ ...s, vol: x, muted: x === 0 })); }}/>
-      <button onClick=${full} title="Во весь экран">${Icon.menu(document.fullscreenElement ? 'Icon_VideoPlayer_ExitFullScreen' : 'Icon_VideoPlayer_EnterFullScreen')}</button>
+    ${!src && html`<div class="vp-loading"><svg width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="rgba(0,0,0,.5)"/>
+      <circle cx="20" cy="20" r="15" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" pathLength="100" stroke-dasharray=${`${Math.max(4, pct)} 100`} transform="rotate(-90 20 20)" style="transition:stroke-dasharray .3s"/></svg></div>`}
+    ${src && html`<div class="vp-ctl" onDblClick=${e => e.stopPropagation()}>
+      <div class="vp-row">
+        <div class="vp-vol">
+          <button class="vp-b" onClick=${() => { const el = v(); if (el) { el.muted = !el.muted; if (!el.muted && el.volume === 0) el.volume = .8; setSt(s => ({ ...s, muted: el.muted, vol: el.volume })); } }}>${MI(vol === 0 ? 'Icon_VideoPlayer_VolumeOff' : 'Icon_VideoPlayer_Volume', 28)}</button>
+          <div class="vp-slider" onPointerDown=${volDown}><div class="vp-rail"><i style=${`width:${vol * 100}%`}/></div><b style=${`left:${vol * 100}%`}/></div>
+        </div>
+        <div class="vp-center">
+          <button class="vp-b" title="Назад 15 с" onClick=${() => skip(-15)}>${MI('Icon_VideoPlayer_Rewind15Backward', 28)}</button>
+          <button class="vp-b vp-pp" title=${st.playing ? 'Пауза' : 'Играть'} onClick=${toggle}>
+            <span class=${st.playing ? 'hide' : ''}>${MI('Icon_VideoPlayer_Play', 28)}</span>
+            <span class=${st.playing ? '' : 'hide'}>${MI('Icon_VideoPlayer_Pause', 28)}</span>
+          </button>
+          <button class="vp-b" title="Вперёд 15 с" onClick=${() => skip(15)}>${MI('Icon_VideoPlayer_Rewind15Forward', 28)}</button>
+        </div>
+        <div class="vp-right">
+          ${canPip && html`<button class="vp-b" title="Картинка в картинке" onClick=${pip}>${MI(st.pip ? 'Icon_VideoPlayer_PIPOUT' : 'Icon_VideoPlayer_PIPIN', 28)}</button>`}
+          <button class="vp-b" title="Во весь экран" onClick=${full}>${MI(st.full ? 'Icon_VideoPlayer_ExitFullScreen' : 'Icon_VideoPlayer_EnterFullScreen', 28)}</button>
+          <button class="vp-b vp-rate" title="Скорость" onClick=${rateMenu}>${st.rate === 1 ? MI('Icon_VideoSettings_Auto', 28) : html`<span>${st.rate}x</span>`}</button>
+        </div>
+      </div>
+      <div class="vp-row2">
+        <span class="vp-time" ref=${curRef}>0:00</span>
+        <div class=${`vp-prog ${scrub ? 'drag' : ''}`} onPointerDown=${trackDown} onPointerMove=${e => !scrub && setHover(posAt(e, e.currentTarget))} onPointerLeave=${() => !scrub && setHover(null)}>
+          <div class="vp-rail"><span class="vp-buf" ref=${bufRef}/><i ref=${fillRef}/></div><b ref=${knobRef}/>
+          ${hover != null && html`<div class="vp-tip" style=${`left:${hover * 100}%`}>${duration(Math.floor(hover * (st.d || 0)))}</div>`}
+        </div>
+        <span class="vp-time r">${duration(Math.floor(st.d))}</span>
+      </div>
     </div>`}
   </div>`;
 }

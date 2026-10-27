@@ -276,21 +276,27 @@ function Appearance() {
       ${[['customFont', 'ui', 'Шрифт интерфейса', 'Aa'], ['customEmoji', 'emoji', 'Смайлики', '😀']].map(([key, kind, label, sample]) => html`
         <div class="item font-item">
           <span class="font-sample" style=${kind === 'emoji' ? 'font-family:var(--font-emoji)' : ''}>${sample}</span>
-          <span class="lbl">${label}<small>${S.prefs[key]?.name || 'стандартный'}</small></span>
+          <span class="lbl">${label}<small>${fontLabel(S.prefs[key])}</small></span>
           ${S.prefs[key] && html`<button class="sel-btn" onClick=${() => { setPref(key, null); }}>Сбросить</button>`}
           <button class="sel-btn" onClick=${() => pickFont(key, kind)}>Выбрать…</button>
         </div>`)}
     </div>
-    <div class="sp-hint" style="padding:0 18px">Файл .ttf, .otf или .woff2 (сборники .ttc не подходят). Шрифт копируется в папку программы и применяется сразу.</div>
+    <div class="sp-hint" style="padding:0 18px">Для интерфейса можно выбрать сразу несколько файлов (зажмите Ctrl или выделите все): начертание определяется по имени — Regular, Medium, Semibold, Bold. Файлы с «Display» в имени идут на крупные заголовки, с «Text» — на обычный текст. Подходят .ttf, .otf, .woff2 (не .ttc).</div>
   </${Page}>`;
 }
 
+const baseName = p => p.split(/[\\/]/).pop();
+const fontLabel = pref => {
+  const files = pref?.files || (pref?.path ? [pref] : []);
+  if (!files.length) return 'стандартный';
+  return files.length === 1 ? baseName(files[0].name || files[0].path) : `${files.length} файлов: ${files.map(f => baseName(f.name || f.path).replace(/\.(otf|ttf|woff2?)$/i, '').replace(/^SF-Pro-/, '')).join(', ')}`;
+};
 async function pickFont(key, kind) {
   try {
-    const path = await shell.pickFont(kind);
-    if (!path) return;
-    setPref(key, { path, name: path.split(/[\\/]/).pop(), v: Date.now() });
-    showHud('Шрифт применён');
+    const paths = await shell.pickFont(kind);
+    if (!paths?.length) return;
+    setPref(key, { files: paths.map(p => ({ path: p, name: baseName(p) })), v: Date.now() });
+    showHud(paths.length > 1 ? `Шрифты применены: ${paths.length}` : 'Шрифт применён');
   } catch (e) { showHud(String(e)); }
 }
 

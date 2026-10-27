@@ -70,25 +70,53 @@ export function palette() {
 const BASE_FONT = '"SF Pro Text", "Inter var", "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui';
 const BASE_EMOJI = '"Apple Color Emoji", "Segoe UI Emoji", sans-serif';
 const loadedFonts = {};
-// Свои шрифты из настроек: интерфейса и смайликов (файлы лежат в папке программы).
-async function loadCustomFont(family, pref) {
-  if (!pref?.path) return false;
-  const key = `${pref.path}?${pref.v || 0}`;
-  if (loadedFonts[family] === key) return true;
+// Начертание по имени файла: SF-Pro-Display-Semibold.otf → 600, Italic → курсив.
+const WEIGHTS = [['thin', 100], ['ultralight', 200], ['extralight', 200], ['light', 300], ['regular', 400], ['book', 400],
+  ['medium', 500], ['semibold', 600], ['demibold', 600], ['extrabold', 800], ['heavy', 800], ['black', 900], ['bold', 700]];
+function faceInfo(name) {
+  const n = name.toLowerCase().replace(/[\s_.-]/g, '');
+  let weight = 400;
+  for (const [k, w] of WEIGHTS) if (n.includes(k)) { weight = w; if (k !== 'bold' || !n.includes('semibold')) break; }
+  if (n.includes('semibold')) weight = 600;
+  else if (n.includes('extrabold')) weight = 800;
+  return { weight, style: n.includes('italic') ? 'italic' : 'normal', display: n.includes('display') };
+}
+async function loadFace(family, path, v, desc) {
+  const key = `${family}|${path}|${v}|${desc.weight}|${desc.style}`;
+  if (loadedFonts[key]) return true;
   try {
-    const face = new FontFace(family, `url("${shell.fileUrl(pref.path)}?v=${pref.v || 0}")`);
+    const face = new FontFace(family, `url("${shell.fileUrl(path)}?v=${v || 0}")`, { weight: String(desc.weight), style: desc.style });
     await face.load();
     document.fonts.add(face);
-    loadedFonts[family] = key;
+    loadedFonts[key] = true;
     return true;
-  } catch (e) { console.warn('font', e); showHud('Не удалось загрузить шрифт'); return false; }
+  } catch (e) { console.warn('font', path, e); return false; }
+}
+// Свои шрифты: несколько файлов интерфейса (Text — для текста, Display — для заголовков) и шрифт смайликов.
+async function loadUiFonts(pref) {
+  const files = pref?.files || (pref?.path ? [{ path: pref.path, name: pref.name || pref.path }] : []);
+  if (!files.length) return { text: false, display: false };
+  let text = false, display = false;
+  for (const f of files) {
+    const info = faceInfo(f.name || f.path);
+    if (await loadFace(info.display ? 'MacTeleDisplay' : 'MacTeleUI', f.path, pref.v, info)) {
+      if (info.display) display = true; else text = true;
+    }
+  }
+  if (!text && !display) showHud('Не удалось загрузить шрифт');
+  return { text, display };
 }
 export async function applyFonts() {
-  const ui = await loadCustomFont('MacTeleUI', S.prefs.customFont);
-  const emoji = await loadCustomFont('MacTeleEmoji', S.prefs.customEmoji);
+  const ui = await loadUiFonts(S.prefs.customFont);
+  const emojiFiles = S.prefs.customEmoji?.files || (S.prefs.customEmoji?.path ? [S.prefs.customEmoji] : []);
+  const emoji = emojiFiles.length ? await loadFace('MacTeleEmoji', emojiFiles[0].path, S.prefs.customEmoji.v, { weight: 400, style: 'normal' }) : false;
   const root = document.documentElement;
   const emojiStack = `${emoji ? '"MacTeleEmoji", ' : ''}${BASE_EMOJI}`;
-  root.style.setProperty('--font', `${ui ? '"MacTeleUI", ' : ''}${BASE_FONT}, ${emojiStack}`);
+  // Если есть только Display (или только Text) — используем его для всего.
+  const textFam = ui.text ? '"MacTeleUI", ' : ui.display ? '"MacTeleDisplay", ' : '';
+  const dispFam = ui.display ? '"MacTeleDisplay", ' : ui.text ? '"MacTeleUI", ' : '';
+  root.style.setProperty('--font', `${textFam}${BASE_FONT}, ${emojiStack}`);
+  root.style.setProperty('--font-display', `${dispFam}${BASE_FONT.replace('"SF Pro Text"', '"SF Pro Display"')}, ${emojiStack}`);
   root.style.setProperty('--font-emoji', emojiStack);
 }
 export function applyPrefs() {
@@ -192,6 +220,22 @@ export function chatTitle(chat) {
 }
 
 export function fileOf(f) { return f ? (S.files.get(f.id) || f) : null; }
+// Подписка на один файл: компонент перерисуется, только когда изменится именно он
+// (а не всё окно). Используется в панели стикеров и GIF.
+const fileSubs = new Map();
+function notifyFile(id) { const set = fileSubs.get(id); if (set) for (const fn of set) fn(); }
+export function useFile(f) {
+  const [, bump] = useState(0);
+  const id = f?.id;
+  useEffect(() => {
+    if (id == null) return;
+    const fn = () => bump(x => x + 1);
+    if (!fileSubs.has(id)) fileSubs.set(id, new Set());
+    fileSubs.get(id).add(fn);
+    return () => { const set = fileSubs.get(id); set?.delete(fn); if (set && !set.size) fileSubs.delete(id); };
+  }, [id]);
+  return fileOf(f);
+}
 const requested = new Set();
 export function download(f, priority = 1) {
   if (!f) return;
@@ -200,7 +244,7 @@ export function download(f, priority = 1) {
   if (!cur.local?.can_be_downloaded && cur.local) return;
   requested.add(cur.id);
   send({ '@type': 'downloadFile', file_id: cur.id, priority, offset: 0, limit: 0, synchronous: false })
-    .then(file => { S.files.set(file.id, file); changed(); })
+    .then(file => { S.files.set(file.id, file); notifyFile(file.id); changed(); })
     .catch(() => requested.delete(cur.id));
 }
 export function fileUrl(f) {
@@ -546,6 +590,7 @@ onUpdate(u => {
       // Прогресс скачивания приходит очень часто — перерисовываем только на заметных шагах.
       const prev = S.files.get(u.file.id), f = u.file;
       S.files.set(f.id, f);
+      if (!prev || prev.local?.is_downloading_completed !== f.local?.is_downloading_completed) notifyFile(f.id);
       const pct = x => x?.size ? Math.floor(20 * (x.local?.downloaded_size || 0) / x.size) : 0;
       const upct = x => x?.size ? Math.floor(20 * (x.remote?.uploaded_size || 0) / x.size) : 0;
       const significant = !prev || prev.local?.is_downloading_completed !== f.local?.is_downloading_completed

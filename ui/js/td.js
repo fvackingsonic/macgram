@@ -67,7 +67,7 @@ export const shell = {
   toggleMaximize: () => T?.window.getCurrentWindow().toggleMaximize(),
   close: () => T ? T.window.getCurrentWindow().close() : null,
   startDrag: () => T?.window.getCurrentWindow().startDragging(),
-  pickFont: kind => T ? T.core.invoke('pick_font', { kind }) : Promise.resolve(null),
+  pickFont: kind => T ? T.core.invoke('pick_font', { kind }) : Promise.resolve([]),
   pickFiles: media => T ? T.core.invoke('pick_files', { media }) : Promise.resolve(['C:/Users/demo/Pictures/photo.jpg', 'C:/Users/demo/Documents/отчёт.pdf']),
   savePaste: (data, ext) => T ? T.core.invoke('save_paste', { data, ext }) : Promise.resolve(`C:/demo/paste.${ext}`),
   notify: (title, body) => T ? T.core.invoke('notify', { title, body }).catch(() => {}) : Promise.resolve(),
