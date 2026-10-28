@@ -1508,175 +1508,137 @@ html.no-bubbles .date-sep span, html.no-bubbles .service span, html.no-bubbles .
 html.glass-bubbles .msg-row .bubble::after, html.no-bubbles .msg-row .bubble::after { display: none; }
 html.glass-bubbles .msg-row.last .bubble, html.no-bubbles .msg-row.last .bubble { border-bottom-left-radius: 16px !important; border-bottom-right-radius: 16px !important; }
 
-/* ── «жидкое стекло» как в iOS 26 / macOS 26 (по референсам): почти без заливки, фон под стеклом
-   виден, слегка размыт и ПРЕЛОМЛЯЕТСЯ линзой по краям (SVG-фильтр #lg-lens), тонкий яркий кант. ── */
-:root { --lg-rim: rgba(255,255,255,1); --lg-rim2: rgba(255,255,255,.85); --lg-rim-line: rgba(255,255,255,.5); --lg-in-glow: rgba(255,255,255,.55);
-  --lg-tint: rgba(255,255,255,.16); --lg-out: color-mix(in srgb, var(--out-bg) 22%, transparent); --lg-hi: rgba(255,255,255,.75); --lg-lo: rgba(255,255,255,.22);
-  --lg-edge: rgba(255,255,255,.3); --lg-text: #0b0b0c; --lg-shadow: 0 8px 24px rgba(0,0,0,.16); --lg-meta: rgba(0,0,0,.5); }
-:root[data-palette="night"] { --lg-rim: rgba(255,255,255,.9); --lg-rim2: rgba(255,255,255,.55); --lg-rim-line: rgba(255,255,255,.26); --lg-in-glow: rgba(255,255,255,.2);
-  --lg-tint: rgba(255,255,255,.07); --lg-out: color-mix(in srgb, var(--out-bg) 28%, transparent); --lg-hi: rgba(255,255,255,.45);
-  --lg-lo: rgba(255,255,255,.1); --lg-edge: rgba(255,255,255,.16); --lg-text: #fff; --lg-shadow: 0 8px 24px rgba(0,0,0,.4); --lg-meta: rgba(255,255,255,.6); }
-/* ── Liquid Glass точно по референсам iOS 26: фон под стеклом почти чёткий (лёгкое размытие),
-   по краям сильно преломляется линзой (#lg-lens), тонкий яркий белый кант, едва заметная заливка ── */
-html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
-html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble.media.with-caption,
-html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments {
-  position: relative; color: var(--lg-text) !important; contain: none !important;
-  background: var(--lg-tint) !important;
-  /* без SVG-линзы: её Chromium иногда сбрасывал целиком при остановке прокрутки — стекло «моргало» */
-  backdrop-filter: blur(2.5px) saturate(1.5) brightness(1.06) !important;
-  -webkit-backdrop-filter: blur(2.5px) saturate(1.5) brightness(1.06) !important;
-  box-shadow: 0 6px 20px rgba(0,0,0,.14), inset 0 0 0 1px var(--lg-rim-line), inset 0 0 8px var(--lg-in-glow) !important;
+/* ═══════════════ Liquid Glass как в iOS 26 (по референсам) ═══════════════
+   Стекло почти без заливки: под ним виден фон, а под панелями — лента; по краю линза (фон у кромки
+   преломляется внутрь), тонкий блик по кромке — ярче сверху-слева и снизу-справа, мягкая тень.
+   При фоне-картинке/узоре всё рисуется без backdrop-filter (glassbake.js) — не моргает и не пропадает. */
+:root {
+  --lg-tint: rgba(255,255,255,.06); --lg-out: color-mix(in srgb, var(--out-bg) 20%, transparent);
+  --lg-text: #0b0b0c; --lg-meta: rgba(0,0,0,.5); --lg-edge: rgba(255,255,255,.3);
+  --lg-spec: rgba(255,255,255,.95); --lg-spec2: rgba(255,255,255,.72); --lg-line: rgba(255,255,255,.32);
+  --lg-shadow: 0 4px 14px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.07); --lg-pblur: 4.5px;
 }
-html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
-html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .bubble.media.with-caption { background: var(--lg-out) !important; }
-/* кант: ярче сверху-слева и снизу-справа */
-html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo)::before,
-html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble.media.with-caption::before,
-html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments::before {
-  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.2px; pointer-events: none; z-index: 2;
-  background: linear-gradient(135deg, var(--lg-rim) 0%, transparent 35%, transparent 65%, var(--lg-rim2) 100%);
+:root[data-palette="night"] {
+  --lg-tint: rgba(255,255,255,.04); --lg-out: color-mix(in srgb, var(--out-bg) 26%, transparent);
+  --lg-text: #fff; --lg-meta: rgba(255,255,255,.6); --lg-edge: rgba(255,255,255,.16);
+  --lg-spec: rgba(255,255,255,.75); --lg-spec2: rgba(255,255,255,.42); --lg-line: rgba(255,255,255,.15);
+  --lg-shadow: 0 4px 16px rgba(0,0,0,.35), 0 1px 2px rgba(0,0,0,.2);
+}
+
+/* ── сообщения ── */
+html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row :is(.bubble:not(.media):not(.sticker):not(.round):not(.jumbo), .bubble.media.with-caption, .with-comments) {
+  position: relative; color: var(--lg-text) !important; contain: none !important; text-shadow: none;
+  background: var(--lg-tint) !important;
+  backdrop-filter: blur(3px) saturate(1.5) !important; -webkit-backdrop-filter: blur(3px) saturate(1.5) !important;
+  box-shadow: var(--lg-shadow) !important;
+}
+html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out :is(.bubble:not(.media):not(.sticker):not(.round):not(.jumbo), .bubble.media.with-caption) { background: var(--lg-out) !important; }
+/* кромка с бликом */
+html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row :is(.bubble:not(.media):not(.sticker):not(.round):not(.jumbo), .bubble.media.with-caption, .with-comments)::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 2;
+  background: linear-gradient(135deg, var(--lg-spec) 0%, var(--lg-line) 22%, var(--lg-line) 78%, var(--lg-spec2) 100%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
           mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude;
 }
-html.glass-bubbles .msg-row .with-comments > .bubble::before { display: none; }
-html.glass-bubbles .messages .day { content-visibility: visible; }
-html.glass-bubbles .msg-row .with-comments > .bubble { backdrop-filter: none !important; background: transparent !important; box-shadow: none !important; }
-html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble, html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments { text-shadow: 0 0 8px var(--lg-glow-text, rgba(255,255,255,.6)); }
-:root[data-palette="night"] { --lg-glow-text: rgba(0,0,0,.6); }
+/* пост с комментариями: стекло только у общей обёртки, внутренний пузырь прозрачный */
+html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble:not(#lg-x) {
+  background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; box-shadow: none !important; transform: none;
+}
+html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble:not(#lg-x)::before, html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble:not(#lg-x)::after { display: none !important; }
 html.glass-bubbles:not(.lite) .msg-row .bubble .meta-inline, html.glass-bubbles:not(.lite) .msg-row .bubble .views, html.glass-bubbles:not(.lite) .msg-row .meta-overlay { color: var(--lg-meta) !important; }
-/* комментарии под постом в стекле: та же поверхность, разделитель — тонкая светлая линия */
 html.glass-bubbles:not(.lite) .msg-row .with-comments .comments-bar { background: transparent; }
 html.glass-bubbles:not(.lite) .msg-row .with-comments .comments-bar::before { background: var(--lg-edge); height: 1px; }
 html.glass-bubbles:not(.lite) .msg-row .with-comments .comments-bar:hover { background: rgba(255,255,255,.08); }
 html.glass-bubbles:not(.lite) .msg-row .cb-av { box-shadow: 0 0 0 1.5px rgba(255,255,255,.35); }
-/* файлы и музыка в стеклянном пузыре: кружок кнопки и подписи читаются на любом фоне */
 html.glass-bubbles:not(.lite) .msg-row .bubble .doc-sub, html.glass-bubbles:not(.lite) .msg-row .bubble .audio-sub { color: var(--lg-meta) !important; }
+html.glass-bubbles .messages .day, html.wall-baked .messages .day { content-visibility: visible; }
+html.glass-bubbles .messages { will-change: auto; }
 
-/* панели и кнопки поверх чата — то же жидкое стекло с линзой */
-html:not(.lite) .chat-top .glass, html:not(.lite) .composer-wrap .glass, html:not(.lite) .top-bars .glass, html:not(.lite) .scroll-down.glass,
+/* при фоне-картинке/узоре: под пузырём копия обоев ровно с этого места (--bp) и линза по краю (--lens) */
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row :is(.bubble:not(.media):not(.sticker):not(.round):not(.jumbo), .bubble.media.with-caption, .with-comments) { background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; isolation: isolate; }
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row :is(.bubble:not(.media):not(.sticker):not(.round):not(.jumbo), .bubble.media.with-caption, .with-comments)::after {
+  content: "" !important; display: block !important; position: absolute !important;
+  inset: -14px !important; left: -14px !important; right: -14px !important; top: -14px !important; bottom: -14px !important;
+  width: auto !important; height: auto !important; transform: none !important; -webkit-mask: none !important; mask: none !important;
+  clip-path: inset(14px round var(--lg-rr, 16px)); z-index: -1; pointer-events: none;
+  background: linear-gradient(var(--lg-tint), var(--lg-tint)), var(--wall-blur) no-repeat !important;
+  background-size: auto, var(--wall-w, 100vw) var(--wall-h, 100vh) !important;
+  background-position: 0 0, var(--bp, -99999px 0) !important;
+  filter: var(--lens, none);
+}
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out :is(.bubble:not(.media):not(.sticker):not(.round):not(.jumbo), .bubble.media.with-caption)::after {
+  background: linear-gradient(var(--lg-out), var(--lg-out)), var(--wall-blur) no-repeat !important;
+  background-size: auto, var(--wall-w, 100vw) var(--wall-h, 100vh) !important;
+  background-position: 0 0, var(--bp, -99999px 0) !important;
+}
+
+/* ── панели поверх ленты: шапка, кнопки, закреп, поле ввода ── */
+/* без фона-картинки (живые обои) — обычное размытие */
+html:not(.lite):not(.wall-baked) .chat-top .glass, html:not(.lite):not(.wall-baked) .composer-wrap .glass:not(.send-btn.ready),
+html:not(.lite):not(.wall-baked) .top-bars .glass, html:not(.lite):not(.wall-baked) .scroll-down.glass,
 html:not(.lite) .ps-top .glass, html:not(.lite) .sp-back, html:not(.lite) .sp-more, html:not(.lite) .ps-sub-head .glass {
   background: var(--lg-tint) !important;
-  /* без SVG-линзы: на панелях поверх ленты она давала «размазанные» полосы и пропадала */
-  backdrop-filter: blur(10px) saturate(1.7) brightness(1.08) !important;
-  -webkit-backdrop-filter: blur(10px) saturate(1.7) brightness(1.08) !important;
-  box-shadow: 0 6px 20px rgba(0,0,0,.14), inset 0 0 0 1px var(--lg-rim-line), inset 0 0 8px var(--lg-in-glow), inset 1.5px 1.5px 0 -.3px var(--lg-rim), inset -1px -1px 0 -.3px var(--lg-rim2) !important;
+  backdrop-filter: blur(8px) saturate(1.7) !important; -webkit-backdrop-filter: blur(8px) saturate(1.7) !important;
+  box-shadow: var(--lg-shadow) !important;
 }
-/* пост с комментариями: стекло только у общей обёртки, внутренний пузырь прозрачный */
-html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble:not(.z1):not(.z2):not(.z3):not(.z4):not(.z5) {
-  background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; box-shadow: none !important; transform: none;
+/* с фоном-картинкой — «зеркало» (.lg-mirror): копия обоев + копии сообщений под панелью, размытые и
+   преломлённые линзой. Сквозь шапку и поле ввода видно ленту, как сквозь стекло в iOS. */
+html.wall-baked:not(.lite) :is(.chat-top, .composer-wrap, .top-bars) .glass:not(.send-btn.ready), html.wall-baked:not(.lite) .scroll-down.glass {
+  background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; will-change: auto !important;
+  isolation: isolate; box-shadow: var(--lg-shadow) !important;
 }
-html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble:not(.z1):not(.z2):not(.z3):not(.z4):not(.z5)::before { display: none; }
+html.wall-baked .chat-header.glass, html.wall-baked .composer.glass, html.wall-baked .pinned-bar.glass, html.wall-baked .readonly-bar.glass,
+html.wall-baked .selection-bar.glass, html.wall-baked .rkb.glass, html.wall-baked .rkb-toggle.glass { position: relative; }
+.lg-mirror {
+  position: absolute; inset: -14px; z-index: -1; pointer-events: none; overflow: hidden; border-radius: 0;
+  clip-path: inset(14px round var(--lg-r, 22px));
+  background: var(--wall-blur) no-repeat; background-size: var(--wall-w, 100vw) var(--wall-h, 100vh); background-position: var(--bp, -99999px 0);
+  filter: blur(var(--lg-pblur)) saturate(1.2) var(--lens, );
+}
+.lg-mirror::after { content: ""; position: absolute; inset: 0; z-index: 9; background: var(--lg-tint); }
+.lg-mirror > * { position: absolute !important; left: 0 !important; top: 0 !important; margin: 0 !important; animation: none !important; transition: none !important; pointer-events: none !important; content-visibility: visible !important; }
+.lg-mirror * { animation: none !important; transition: none !important; }
+.lg-mirror .bubble::after, .lg-mirror .bubble::before, .lg-mirror .with-comments::after, .lg-mirror .with-comments::before { display: none !important; }
+html.glass-bubbles .lg-mirror .msg-row :is(.bubble:not(.media):not(.sticker):not(.round):not(.jumbo), .bubble.media.with-caption, .with-comments) { background: rgba(255,255,255,.28) !important; box-shadow: none !important; }
+/* кромка-блик у панелей */
+html.wall-baked:not(.lite) :is(.chat-top, .composer-wrap, .top-bars) .glass:not(.send-btn.ready)::after, html.wall-baked:not(.lite) .scroll-down.glass::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 3;
+  background: linear-gradient(135deg, var(--lg-spec) 0%, var(--lg-line) 22%, var(--lg-line) 78%, var(--lg-spec2) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude;
+}
+.composer-wrap > .send-btn.ready, .composer-wrap > .send-btn.ready:hover { background: var(--accent) !important; color: #fff !important; }
+
+/* Адаптивный текст, как у стекла iOS: над тёмным местом фона — светлый, над светлым — тёмный
+   (data-lg ставит glassbake.js по яркости фона под каждым пузырём и панелью). */
+html.wall-baked [data-lg="d"] { --lg-text: #fff; --lg-meta: rgba(255,255,255,.68); --lg-spec2: rgba(255,255,255,.55); --lg-line: rgba(255,255,255,.22); }
+html.wall-baked [data-lg="l"] { --lg-text: #0b0b0c; --lg-meta: rgba(0,0,0,.5); }
+html.wall-baked .chat-header.glass[data-lg="d"] .title, html.wall-baked .composer.glass[data-lg="d"] .compose-input,
+html.wall-baked .pinned-bar.glass[data-lg="d"], html.wall-baked .player-bar.glass[data-lg="d"], html.wall-baked .readonly-bar.glass[data-lg="d"],
+html.wall-baked .chat-top .glass.circle[data-lg="d"], html.wall-baked .composer-wrap .glass.circle[data-lg="d"]:not(.send-btn.ready),
+html.wall-baked .scroll-down.glass[data-lg="d"] { color: #fff; }
+html.wall-baked .composer.glass[data-lg="d"] .compose-input::placeholder { color: rgba(255,255,255,.62); }
+html.wall-baked .chat-header.glass[data-lg="d"] .status:not(.online):not(.typing) { color: rgba(255,255,255,.72); }
+html.wall-baked .composer.glass[data-lg="d"] .icon-btn, html.wall-baked .pinned-bar.glass[data-lg="d"] .icon-btn { color: rgba(255,255,255,.8); }
+html.wall-baked[data-palette="night"] .chat-header.glass[data-lg="l"] .title, html.wall-baked[data-palette="night"] .composer.glass[data-lg="l"] .compose-input,
+html.wall-baked[data-palette="night"] .pinned-bar.glass[data-lg="l"], html.wall-baked[data-palette="night"] .player-bar.glass[data-lg="l"],
+html.wall-baked[data-palette="night"] .readonly-bar.glass[data-lg="l"], html.wall-baked[data-palette="night"] .chat-top .glass.circle[data-lg="l"],
+html.wall-baked[data-palette="night"] .composer-wrap .glass.circle[data-lg="l"]:not(.send-btn.ready), html.wall-baked[data-palette="night"] .scroll-down.glass[data-lg="l"] { color: #0b0b0c; }
+html.wall-baked[data-palette="night"] .composer.glass[data-lg="l"] .compose-input::placeholder { color: rgba(0,0,0,.45); }
+html.wall-baked[data-palette="night"] .chat-header.glass[data-lg="l"] .status:not(.online):not(.typing) { color: rgba(0,0,0,.5); }
+
+/* над тёмным местом фона цветные подписи в стекле светлее (как в iOS) — иначе синее на тёмном не читается */
+html.wall-baked [data-lg="d"] :is(.sender, .rq-name, .comments-bar .cb-text, .comments-bar .cb-ic, .comments-bar .cb-next, .text a, .text .mention, .text .hashtag) { filter: brightness(1.7) saturate(.8); }
 
 /* поля вокруг вписанного фона — размытая копия картинки (под основным слоем) */
 .wallpaper { isolation: isolate; }
-.wallpaper > .wp-fill { position: absolute; inset: -40px; z-index: -1; filter: blur(30px) brightness(.85); object-fit: cover; width: calc(100% + 80px); height: calc(100% + 80px); }
-.wallpaper > .wp-fill { z-index: 0; }
+.wallpaper > .wp-fill { position: absolute; inset: -40px; z-index: 0; filter: blur(30px) brightness(.85); object-fit: cover; width: calc(100% + 80px); height: calc(100% + 80px); }
 .wallpaper > .wp-img { position: absolute; inset: 0; z-index: 1; }
 .wallpaper > .wp-blur, .wallpaper > .wp-pattern, .wallpaper > .wp-dim { z-index: 2; }
 .wallpaper.live > img, .wallpaper.live > video { z-index: 1; }
 .wallpaper.live > img.wp-fill { z-index: 0; }
 
-/* размытие под пузырями стабильнее без отдельного слоя прокрутки */
-html.glass-bubbles .messages { will-change: auto; }
-
-/* «Запечённое» стекло (фон-картинка): размытая копия фона, закреплённая к окну, — без backdrop-filter,
-   поэтому не моргает и не пропадает при прокрутке и почти ничего не стоит */
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble.media.with-caption,
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments {
-  /* положение копии фона под пузырём выставляет glassbake.js (--bp) — fixed-фон в WebView2 работал не везде */
-  background: linear-gradient(var(--lg-tint), var(--lg-tint)), var(--wall-blur) no-repeat !important;
-  background-size: auto, var(--wall-w, 100vw) var(--wall-h, 100vh) !important;
-  background-position: 0 0, var(--bp, -99999px 0) !important;
-  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
-}
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .bubble.media.with-caption {
-  background: linear-gradient(var(--lg-out), var(--lg-out)), var(--wall-blur) no-repeat !important;
-  background-size: auto, var(--wall-w, 100vw) var(--wall-h, 100vh) !important;
-  background-position: 0 0, var(--bp, -99999px 0) !important;
-}
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble:not(.z1):not(.z2):not(.z3):not(.z4):not(.z5) { background: transparent !important; }
 .ap-glass { flex-direction: column; align-items: stretch; height: auto; gap: 4px; padding-top: 8px; padding-bottom: 8px; }
 .ap-glass .ap-glass-top { display: flex; align-items: center; }
 .ap-glass .ap-glass-top .lbl { flex: 1; }
 .ap-glass input { width: 100%; accent-color: var(--accent); }
-
-/* панели поверх ленты — отдельный слой, чтобы размытие не сбрасывалось при прокрутке */
-.chat-top .glass, .composer-wrap .glass, .top-bars .glass, .scroll-down.glass { will-change: backdrop-filter; }
-
-/* Панели поверх ленты (шапка, закреп, поле ввода, кнопки) при фоне-картинке — стекло с линзой,
-   как в 0.7.14, но без backdrop-filter: под панелью слой ::before с размытой копией обоев ровно с этого
-   места (--bp считает glassbake.js), и линза (#lg-lens) применяется к этому слою обычным filter —
-   это стабильно, ничего не пропадает после прокрутки. */
-html.wall-baked:not(.lite) .chat-top .glass, html.wall-baked:not(.lite) .composer-wrap .glass,
-html.wall-baked:not(.lite) .top-bars .glass, html.wall-baked:not(.lite) .scroll-down.glass {
-  background: transparent !important; isolation: isolate;
-  backdrop-filter: none !important; -webkit-backdrop-filter: none !important; will-change: auto !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,.18), inset 0 0 0 1px var(--lg-rim-line), inset 0 0 10px var(--lg-in-glow),
-    inset 1.5px 1.5px 0 -.2px var(--lg-rim), inset -1px -1px 0 -.2px var(--lg-rim2) !important;
-}
-html.wall-baked:not(.lite) .chat-top .glass::before, html.wall-baked:not(.lite) .composer-wrap .glass::before,
-html.wall-baked:not(.lite) .top-bars .glass::before, html.wall-baked:not(.lite) .scroll-down.glass::before {
-  content: ""; position: absolute; inset: -14px; z-index: -1; pointer-events: none;
-  background: var(--lg-sheen), linear-gradient(var(--lg-tint), var(--lg-tint)), var(--wall-blur) no-repeat;
-  background-size: auto, auto, var(--wall-w, 100vw) var(--wall-h, 100vh);
-  background-position: 0 0, 0 0, var(--bp, -99999px 0);
-  filter: var(--lens, url(#lg-lens-el));
-}
-html.wall-baked .chat-header.glass, html.wall-baked .composer.glass, html.wall-baked .pinned-bar.glass, html.wall-baked .readonly-bar.glass, html.wall-baked .selection-bar.glass { position: relative; }
-/* слой с линзой обрезаем по форме панели (иначе у круглых кнопок проступали квадратные углы) */
-html.wall-baked:not(.lite) .chat-top .glass::before, html.wall-baked:not(.lite) .composer-wrap .glass::before,
-html.wall-baked:not(.lite) .top-bars .glass::before { clip-path: inset(14px round 22px); }
-html.wall-baked:not(.lite) .glass.circle::before, html.wall-baked:not(.lite) .scroll-down.glass::before { clip-path: inset(14px round 50%); }
-
-/* ── Стекло как на референсах iOS 26 (вид 0.7.14) для сообщений при фоне-картинке:
-   слой ::after с копией обоев (лёгкое размытие) + линза --lens по краям; сам пузырь — только кант и тень.
-   Без backdrop-filter — не пропадает после прокрутки. ── */
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble.media.with-caption,
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments { background: transparent !important; isolation: isolate; }
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo)::after,
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble.media.with-caption::after,
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments::after {
-  content: "" !important; display: block !important; position: absolute !important; inset: -14px !important; left: -14px !important; right: -14px !important; top: -14px !important; bottom: -14px !important;
-  clip-path: inset(14px round 16px);
-  width: auto !important; height: auto !important; transform: none !important; -webkit-mask: none !important; mask: none !important;
-  border-radius: inherit; z-index: -1; pointer-events: none;
-  background: var(--lg-sheen), linear-gradient(var(--lg-tint), var(--lg-tint)), var(--wall-blur) no-repeat !important;
-  background-size: auto, auto, var(--wall-w, 100vw) var(--wall-h, 100vh) !important;
-  background-position: 0 0, 0 0, var(--bp, -99999px 0) !important;
-  filter: var(--lens, none);
-}
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .bubble:not(.media):not(.sticker):not(.round):not(.jumbo)::after,
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .bubble.media.with-caption::after {
-  background: var(--lg-sheen), linear-gradient(var(--lg-out), var(--lg-out)), var(--wall-blur) no-repeat !important;
-  background-size: auto, auto, var(--wall-w, 100vw) var(--wall-h, 100vh) !important;
-  background-position: 0 0, 0 0, var(--bp, -99999px 0) !important;
-}
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble:not(.z1):not(.z2):not(.z3):not(.z4):not(.z5):not(.z6)::after { display: none !important; }
-
-/* Кант и тень как у стекла iOS 26 на референсах: светлый ободок (ярче сверху и снизу), лёгкое
-   свечение по краю внутрь и мягкая тень снаружи — одинаково у сообщений и у панелей. */
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble.media.with-caption,
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments,
-html.wall-baked:not(.lite) .chat-top .glass, html.wall-baked:not(.lite) .composer-wrap .glass,
-html.wall-baked:not(.lite) .top-bars .glass, html.wall-baked:not(.lite) .scroll-down.glass {
-  box-shadow: 0 6px 18px rgba(0,0,0,.22), 0 1px 3px rgba(0,0,0,.12),
-    inset 0 0 0 1px var(--lg-rim-line), inset 0 1.5px 0 -.3px var(--lg-rim), inset 0 -1.5px 0 -.3px var(--lg-rim2),
-    inset 0 0 14px var(--lg-in-glow) !important;
-}
-
-/* Матовое стекло как на референсе iOS 26 (панель вкладок поверх фото): фон под стеклом заметно
-   размыт и высветлен молочной дымкой, сверху лёгкий блик, по краю линза и светлый ободок. */
-:root { --lg-sheen: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,0) 40%, rgba(255,255,255,0) 75%, rgba(255,255,255,.04)); --lg-tint: rgba(255,255,255,.05); }
-:root[data-palette="night"] { --lg-tint: rgba(255,255,255,.03); }
-/* тёмный фон под стеклом — светлый текст, как адаптивное стекло iOS */
-html.wall-baked.glass-dark { --lg-text: #fff; --lg-meta: rgba(255,255,255,.66); --lg-glow-text: rgba(0,0,0,.45); }
-html.wall-baked.glass-dark .chat-header.glass .title, html.wall-baked.glass-dark .chat-header.glass .status:not(.online):not(.typing),
-html.wall-baked.glass-dark .composer.glass .compose-input, html.wall-baked.glass-dark .pinned-bar.glass, html.wall-baked.glass-dark .chat-top .glass.circle,
-html.wall-baked.glass-dark .composer-wrap .glass.circle, html.wall-baked.glass-dark .scroll-down.glass { color: #fff; }
-html.wall-baked.glass-dark .composer.glass .compose-input::placeholder { color: rgba(255,255,255,.6); }
-html.wall-baked.glass-dark .chat-header.glass .status:not(.online):not(.typing) { color: rgba(255,255,255,.7); }

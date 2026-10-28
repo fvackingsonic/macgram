@@ -77,18 +77,25 @@ pub async fn update_install(app: AppHandle, url: String, sha256: String) -> Resu
 #[tauri::command]
 pub async fn update_release() -> Result<serde_json::Value, String> {
     tauri::async_runtime::spawn_blocking(|| -> Result<serde_json::Value, String> {
+        let mut why = String::new();
         for repo in ["fvackingsonic/macgram", "fvackingsonic/mactele"] {
             let url = format!("https://api.github.com/repos/{repo}/releases/tags/latest");
-            if let Ok(r) = ureq::get(&url).set("User-Agent", "macgram-updater").set("Accept", "application/vnd.github+json").call() {
-                if let Ok(text) = r.into_string() {
-                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) { return Ok(v); }
+            match ureq::get(&url).set("User-Agent", "macgram-updater").set("Accept", "application/vnd.github+json").call() {
+                Ok(r) => {
+                    if let Ok(text) = r.into_string() {
+                        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) { return Ok(v); }
+                    }
                 }
+                Err(e) => { if why.is_empty() { why = short_err(&e); } }
             }
         }
+        // API не ответил (обычно 403 — лимит запросов без ключа): берём страницу со списком файлов релиза
         for repo in ["fvackingsonic/macgram", "fvackingsonic/mactele"] {
             let url = format!("https://github.com/{repo}/releases/expanded_assets/latest");
-            let Ok(r) = ureq::get(&url).set("User-Agent", "macgram-updater").call() else { continue };
-            let Ok(page) = r.into_string() else { continue };
+            let page = match ureq::get(&url).set("User-Agent", "macgram-updater").call() {
+                Ok(r) => match r.into_string() { Ok(p) => p, Err(e) => { why = e.to_string(); continue; } },
+                Err(e) => { why = short_err(&e); continue; }
+            };
             let marker = "_x64-setup.exe";
             let Some(end) = page.find(marker) else { continue };
             let Some(start) = page[..end].rfind("/fvackingsonic/") else { continue };
@@ -98,11 +105,24 @@ pub async fn update_release() -> Result<serde_json::Value, String> {
             let tail = &page[end..];
             let digest = tail.find("sha256:").map(|i| tail[i..].chars().take(71).collect::<String>()).unwrap_or_default();
             let ver = name.split('_').nth(1).unwrap_or("").to_string();
+            // «Что нового» — со страницы релиза (разбирает интерфейс)
+            let notes = ureq::get(&format!("https://github.com/{repo}/releases/tag/latest"))
+                .set("User-Agent", "macgram-updater")
+                .call()
+                .ok()
+                .and_then(|r| r.into_string().ok())
+                .unwrap_or_default();
             return Ok(serde_json::json!({
-                "name": format!("macgram {ver}"), "tag_name": "latest", "body": "", "html_url": format!("https://github.com/{repo}/releases/tag/latest"),
+                "name": format!("macgram {ver}"), "tag_name": "latest", "body": "", "body_html": notes,
+                "html_url": format!("https://github.com/{repo}/releases/tag/latest"),
                 "assets": [{ "name": name, "browser_download_url": format!("https://github.com{path}"), "size": 0, "digest": digest }]
             }));
         }
-        Err("GitHub не отвечает".into())
+        Err(if why.is_empty() { "GitHub не отвечает".to_string() } else { format!("GitHub не отвечает: {why}") })
     }).await.map_err(|e| e.to_string())?
+}
+
+fn short_err(e: &ureq::Error) -> String {
+    if let ureq::Error::Status(code, _) = e { return format!("ответ {code}"); }
+    e.to_string()
 }

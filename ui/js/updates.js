@@ -8,15 +8,48 @@ export const REPO = 'fvackingsonic/macgram';
 // Пока репозиторий не переименован, он доступен и по старому имени — пробуем оба.
 const API = [`https://api.github.com/repos/${REPO}/releases/tags/latest`, 'https://api.github.com/repos/fvackingsonic/mactele/releases/tags/latest'];
 async function fetchRelease() {
-  // В приложении запрос идёт через Rust (с запасным путём, если GitHub ограничил API — ответ 403).
-  if (window.__TAURI__?.core) { try { return await window.__TAURI__.core.invoke('update_release'); } catch (e) { throw new Error(String(e)); } }
-  let last = null;
-  for (const url of API) {
-    const r = await fetch(url, { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' });
-    if (r.ok) return r.json();
-    last = r.status;
+  const errs = [];
+  // 1) через программу: API GitHub, а если он отказал (403 — лимит запросов без ключа) — страница релиза
+  if (window.__TAURI__?.core) {
+    try { return await window.__TAURI__.core.invoke('update_release'); } catch (e) { errs.push(String(e)); }
   }
-  throw new Error(last === 404 ? 'релиз не найден' : `GitHub ответил ${last}`);
+  // 2) из окна программы (сеть, прокси и сертификаты Windows) — если первый путь не прошёл
+  for (const url of API) {
+    try {
+      const r = await fetch(url, { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' });
+      if (r.ok) return r.json();
+      errs.push(r.status === 404 ? 'релиз не найден' : r.status === 403 ? 'GitHub ответил 403 (лимит запросов)' : `GitHub ответил ${r.status}`);
+    } catch { errs.push('нет связи с GitHub'); }
+  }
+  throw new Error(errs[0] || 'GitHub не отвечает');
+}
+// «Что нового» со страницы релиза (когда API недоступен): заголовки, пункты списка, абзацы.
+function notesFromHtml(h) {
+  if (!h) return '';
+  try {
+    const doc = new DOMParser().parseFromString(h, 'text/html');
+    const md = doc.querySelector('[data-test-selector="body-content"]') || doc.querySelector('.markdown-body');
+    if (!md) return '';
+    const out = [];
+    for (const el of md.querySelectorAll('h1, h2, h3, h4, li, p')) {
+      if (el.tagName === 'P' && el.closest('li')) continue;
+      const t = el.textContent.replace(/\s+/g, ' ').trim();
+      if (!t) continue;
+      out.push(/^H\d$/.test(el.tagName) ? `## ${t}` : el.tagName === 'LI' ? `- ${t}` : t);
+    }
+    return out.join('\n');
+  } catch { return ''; }
+}
+const RELEASES_PAGE = `https://github.com/${REPO}/releases/latest`;
+function showCheckError(msg) {
+  openModal({
+    title: 'Не удалось проверить обновления',
+    body: html`<p>${msg}</p><p>Новую версию можно скачать вручную со страницы релиза.</p>`,
+    buttons: [
+      { label: 'Открыть страницу загрузки', action: () => { closeModal(); (T ? T.core.invoke('plugin:opener|open_url', { url: RELEASES_PAGE }) : Promise.resolve(window.open(RELEASES_PAGE, '_blank'))).catch(() => {}); } },
+      { label: 'Закрыть', kind: 'second', action: closeModal },
+    ],
+  });
 }
 const T = window.__TAURI__;
 
@@ -39,13 +72,13 @@ export async function checkUpdates({ manual = false } = {}) {
       if (manual) showHud(`У вас последняя версия — ${cur}`);
       return null;
     }
-    S.update = { version, notes: notesOf(rel.body || ''), url: asset.browser_download_url, sha, size: asset.size, page: rel.html_url };
+    S.update = { version, notes: notesOf(rel.body || '') || notesOf(notesFromHtml(rel.body_html)), url: asset.browser_download_url, sha, size: asset.size, page: rel.html_url };
     changed();
     let skipped = ''; try { skipped = localStorage.getItem('skipUpdate') || ''; } catch {}
     if (manual || skipped !== version) showUpdate();
     return S.update;
   } catch (e) {
-    if (manual) showHud(`Не удалось проверить обновления: ${e.message}`);
+    if (manual) showCheckError(e.message || String(e));
     return null;
   }
 }

@@ -140,8 +140,10 @@ function marginColor() {
 // Пузыри рисуют её как фиксированный фон (background-attachment: fixed) — выглядит как размытие
 // того, что под пузырём, но без backdrop-filter, который в WebView2 «моргал» и пропадал при прокрутке.
 let bakedUrl = '';
+// Копия почти чёткая (как стекло iOS: фон под ним виден), в полном разрешении экрана.
+const bakeK = () => Math.min(2, Math.max(1, devicePixelRatio || 1));
 async function bakeWall(url, fit, extraBlur) {
-  const W = innerWidth, H = innerHeight, k = .5;
+  const W = innerWidth, H = innerHeight, k = bakeK();
   const bmp = await createImageBitmap(await (await fetch(url)).blob());
   const iw = bmp.width, ih = bmp.height;
   const sc = fit === 'contain' ? Math.min(W / iw, H / ih) : fit === 'width' ? W / iw : fit === 'center' ? 1 : Math.max(W / iw, H / ih);
@@ -149,10 +151,10 @@ async function bakeWall(url, fit, extraBlur) {
   const c = document.createElement('canvas'); c.width = Math.round(W * k); c.height = Math.round(H * k);
   const g = c.getContext('2d');
   g.fillStyle = fit === 'cover' ? '#000' : marginColor(); g.fillRect(0, 0, c.width, c.height);
-  g.filter = `blur(${(extraBlur ? 8 : 3) * k}px) saturate(1.25) brightness(1.04)`;
+  g.filter = `blur(${(extraBlur ? 12 : 3) * k}px) saturate(1.1)`;
   g.drawImage(bmp, dx * k - 2, dy * k - 2, dw * k + 4, dh * k + 4);
-  bakedLum = avgLum(c);
-  const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', .88));
+  bakedLum = avgLum(c); bakedGrid = lumGrid(c);
+  const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', .9));
   return blob ? URL.createObjectURL(blob) : '';
 }
 // Цвета/градиент/узор (стандартные обои Telegram) — рисуем на холсте так же, как их рисует CSS.
@@ -177,7 +179,8 @@ function paintFill(g, W, H, fill, fallback, plainColor) {
     g.fillStyle = lg; g.fillRect(0, 0, W, H);
   }
   const pts = [[.8, .1], [.35, .25], [.2, .9], [.65, .75]];
-  cols.slice(0, 4).forEach((c, i) => {
+  // в CSS первый слой — верхний, поэтому на холсте рисуем в обратном порядке
+  cols.slice(0, 4).map((c, i) => [c, i]).reverse().forEach(([c, i]) => {
     const x = pts[i][0] * W, y = pts[i][1] * H;
     const far = Math.max(Math.hypot(x, y), Math.hypot(W - x, y), Math.hypot(x, H - y), Math.hypot(W - x, H - y));
     const rg = g.createRadialGradient(x, y, 0, x, y, far * .65);
@@ -186,7 +189,7 @@ function paintFill(g, W, H, fill, fallback, plainColor) {
   });
 }
 async function bakeScene({ fill, fallback, plainColor, pattern, patColor, patOpacity }) {
-  const W = innerWidth, H = innerHeight, k = .5;
+  const W = innerWidth, H = innerHeight, k = bakeK();
   const c = document.createElement('canvas'); c.width = Math.round(W * k); c.height = Math.round(H * k);
   const g = c.getContext('2d'); g.scale(k, k);
   paintFill(g, W, H, fill, fallback, plainColor);
@@ -194,18 +197,20 @@ async function bakeScene({ fill, fallback, plainColor, pattern, patColor, patOpa
     const img = new Image(); img.src = pattern;
     await img.decode();
     const th = 900, tw = img.naturalWidth && img.naturalHeight ? th * img.naturalWidth / img.naturalHeight : th;
-    const p = document.createElement('canvas'); p.width = W; p.height = H;
-    const pg = p.getContext('2d');
+    const p = document.createElement('canvas'); p.width = c.width; p.height = c.height;
+    const pg = p.getContext('2d'); pg.scale(k, k);
     let x0 = (W - tw) / 2; while (x0 > 0) x0 -= tw;
     for (let y = 0; y < H; y += th) for (let x = x0; x < W; x += tw) pg.drawImage(img, x, y, tw, th);
-    pg.globalCompositeOperation = 'source-in'; pg.fillStyle = patColor; pg.fillRect(0, 0, W, H);
+    pg.setTransform(1, 0, 0, 1, 0, 0);
+    pg.globalCompositeOperation = 'source-in'; pg.fillStyle = patColor; pg.fillRect(0, 0, p.width, p.height);
+    g.setTransform(1, 0, 0, 1, 0, 0);
     g.globalAlpha = patOpacity; g.drawImage(p, 0, 0); g.globalAlpha = 1;
   }
   const out = document.createElement('canvas'); out.width = c.width; out.height = c.height;
   const og = out.getContext('2d');
-  og.filter = `blur(${3 * k}px) saturate(1.25) brightness(1.04)`;
+  og.filter = `blur(${1.2 * k}px) saturate(1.1)`;
   og.drawImage(c, 0, 0);
-  bakedLum = avgLum(out);
+  bakedLum = avgLum(out); bakedGrid = lumGrid(out);
   const blob = await new Promise(r => out.toBlob(r, 'image/jpeg', .9));
   return blob ? URL.createObjectURL(blob) : '';
 }
@@ -221,7 +226,19 @@ function avgLum(c) {
     return sum / (d.length / 4);
   } catch { return 1; }
 }
+// Карта яркости фона (96×64): стекло над тёмным местом — светлый текст, над светлым — тёмный (как в iOS).
+let bakedGrid = null;
+function lumGrid(c) {
+  try {
+    const gw = 96, gh = 64, t = document.createElement('canvas'); t.width = gw; t.height = gh;
+    const g = t.getContext('2d'); g.drawImage(c, 0, 0, gw, gh);
+    const d = g.getImageData(0, 0, gw, gh).data, out = new Float32Array(gw * gh);
+    for (let i = 0; i < out.length; i++) out[i] = (.2126 * d[i * 4] + .7152 * d[i * 4 + 1] + .0722 * d[i * 4 + 2]) / 255;
+    return { gw, gh, d: out };
+  } catch { return null; }
+}
 function setBaked(u) {
+  window.__lgLum = u ? bakedGrid : null;
   document.documentElement.classList.toggle('glass-dark', !!u && bakedLum < .42);
   const root = document.documentElement;
   if (bakedUrl) URL.revokeObjectURL(bakedUrl);
