@@ -1528,7 +1528,7 @@ html.glass-bubbles .msg-row.last .bubble, html.no-bubbles .msg-row.last .bubble 
   --lg-tint: rgba(255,255,255,.06); --lg-out: color-mix(in srgb, var(--out-bg) 20%, transparent);
   --lg-text: #0b0b0c; --lg-meta: rgba(0,0,0,.5); --lg-edge: rgba(255,255,255,.3);
   --lg-spec: rgba(255,255,255,.95); --lg-spec2: rgba(255,255,255,.72); --lg-line: rgba(255,255,255,.32);
-  --lg-shadow: 0 4px 14px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.07); --lg-pblur: 4.5px;
+  --lg-shadow: 0 4px 14px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.07); --lg-pblur: 3px;
 }
 :root[data-palette="night"] {
   --lg-tint: rgba(255,255,255,.04); --lg-out: color-mix(in srgb, var(--out-bg) 26%, transparent);
@@ -1603,13 +1603,15 @@ html:not(.lite) .ps-top .glass, html:not(.lite) .sp-back, html:not(.lite) .sp-mo
    преломлённые линзой. Сквозь шапку и поле ввода видно ленту, как сквозь стекло в iOS. */
 html.wall-baked:not(.lite) :is(.chat-top, .composer-wrap, .top-bars) .glass:not(.send-btn.ready), html.wall-baked:not(.lite) .scroll-down.glass {
   background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; will-change: auto !important;
-  isolation: isolate; box-shadow: var(--lg-shadow) !important;
+  isolation: isolate;
+  /* объём, как у стекла в iOS 26: светлая кромка сверху, лёгкая тень снизу внутри, мягкое свечение */
+  box-shadow: var(--lg-shadow), inset 0 1.5px 1px -.5px rgba(255,255,255,.42), inset 0 -1.5px 1px -.5px rgba(0,0,0,.12), inset 0 0 14px rgba(255,255,255,.07) !important;
 }
 html.wall-baked .chat-header.glass, html.wall-baked .composer.glass, html.wall-baked .pinned-bar.glass, html.wall-baked .readonly-bar.glass,
 html.wall-baked .selection-bar.glass { position: relative; }
 .lg-mirror {
-  position: absolute; inset: -14px; z-index: -1; pointer-events: none; overflow: hidden; border-radius: 0;
-  clip-path: inset(14px round var(--lg-r, 22px));
+  position: absolute; inset: -28px; z-index: -1; pointer-events: none; overflow: hidden; border-radius: 0;
+  clip-path: inset(28px round var(--lg-r, 22px));
   filter: blur(var(--lg-pblur)) saturate(1.2) var(--lens, );
 }
 /* то, что видно сквозь панель: рамка (.lg-mirror/.lg-feed) двигается вместе с кнопкой, а слой внутри
@@ -1624,8 +1626,8 @@ html.wall-baked .selection-bar.glass { position: relative; }
 /* копии сообщений под панелью — отдельный слой поверх «стекла»: при прокрутке он только сдвигается
    (каждая копия — свой слой), размытие считает видеокарта; линза — только у неподвижного слоя обоев */
 .lg-feed {
-  position: absolute; inset: -14px; z-index: -1; pointer-events: none; overflow: hidden;
-  clip-path: inset(14px round var(--lg-r, 22px)); filter: blur(var(--lg-pblur)) saturate(1.2); will-change: transform;
+  position: absolute; inset: -28px; z-index: -1; pointer-events: none; overflow: hidden;
+  clip-path: inset(28px round var(--lg-r, 22px)); filter: blur(var(--lg-pblur)) saturate(1.2) var(--lens, ); will-change: transform;
 }
 .lg-fin { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; will-change: transform; }
 html.lg-tl .lg-fin { animation: lg-feedf 1s linear both; animation-timeline: --lg-sc; }
@@ -1995,3 +1997,36 @@ html.no-glass-panels:not(#lg-x) :is(.chat-top, .composer-wrap, .top-bars) .glass
 html.wall-baked:not(.no-glass-panels) :is(.rkb, .cmd-list, .rkb-toggle).glass[data-lg="d"] { --text: #fff; --gray-text: rgba(255,255,255,.66); color: #fff; }
 html.wall-baked:not(.no-glass-panels) :is(.rkb, .cmd-list, .rkb-toggle).glass[data-lg="l"] { --text: #0b0b0c; --gray-text: rgba(0,0,0,.5); color: #0b0b0c; }
 html.no-glass-panels:not(#lg-x) .readonly-bar.glass { color: var(--accent); }
+
+/* ═══ Плеер с нотой: настоящее жидкое стекло поверх всего ═══
+   Под панелью видно всё — сообщения, кнопки, фон (backdrop-filter), край — линза как в iOS 26
+   (--lens ставит glassbake.js), вуаль по яркости того, что под ней (data-lg), ползунок прозрачности (--mu-va). */
+.music-panel { animation: none; transform: none; }
+html:not(.lite):not(.no-glass-panels) .music-panel.mu-glass:not(#lg-x) {
+  background: transparent !important;
+  backdrop-filter: var(--lens, ) blur(16px) saturate(1.8) brightness(1.03) !important; -webkit-backdrop-filter: blur(16px) saturate(1.8) !important;
+  box-shadow: 0 18px 50px rgba(0,0,0,.28), 0 2px 6px rgba(0,0,0,.12), inset 0 1.5px 1px -.5px rgba(255,255,255,.5), inset 0 -1.5px 1px -.5px rgba(0,0,0,.14), inset 0 0 22px rgba(255,255,255,.07) !important;
+  --mu-veil: rgba(255,255,255,calc(var(--mu-va,.36) * 1.15)); color: var(--text);
+}
+html:not(.lite):not(.no-glass-panels) .music-panel.mu-glass[data-lg="d"]:not(#lg-x) { --mu-veil: rgba(16,16,20,calc(var(--mu-va,.36) * 1.25)); --text: #fff; --gray-text: rgba(255,255,255,.62); --lg-text: #fff; --mu-inv: #111; }
+html:not(.lite):not(.no-glass-panels) .music-panel.mu-glass[data-lg="l"]:not(#lg-x) { --text: #0b0b0c; --gray-text: rgba(0,0,0,.52); --lg-text: #0b0b0c; --mu-inv: #fff; }
+html:not(.lite):not(.no-glass-panels) .music-panel.mu-glass:not(#lg-x)::before { content: ""; position: absolute; inset: 0; z-index: -2; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,0) 40%), linear-gradient(var(--mu-veil), var(--mu-veil)) !important; }
+html:not(.lite):not(.no-glass-panels) .music-panel.mu-glass:not(#lg-x)::after { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 8;
+  background: linear-gradient(135deg, var(--lg-spec) 0%, var(--lg-line) 22%, var(--lg-line) 78%, var(--lg-spec2) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; }
+/* открытие: форма «вытекает» из кнопки с нотой, содержимое проявляется следом; закрытие — обратно в кнопку */
+.music-panel.opening { animation: mp-open .62s cubic-bezier(.2, 1.12, .3, 1) both; }
+.music-panel.opening > .mu-head, .music-panel.opening > .mu-body, .music-panel.opening > .mu-cslot { animation: mp-content .42s .1s cubic-bezier(.2, .9, .3, 1) both; }
+.music-panel.out { animation: mp-close .26s cubic-bezier(.5, 0, .75, .2) forwards !important; pointer-events: none; }
+.music-panel.out > * { opacity: 0; transition: opacity .12s; }
+@keyframes mp-open {
+  0% { clip-path: inset(var(--o-t, 0px) var(--o-r, 0px) var(--o-b, 100%) var(--o-l, 70%) round var(--o-rad, 24px)); }
+  100% { clip-path: inset(0 0 0 0 round 24px); }
+}
+@keyframes mp-close {
+  0% { clip-path: inset(0 0 0 0 round 24px); opacity: 1; }
+  100% { clip-path: inset(var(--o-t, 0px) var(--o-r, 0px) var(--o-b, 100%) var(--o-l, 70%) round var(--o-rad, 24px)); opacity: .6; }
+}
+@keyframes mp-content { from { opacity: 0; transform: translateY(-10px); filter: blur(4px); } }
+@media (prefers-reduced-motion: reduce) { .music-panel.opening, .music-panel.out, .music-panel.opening > * { animation-duration: .01s !important; } }

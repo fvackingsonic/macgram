@@ -5,25 +5,30 @@
 // плюс копии сообщений, которые сейчас проходят под панелью. Зеркало размыто и преломляется линзой,
 // поэтому сквозь шапку видно ленту, как сквозь стекло в iOS. Всё это обычные слои с обычным filter —
 // ничего не пропадает и не моргает.
-const PAD = 14;
+// PAD — запас вокруг панели: линза у края берёт то, что снаружи, и «затягивает» под стекло (как в iOS 26).
+const PAD = 28;
 const BUBBLES = ['.bubble:not(.media):not(.sticker):not(.round):not(.jumbo)', '.bubble.media.with-caption', '.with-comments']
   .map(s => `.messages .msg-row ${s}`).join(', ');
 const PANELS = '.chat-top .glass, .composer-wrap .glass, .top-bars .glass, .scroll-down.glass.show';
 const ROWS = '.msg-row, .service, .unread-sep, .thread-start, .loader-top, .main-empty';
-// Линза: ширина «фаски» и сила преломления у самого края (px).
-const LENS = { p: { bezel: 18, max: 16 }, b: { bezel: 14, max: 10 } };
+// Линза Liquid Glass как в iOS 26: стекло — скруглённая «плита», край изогнут на всю толщину.
+//  p — панели и кнопки (берём фон и сообщения снаружи края — их затягивает под стекло),
+//  m — плеер с нотой поверх всего (размытие того, что под ним; край увеличивает то, что внутри).
+const LENS = { p: { bezel: 34, max: 24, pad: PAD, out: true }, m: { bezel: 26, max: 16, pad: 0, out: false } };
 
 let raf = 0, defs = null, nLens = 0;
 const lensCache = new Map();
 
-// Карта смещения под точный размер и радиус: у края сильное смещение внутрь, к середине фаски — ноль.
-// Красный канал — по горизонтали, зелёный — по вертикали (128 — без смещения).
-function lensMap(W, H, w, h, r, bezel, max, S) {
+// Карта смещения под точный размер и радиус. Профиль — как у скруглённого края стекла (четверть
+// окружности): у середины почти без смещения, к краю — всё сильнее. Красный канал — по горизонтали,
+// зелёный — по вертикали (128 — без смещения).
+function lensMap(W, H, w, h, r, bezel, max, S, pad, out) {
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d'), img = g.createImageData(W, H), d = img.data;
-  new Uint32Array(d.buffer).fill(0xff808080); // всё «без смещения»; считаем только полосу у края
+  new Uint32Array(d.buffer).fill(0xff808080);
   const cx = W / 2, cy = H / 2, hx = w / 2 - r, hy = h / 2 - r;
-  const band = Math.ceil(PAD + Math.max(bezel, r) + 1);
+  const band = Math.ceil(pad + Math.max(bezel, r) + 1);
+  const sgn = out ? 1 : -1;
   const px1 = (x, y) => {
     const i = (y * W + x) * 4;
     const px = x + .5 - cx, py = y + .5 - cy, qx = Math.abs(px) - hx, qy = Math.abs(py) - hy;
@@ -32,9 +37,10 @@ function lensMap(W, H, w, h, r, bezel, max, S) {
     else if (qx > qy) { dist = qx - r; nx = 1; ny = 0; }
     else { dist = qy - r; nx = 0; ny = 1; }
     if (!(dist < 0 && dist > -bezel)) return;
-    const t = 1 + dist / bezel, m = max * (t * t * (3 - 2 * t) * .35 + t * t * t * .65);
-    d[i] = Math.round(127.5 - nx * Math.sign(px) * m / S * 255);
-    d[i + 1] = Math.round(127.5 - ny * Math.sign(py) * m / S * 255);
+    const t = 1 + dist / bezel; // 0 — внутренний край фаски, 1 — кромка
+    const m = max * (1 - Math.sqrt(Math.max(0, 1 - t * t)));
+    d[i] = Math.round(127.5 + sgn * nx * Math.sign(px) * m / S * 255);
+    d[i + 1] = Math.round(127.5 + sgn * ny * Math.sign(py) * m / S * 255);
   };
   for (let y = 0; y < H; y++) {
     if (y < band || y >= H - band) { for (let x = 0; x < W; x++) px1(x, y); continue; }
@@ -65,12 +71,13 @@ function lensFor(el, kind, w0, h0) {
   const sz = radiusFor(el, w0, h0);
   if (!sz) return;
   const [w, h] = sz;
-  const r = el.__lgR, W = w + PAD * 2, H = h + PAD * 2;
+  const P = LENS[kind];
+  const r = el.__lgR, W = w + P.pad * 2, H = h + P.pad * 2;
   const key = `${kind}${W}x${H}r${r}`;
   if (el.__lensKey === key) return;
   let e = lensCache.get(key);
   if (!e) {
-    if (budget <= 0) { raf || (raf = requestAnimationFrame(update)); return; } // не больше одной новой карты за кадр
+    if (budget <= 0) { raf || (raf = requestAnimationFrame(update)); return; } // не больше двух новых карт за кадр
     budget--;
     defs = defs?.isConnected ? defs : document.getElementById('lg-defs');
     if (!defs) return;
@@ -80,11 +87,11 @@ function lensFor(el, kind, w0, h0) {
       lensCache.clear();
       for (const x of document.querySelectorAll('[style*="--lens"]')) { x.style.removeProperty('--lens'); x.__lensKey = ''; }
     }
-    const P = LENS[kind], bezel = Math.max(4, Math.min(P.bezel, Math.min(w, h) / 2 - 2)), max = Math.min(P.max, bezel * .85), S = Math.ceil(max * 2 + 2);
+    // фаска — на всю толщину у узких «пилюль» (как в iOS), у больших панелей — до P.bezel
+    const bezel = Math.max(4, Math.min(P.bezel, Math.min(w, h) / 2)), max = Math.min(P.max, bezel * .72, P.pad || 1e9), S = Math.ceil(max * 2 + 2);
     e = { id: `lg-m${++nLens}`, ready: false, url: '' };
     lensCache.set(key, e);
-    // PNG кодируется в фоне (toBlob), фильтр подключаем, когда карта готова
-    lensMap(W, H, w, h, r, bezel, max, S).toBlob(b => {
+    lensMap(W, H, w, h, r, bezel, max, S, P.pad, P.out).toBlob(b => {
       if (!b || lensCache.get(key) !== e) return;
       e.url = URL.createObjectURL(b);
       const f = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
@@ -295,6 +302,9 @@ function update() {
       bg.firstChild.style.cssText = `--x:${Math.round(x)}px;--y:${Math.round(y)}px`;
     }
   }
+  // плеер с нотой: настоящее стекло поверх всего (backdrop-filter) с той же линзой по краю
+  const mp = document.querySelector('.music-panel');
+  if (mp && !noPanels && !mp.classList.contains('out')) lensFor(mp, 'm', mp.offsetWidth, mp.offsetHeight);
   for (const p of live) if (!seen.has(p)) dropMirror(p);
   live.clear();
   for (const [p, r, rows, lw, lh, st, sc] of panels) {

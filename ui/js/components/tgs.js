@@ -32,7 +32,7 @@ function loadJson(url) {
       } else text = new TextDecoder().decode(buf);
       return JSON.parse(text);
     }));
-    if (cache.size > 80) cache.delete(cache.keys().next().value);
+    if (cache.size > 300) cache.delete(cache.keys().next().value);
   }
   return cache.get(url);
 }
@@ -75,7 +75,7 @@ function pump() {
 function snapshot(url, size) {
   if (!snaps.has(url)) {
     snaps.set(url, new Promise(resolve => { queue.push({ url, size, resolve }); pump(); }));
-    if (snaps.size > 250) snaps.delete(snaps.keys().next().value);
+    if (snaps.size > 800) snaps.delete(snaps.keys().next().value);
   }
   return snaps.get(url);
 }

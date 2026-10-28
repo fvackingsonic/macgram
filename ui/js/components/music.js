@@ -4,6 +4,7 @@
 import { html, useEffect, useLayoutEffect, useRef, useState } from '../lib.js';
 import { S, changed, useTick, setPref, useFile, download, fileUrl, selectChat, jumpTo, openMenu, openModal, closeModal } from '../store.js';
 import { Icon } from '../icons.js';
+import { glassUpdate } from '../glassbake.js';
 import { duration } from '../format.js';
 import {
   MU, setQuery, openArtist, openAlbum, loadCharts, loadMine, play, next, prev, toggle, seek, setVolume, setRepeat, setShuffle, stop,
@@ -109,10 +110,9 @@ function Ring({ size }) {
 // Нота / капсула в шапке (капсулу можно тянуть, как стеклянные кнопки — effects.js).
 export function MusicChip() {
   const ref = useRef();
-  useBake(ref);
   const on = MU.open && !MU.closing;
   const t = MU.cur;
-  const g = 'mu-glass';
+  const g = '';
   if (!t) return html`<button ref=${ref} class=${`glass circle music-btn no-drag ${g} ${on ? 'active' : ''}`} title="Музыка" onClick=${e => { e.stopPropagation(); togglePanel(); }}>${IC.note(22)}</button>`;
   return html`<div ref=${ref} class=${`glass music-cap no-drag ${g} ${on ? 'active' : ''}`} role="button" title="Музыка" onClick=${e => { e.stopPropagation(); togglePanel(on ? false : true, on ? null : { kind: 'track' }); }}>
     <span class="mc-art"><${AlbumCover} al=${t.album} size=${32} round=${16}/><${Ring} size=${38}/></span>
@@ -359,9 +359,34 @@ const TITLES = { artist: 'Исполнитель', album: 'Альбом', track:
 const MineView = () => html`<div class="mu-view">${(MU.mine?.tracks || []).map((t, i) => html`<${TrackRow} key=${t.id} t=${t} list=${MU.mine.tracks} i=${i}/>`)}</div>`;
 
 // Панель: открывается из ноты, закрывается щелчком мимо или Esc; угол слева снизу — изменить размер.
+// Открытие как жидкое стекло: панель «вытекает» из кнопки с нотой (форма растёт от кнопки вниз
+// и вширь с пружиной), содержимое проявляется следом. Сама панель не сдвигается и не масштабируется,
+// поэтому стекло (backdrop-filter) под ней всё время честно показывает то, что под ним.
+function useOpenFrom(ref) {
+  useLayoutEffect(() => {
+    const el = ref.current; if (!el || !MU.open || MU.closing) return;
+    const chips = [...document.querySelectorAll('.music-btn, .music-cap')].filter(c => c.offsetWidth && !c.closest('.nav-layer.out'));
+    const p = el.getBoundingClientRect();
+    const c = chips.sort((a, b) => Math.abs(a.getBoundingClientRect().right - p.right) - Math.abs(b.getBoundingClientRect().right - p.right))[0];
+    if (c) {
+      const r = c.getBoundingClientRect();
+      el.style.setProperty('--o-t', `${Math.round(r.top - p.top)}px`);
+      el.style.setProperty('--o-r', `${Math.round(p.right - r.right)}px`);
+      el.style.setProperty('--o-b', `${Math.round(p.bottom - r.bottom)}px`);
+      el.style.setProperty('--o-l', `${Math.round(r.left - p.left)}px`);
+      el.style.setProperty('--o-rad', `${Math.round(r.height / 2)}px`);
+    }
+    el.classList.add('opening');
+    const done = e => { if (e.target === el && e.animationName === 'mp-open') el.classList.remove('opening'); };
+    el.addEventListener('animationend', done);
+    return () => el.removeEventListener('animationend', done);
+  }, [!!MU.open]);
+}
+
 export function MusicPanel() {
   const ref = useRef();
   useBake(ref);
+  useOpenFrom(ref);
   const inputRef = useRef();
   const [size, setSize] = useState(null);
   useEffect(() => {
@@ -380,7 +405,7 @@ export function MusicPanel() {
     const x0 = e.clientX, y0 = e.clientY, w0 = w, h0 = h;
     let cur = { w: w0, h: h0 };
     const mv = ev => { cur = { w: Math.round(Math.max(380, Math.min(640, w0 - (ev.clientX - x0)))), h: Math.round(Math.max(420, Math.min(innerHeight - 90, h0 + (ev.clientY - y0)))) }; setSize(cur); };
-    const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); setPref('musicW', cur.w); setPref('musicH', cur.h); setSize(null); };
+    const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); setPref('musicW', cur.w); setPref('musicH', cur.h); setSize(null); glassUpdate(); };
     window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
   };
   const sub = v.kind !== 'home' && v.kind !== 'search';
