@@ -22,10 +22,12 @@ function get(query) {
   return p;
 }
 const dz = path => get(`dz/${path}`);
-const big = o => o?.cover_big || o?.cover_medium || o?.picture_big || o?.picture_medium || '';
-export const artistOf = a => a && ({ id: a.id, name: a.name, img: a.picture_big || a.picture_medium || '', fans: a.nb_fan || 0 });
+// у новых релизов Deezer иногда ещё нет картинки — адрес вида …/cover//250x250… (пустой), такой не берём
+const okImg = u => (u && !/\/(cover|artist)\/\//.test(u) ? u : '');
+const big = o => okImg(o?.cover_big || o?.cover_medium || o?.picture_big || o?.picture_medium);
+export const artistOf = a => a && ({ id: a.id, name: a.name, img: okImg(a.picture_big || a.picture_medium), fans: a.nb_fan || 0 });
 const TYPES = { single: 'Сингл', ep: 'EP', compile: 'Сборник' };
-export const albumOf = (al, artist) => al && ({ id: al.id, title: al.title, img: big(al), small: al.cover_medium || al.cover_small || big(al), year: (al.release_date || '').slice(0, 4),
+export const albumOf = (al, artist) => al && ({ id: al.id, title: al.title, img: big(al), small: okImg(al.cover_medium || al.cover_small) || big(al), year: (al.release_date || '').slice(0, 4),
   type: TYPES[al.record_type] || 'Альбом', single: al.record_type === 'single' || al.record_type === 'ep', count: al.nb_tracks, artist: artistOf(al.artist || artist) });
 export const trackOf = (t, album, i) => t && ({ id: t.id, title: t.title_short || t.title, version: t.title_version || '', dur: t.duration || 0, explicit: !!t.explicit_lyrics,
   preview: t.preview || '', artist: artistOf(t.artist), album: album || albumOf(t.album), n: t.track_position || (i != null ? i + 1 : 0) });
@@ -276,7 +278,7 @@ export async function play(t, list) {
   if (n !== playSeq) return;
   if (!m) { toPreview(); return; }
   // обложка: если у трека нет своей — берём из Telegram
-  if (!t.album?.img && !t.album?.tgThumb) { const a = audioOf(m); t.album = { ...(t.album || {}), tgThumb: a.album_cover_thumbnail?.file || a.external_album_covers?.[0]?.file || null }; }
+  if (!t.album?.tgThumb) { const a = audioOf(m); const th = a.album_cover_thumbnail?.file || a.external_album_covers?.[0]?.file || null; if (th) { t.album = { ...(t.album || {}), tgThumb: th }; changed(); } }
   MU.mode = 'tg'; MU.from = m.chat_id; MU.fromMsg = m.id; MU.loadNote = 'Загружаю из Telegram…';
   const file = audioOf(m).audio;
   download(file, 32);

@@ -185,6 +185,8 @@ export function applyPrefs() {
   // Стекло как в iOS 26 — вид по умолчанию; прозрачность настраивается ползунком.
   root.classList.toggle('glass-bubbles', S.prefs.glassBubbles !== false);
   root.classList.toggle('lg-panels', S.prefs.glass !== false);
+  // стекло можно оставить только у сообщений или только у панелей (Оформление → Жидкое стекло)
+  root.classList.toggle('no-glass-panels', S.prefs.glassPanels === false);
   if (typeof S.prefs.glassTint === 'number') {
     const v = S.prefs.glassTint, dark = palette() === 'night';
     root.style.setProperty('--lg-tint', `rgba(255,255,255,${(dark ? v * .65 : v).toFixed(3)})`);
@@ -204,7 +206,22 @@ export function applyPrefs() {
     root.style.setProperty('--accent-soft', `color-mix(in srgb, ${S.prefs.accent} 14%, transparent)`);
   } else ['--accent', '--accent-select', '--accent-soft'].forEach(v => root.style.removeProperty(v));
   applyTint();
+  applyOutColor();
   applyFonts();
+}
+// «Цвет ваших сообщений» (как «Сообщения» в выборе акцента Telegram для macOS): цвет своих пузырей,
+// текст и подписи в них — тёмные или светлые по яркости цвета.
+function applyOutColor() {
+  const root = document.documentElement, c = S.prefs.outColor;
+  const vars = ['--out-bg', '--out-border', '--out-text', '--out-gray', '--out-link', '--out-reply', '--out-ic-bg', '--out-ic-fg'];
+  if (!c) { if (!S.prefs.tint) vars.forEach(v => root.style.removeProperty(v)); return; }
+  const n = parseInt(c.slice(1), 16), r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255;
+  const light = (.2126 * r + .7152 * g + .0722 * b) / 255 > .62;
+  const set = (k, v) => root.style.setProperty(k, v);
+  set('--out-bg', c); set('--out-border', `color-mix(in srgb, ${c} 85%, #000)`);
+  set('--out-text', light ? '#000' : '#fff'); set('--out-gray', light ? 'rgba(0,0,0,.5)' : 'rgba(255,255,255,.7)');
+  set('--out-link', light ? '#0b5aa6' : '#fff'); set('--out-reply', light ? '#0b5aa6' : '#fff');
+  set('--out-ic-bg', light ? '#0b5aa6' : '#fff'); set('--out-ic-fg', light ? '#fff' : c);
 }
 
 // ── Цвета под фон: акцент, исходящие пузыри и стекло подстраиваются под выбранный фон ──
@@ -534,12 +551,25 @@ export async function loadPinned(chatId) {
 }
 
 // ── действия ──
+// Профиль человека или канала поверх текущего чата (нажали на имя, аватар или «Переслано от»).
+export async function openPeerProfile({ user, chat }) {
+  try {
+    let id = chat;
+    if (user) { const c = await send({ '@type': 'createPrivateChat', user_id: user, force: false }); id = c.id; }
+    if (!id) return;
+    if (!S.chats.get(id)) { const c = await send({ '@type': 'getChat', chat_id: id }); if (c?.id) S.chats.set(c.id, c); }
+    S.thread = null;
+    S.profilePeer = id === S.currentChatId ? null : id;
+    S.profile = true; S.profileClosing = false;
+    changed();
+  } catch (e) { showHud(/PRIVACY|not found|USER_ID/i.test(e.message || '') ? 'Профиль недоступен' : (e.message || 'Профиль недоступен')); }
+}
 export async function selectChat(chatId, opts = {}) {
   if (S.currentChatId === chatId) return;
   const prev = S.currentChatId;
   if (prev) send({ '@type': 'closeChat', chat_id: prev }).catch(() => {});
   S.currentChatId = chatId;
-  S.reply = null; S.editing = null; S.highlight = null; S.profile = false; S.profileClosing = false; S.thread = null; S.chatSearch = null; S.selection = null;
+  S.reply = null; S.editing = null; S.highlight = null; S.profile = false; S.profileClosing = false; S.profilePeer = null; S.thread = null; S.chatSearch = null; S.selection = null;
   changed();
   if (!chatId) return;
   send({ '@type': 'openChat', chat_id: chatId }).catch(() => {});

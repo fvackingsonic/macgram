@@ -146,9 +146,30 @@ function setTone(el, lum) {
   if (t !== el.__tone) { el.__tone = t; el.setAttribute('data-lg', t); }
 }
 
-const BUB = ['.bubble:not(.media):not(.sticker):not(.round):not(.jumbo)', '.bubble.media.with-caption', '.with-comments'].join(', ');
+// + кнопки ботов под сообщением и «Переслать» — тоже стекло, как пузыри
+const BUB = ['.bubble:not(.media):not(.sticker):not(.round):not(.jumbo)', '.bubble.media.with-caption', '.with-comments', '.ikb-btn'].join(', ');
 // строки ленты (сверху вниз), пересекающие полосу [top, bottom] по высоте
+// Сначала ищем видимые дни (секции ленты), строки берём только из них: остальные дни браузер
+// может не раскладывать вовсе (content-visibility: auto) — так длинная история не тормозит.
 function rowsIn(sc, top, bottom, R) {
+  const days = sc.__lgDays || (sc.__lgDays = [...sc.querySelectorAll('.day')]);
+  if (days.length) {
+    let lo = 0, hi = days.length;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (R(days[mid]).bottom < top) lo = mid + 1; else hi = mid; }
+    const out = [];
+    for (let d = lo; d < days.length; d++) {
+      const day = days[d], dr = R(day);
+      if (dr.top > bottom) break;
+      if (day.__lgRowsV !== sc.__lgV || !day.__lgRows) { day.__lgRows = [...day.querySelectorAll(ROWS)]; day.__lgRowsV = sc.__lgV; }
+      for (const row of day.__lgRows) {
+        const rr = R(row);
+        if (rr.bottom < top) continue;
+        if (rr.top > bottom) break;
+        if (rr.height) out.push([row, rr]);
+      }
+    }
+    return out;
+  }
   const list = sc.__lgRows || (sc.__lgRows = [...sc.querySelectorAll(ROWS)]);
   let lo = 0, hi = list.length;
   while (lo < hi) { const mid = (lo + hi) >> 1; if (R(list[mid]).bottom < top) lo = mid + 1; else hi = mid; }
@@ -181,6 +202,7 @@ function update() {
   if (root.__lgW !== ww) { root.__lgW = ww; root.style.setProperty('--wall-w', ww); }
   if (root.__lgH !== wh) { root.__lgH = wh; root.style.setProperty('--wall-h', wh); }
   const H = innerHeight;
+  const noPanels = root.classList.contains('no-glass-panels');
   const rect = new Map();
   const R = el => { let r = rect.get(el); if (!r) { r = el.getBoundingClientRect(); rect.set(el, r); } return r; };
   const scrolls = new Map(); // лента -> [scrollTop, размах прокрутки со знаком]
@@ -223,6 +245,7 @@ function update() {
     // копии сообщений под панелью (там есть свои .glass — кнопка «Поделиться» у постов) — не панели.
     if (p.closest('.lg-feed, .lg-mirror')) continue;
     if (p.classList.contains('mu-glass')) continue; // кнопка музыки — стекло как у пузырей (components/music.js)
+    if (noPanels) { if (p.__tone) setTone(p, ''); continue; } // стекло на панелях выключено в «Оформлении»
     const rb = R(p);
     if (!rb.width) continue;
     seen.add(p);
@@ -235,7 +258,10 @@ function update() {
     const sc = scrollerOf(p);
     const rows = [];
     let st = 0;
-    if (sc) {
+    // под маленькими круглыми кнопками копии сообщений почти не видны — только фон (меньше работы видеокарте)
+    const small = p.classList.contains('circle');
+    if (small !== p.__lgSmall) { p.__lgSmall = small; p.classList.toggle('lg-nofeed', small); }
+    if (sc && !small) {
       st = ST(sc)[0];
       const top = r.top - PAD - 320, bottom = r.bottom + PAD + 320;
       for (const x of rowsIn(sc, top, bottom, R)) if (x[1].right > r.left - PAD && x[1].left < r.right + PAD) rows.push(x);
@@ -343,12 +369,12 @@ new MutationObserver(recs => {
   for (const rec of recs) {
     const t = rec.target.nodeType === 1 ? rec.target : rec.target.parentElement;
     // список чатов слева и полосы прокрутки на стекло ленты не влияют — не пересчитываем из-за них
-    if (!t || t.closest('.lg-mirror, .lg-feed, .sidebar, .sb-track')) continue;
+    if (!t || t.closest('.lg-mirror, .lg-feed, .sidebar, .sb-track, .compose-input, .music-panel, .ctx, .hud, .veil, .cmd-list')) continue;
     if (rec.type === 'childList' && [...rec.addedNodes, ...rec.removedNodes].every(n => n.nodeType === 1 && (n.classList.contains('lg-mirror') || n.classList.contains('lg-feed') || n.classList.contains('lg-bg')))) continue;
     any = true;
     const sc = t.closest('.messages');
     if (sc) {
-      if (rec.type === 'childList') { sc.__lgRows = null; sc.__lgSeps = null; }
+      if (rec.type === 'childList') { sc.__lgRows = null; sc.__lgSeps = null; sc.__lgDays = null; sc.__lgV = (sc.__lgV || 0) + 1; }
       const row = t.closest(ROWS) || t.closest('.date-sep');
       if (row) row.__lgV = (row.__lgV || 0) + 1;
     }

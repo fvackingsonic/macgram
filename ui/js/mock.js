@@ -15,7 +15,7 @@ export function createMock(dispatch) {
     { id: 13, first_name: 'Олег', last_name: '', status: { '@type': 'userStatusRecently' } },
     { id: 14, first_name: 'Анна', last_name: 'Савчук', status: { '@type': 'userStatusOffline', was_online: now - 600 } },
     { id: 15, first_name: 'Ира', last_name: 'Бондарь', status: { '@type': 'userStatusLastWeek' } },
-    { id: 16, first_name: 'Погода', last_name: 'Бот', type: { '@type': 'userTypeBot' }, status: { '@type': 'userStatusEmpty' } },
+    { id: 16, first_name: 'Погода', last_name: 'Бот', usernames: { active_usernames: ['weather_demo_bot'] }, type: { '@type': 'userTypeBot' }, status: { '@type': 'userStatusEmpty' } },
   ].map(u => ({ '@type': 'user', type: { '@type': 'userTypeRegular' }, accent_color_id: u.id % 7, ...u }));
 
   const msg = (chat_id, id, from, text, date, extra = {}) => ({
@@ -61,6 +61,7 @@ export function createMock(dispatch) {
       msg(-100, 305, 15, 'Я опоздаю на полчаса', now - H),
       msg(-100, 306, ME, 'Отлично, тогда в 12 у входа', now - 50 * 60),
       msg(-100, 307, 13, 'Договорились', now - 20 * 60),
+      msg(-100, 308, 14, 'Во Львове завтра +21°, солнечно ☀️', now - 10 * 60, { via_bot_user_id: 16, forward_info: { origin: { '@type': 'messageOriginUser', sender_user_id: 11 }, date: now - D } }),
     ],
     [-200]: [
       msg(-200, 401, -200, 'Новости недели: вышло крупное обновление. Рассказываем, что изменилось и как этим пользоваться.', now - 5 * H, { interaction_info: { view_count: 12400, reply_info: { reply_count: 3, recent_replier_ids: [{ '@type': 'messageSenderUser', user_id: 11 }, { '@type': 'messageSenderUser', user_id: 14 }, { '@type': 'messageSenderUser', user_id: 13 }], last_message_id: 8003, last_read_inbox_message_id: 8001 } } }),
@@ -83,7 +84,10 @@ export function createMock(dispatch) {
       msg(-300, 9005, 15, 'При перетаскивании папок иногда мигает', now - 15 * 60, { topic_id: { '@type': 'messageTopicForum', forum_topic_id: 4 } }),
     ],
     13: [msg(13, 601, 13, 'Скинул файлы в облако', now - 3 * D)],
-    16: [msg(16, 701, 16, 'Сегодня +18°, без осадков ☀️', now - 6 * H)],
+    16: [msg(16, 700, ME, '/start', now - 6 * H - 60, { content: fmt('/start', [{ '@type': 'textEntity', offset: 0, length: 6, type: { '@type': 'textEntityTypeBotCommand' } }]) }),
+      msg(16, 701, 16, '', now - 6 * H, { content: fmt('Сегодня +18°, без осадков ☀️\nНажмите /forecast, чтобы узнать прогноз на неделю.', [{ '@type': 'textEntity', offset: 37, length: 9, type: { '@type': 'textEntityTypeBotCommand' } }]),
+        reply_markup: { '@type': 'replyMarkupInlineKeyboard', rows: [[{ text: 'Завтра', type: { '@type': 'inlineKeyboardButtonTypeCallback', data: 'MQ==' } }, { text: 'Неделя', type: { '@type': 'inlineKeyboardButtonTypeCallback', data: 'Mg==' } }], [{ text: 'Открыть сайт', type: { '@type': 'inlineKeyboardButtonTypeUrl', url: 'https://example.com' } }]] } }),
+      msg(16, 702, 16, 'Выберите город:', now - 6 * H + 30, { reply_markup: { '@type': 'replyMarkupShowKeyboard', rows: [[{ text: 'Киев', type: { '@type': 'keyboardButtonTypeText' } }, { text: 'Львов', type: { '@type': 'keyboardButtonTypeText' } }], [{ text: 'Отправить мой номер', type: { '@type': 'keyboardButtonTypeRequestPhoneNumber' } }]], resize_keyboard: true } })],
   };
   // Музыка для мини-плеера: аудио-посты в канале и в чате (файлы — window.__mockFiles[950…]).
   const song = (chat, id, performer, title, dur, ago) => msg(chat, id, chat, '', now - ago, { content: { '@type': 'messageAudio', caption: { text: '', entities: [] }, audio: {
@@ -112,7 +116,7 @@ export function createMock(dispatch) {
     { id: -100, title: 'Субботняя встреча', type: { '@type': 'chatTypeBasicGroup', basic_group_id: 100 }, unread_count: 1, accent_color_id: 3 },
     { id: 12, title: 'Дмитрий Ли', type: { '@type': 'chatTypePrivate', user_id: 12 }, unread_count: 0, last_read_outbox_message_id: 202 },
     { id: -200, title: 'Новости технологий', type: { '@type': 'chatTypeSupergroup', supergroup_id: 200, is_channel: true }, unread_count: 24, muted: true, accent_color_id: 5 },
-    { id: 16, title: 'Погода Бот', type: { '@type': 'chatTypePrivate', user_id: 16 }, unread_count: 0 },
+    { id: 16, title: 'Погода Бот', type: { '@type': 'chatTypePrivate', user_id: 16 }, unread_count: 0, reply_markup_message_id: 702 },
     { id: ME, title: 'Алекс', type: { '@type': 'chatTypePrivate', user_id: ME }, unread_count: 0 },
     { id: 13, title: 'Олег', type: { '@type': 'chatTypePrivate', user_id: 13 }, unread_count: 0, last_read_outbox_message_id: 0 },
     { id: -300, title: 'Клуб разработчиков', type: { '@type': 'chatTypeSupergroup', supergroup_id: 300, is_channel: false }, unread_count: 3, accent_color_id: 2 },
@@ -121,7 +125,7 @@ export function createMock(dispatch) {
     const last = list[list.length - 1];
     return {
       '@type': 'chat', id: c.id, title: c.title, type: c.type, unread_count: c.unread_count, unread_mention_count: 0,
-      last_read_outbox_message_id: c.last_read_outbox_message_id ?? 999999, last_read_inbox_message_id: 0,
+      last_read_outbox_message_id: c.last_read_outbox_message_id ?? 999999, last_read_inbox_message_id: 0, reply_markup_message_id: c.reply_markup_message_id || 0,
       accent_color_id: c.accent_color_id ?? Math.abs(c.id) % 7,
       notification_settings: { '@type': 'chatNotificationSettings', use_default_mute_for: !c.muted, mute_for: c.muted ? 2147483647 : 0 },
       permissions: { can_send_basic_messages: true },
@@ -287,7 +291,16 @@ export function createMock(dispatch) {
           const lq = q.query.toLowerCase();
           return reply({ '@type': 'chats', chat_ids: chats.filter(c => c.title.toLowerCase().includes(lq)).map(c => c.id) });
         }
-        case 'getUserFullInfo': return reply({ '@type': 'userFullInfo', bio: { '@type': 'formattedText', text: 'Дизайнер. Люблю кофе и горы ☕️', entities: [] } }, 150);
+        case 'getUserFullInfo': return reply({ '@type': 'userFullInfo', bio: { '@type': 'formattedText', text: 'Дизайнер. Люблю кофе и горы ☕️', entities: [] },
+          bot_info: q.user_id === 16 ? { description: 'Погода в вашем городе каждое утро. Нажмите «Начать».', commands: [{ command: 'start', description: 'Начать' }, { command: 'forecast', description: 'Прогноз на неделю' }, { command: 'city', description: 'Сменить город' }], menu_button: null } : null }, 150);
+        case 'getCallbackQueryAnswer': return reply({ '@type': 'callbackQueryAnswer', text: 'Завтра +21°, солнечно', show_alert: false, url: '' }, 200);
+        case 'createPrivateChat': {
+          let c = chats.find(x => x.type.user_id === q.user_id);
+          const u = users.find(x => x.id === q.user_id);
+          if (!c && u) { c = { '@type': 'chat', id: u.id, title: `${u.first_name} ${u.last_name || ''}`.trim(), type: { '@type': 'chatTypePrivate', user_id: u.id }, positions: [], permissions: { can_send_basic_messages: true }, notification_settings: { use_default_mute_for: true }, accent_color_id: u.id % 7 }; chats.push(c); dispatch({ '@type': 'updateNewChat', chat: c }); }
+          return c ? reply(c) : err(400, 'USER_NOT_FOUND');
+        }
+        case 'getChat': { const c = chats.find(x => x.id === q.chat_id); return c ? reply(c) : err(400, 'CHAT_NOT_FOUND'); }
         case 'searchPublicChats': return reply({ '@type': 'chats', total_count: 1, chat_ids: q.query ? [-900] : [] }, 200);
         case 'getPublicPostSearchLimits': return reply({ '@type': 'publicPostSearchLimits', daily_free_query_count: 0, remaining_free_query_count: 0, next_free_query_in: 3600, star_count: 10, is_current_query_free: false });
         case 'getMessage': { const m = (hist[q.chat_id] || []).find(x => x.id === q.message_id); return m ? reply(m) : err(404, 'Not Found'); }

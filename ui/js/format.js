@@ -185,8 +185,10 @@ function wrap(type, child, full, onLink) {
     case 'textEntityTypeUrl': return link(/^[a-z]+:\/\//i.test(full) ? full : `https://${full}`);
     case 'textEntityTypeEmailAddress': return link(`mailto:${full}`);
     case 'textEntityTypeMention': return link(`https://t.me/${full.slice(1)}`);
-    case 'textEntityTypeMentionName': case 'textEntityTypeHashtag': case 'textEntityTypeCashtag': case 'textEntityTypeBotCommand':
-      return html`<a onClick=${e => e.preventDefault()}>${child}</a>`;
+    // команды ботов (/start), упоминания без @username, хэштеги — работают внутри macgram (links.js)
+    case 'textEntityTypeBotCommand': return link(`macgram:cmd:${full}`);
+    case 'textEntityTypeMentionName': return link(`macgram:user:${type.user_id}`);
+    case 'textEntityTypeHashtag': case 'textEntityTypeCashtag': return link(`macgram:tag:${full}`);
     default: return child;
   }
 }

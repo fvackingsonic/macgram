@@ -3,7 +3,7 @@
 //  • ссылка, у которой видимый текст не совпадает с адресом, — сначала спрашиваем (защита от подмены);
 //  • остальное — в браузере, только http(s) и mailto.
 import { html } from './lib.js';
-import { S, changed, openModal, closeModal, showHud, selectChat, jumpTo } from './store.js';
+import { S, changed, openModal, closeModal, showHud, selectChat, jumpTo, sendText, openPeerProfile } from './store.js';
 import { send, shell } from './td.js';
 
 const SAFE = /^(https?:|mailto:)/i;
@@ -46,8 +46,23 @@ async function openInternal(t) {
   } catch (e) { showHud(e.message?.includes('USERNAME') ? 'Такого пользователя или канала нет' : (e.message || 'Не удалось открыть ссылку')); }
 }
 
+// Внутренние ссылки macgram: команда бота, упоминание человека, хэштег.
+function openOwn(url) {
+  const [, kind, ...rest] = url.split(':');
+  const v = rest.join(':');
+  const chatId = S.thread && !S.thread.closing ? S.thread.chatId : S.currentChatId;
+  if (kind === 'cmd') {
+    if (!chatId) return;
+    sendText(chatId, v).catch(e => showHud(e.message));
+    return;
+  }
+  if (kind === 'user') { openPeerProfile({ user: Number(v) }); return; }
+  if (kind === 'tag') { if (!chatId) return; S.chatSearch = { chatId, q: v, results: [], index: -1, total: 0, auto: true }; changed(); }
+}
+
 export function openLink(url, shownText = '') {
   if (!url) return;
+  if (url.startsWith('macgram:')) { openOwn(url); return; }
   const tg = parseTg(url);
   if (tg) { openInternal(tg); return; }
   if (!SAFE.test(url)) { showHud('Такие ссылки не открываются из соображений безопасности'); return; }

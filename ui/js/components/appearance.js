@@ -19,6 +19,10 @@ export function Page({ title, back = null, right, children }) {
   </div>`;
 }
 const Switch = ({ on, onChange }) => html`<span class=${`switch ${on ? 'on' : ''}`} onClick=${e => { e.stopPropagation(); onChange(!on); }}><i/></span>`;
+const Tog = ({ k, label, hint, def = true }) => html`<div class="item"><span class="lbl">${label}${hint && html`<small>${hint}</small>`}</span><${Switch} on=${(S.prefs[k] ?? def) === true} onChange=${v => setPref(k, v)}/></div>`;
+const seg = (k, opts, def) => html`<div class="seg">${opts.map(([v, l]) => html`<button class=${(S.prefs[k] ?? def) === v ? 'on' : ''} onClick=${() => setPref(k, v)}>${l}</button>`)}</div>`;
+// «Сообщения» в выборе акцента Telegram для macOS — цвет своих пузырей
+const OUT_COLORS = [null, '#4a95d6', '#2ea6ff', '#8e6ff7', '#e86b9f', '#f08a4b', '#3fb46d', '#3e4a5c'];
 const Check = () => html`<span style="color:var(--accent);display:flex">${Icon.check(14)}</span>`;
 
 // Темы Telegram для macOS: Day Classic, Day, Night Tinted, Night.
@@ -58,7 +62,7 @@ function resetAppearance() {
   openModal({
     title: 'Сбросить оформление?', text: 'Тема, цвета, размер текста, пузыри, автоночь и значок вернутся к стандартным.',
     buttons: [
-      { label: 'Сбросить', kind: 'danger', action: () => { closeModal(); for (const k of ['theme', 'dayTheme', 'nightTheme', 'accent', 'bubbles', 'fontSize', 'autoNight', 'nightFrom', 'nightTo', 'appIcon', 'autoTint', 'glassBubbles', 'glassTint', 'wallFit', 'tint']) setPref(k, k === 'fontSize' ? 14 : k === 'appIcon' ? 'blue' : undefined); showHud('Оформление сброшено'); } },
+      { label: 'Сбросить', kind: 'danger', action: () => { closeModal(); for (const k of ['theme', 'dayTheme', 'nightTheme', 'accent', 'bubbles', 'fontSize', 'autoNight', 'nightFrom', 'nightTo', 'appIcon', 'autoTint', 'glassBubbles', 'glassPanels', 'glassTint', 'wallFit', 'tint', 'outColor']) setPref(k, k === 'fontSize' ? 14 : k === 'appIcon' ? 'blue' : undefined); showHud('Оформление сброшено'); } },
       { label: 'Отмена', kind: 'second', action: closeModal },
     ],
   });
@@ -72,6 +76,8 @@ export function Appearance() {
   const nameColor = NAME_COLORS[(me?.accent_color_id ?? 5) % 7];
   const colorRef = useRef();
   const custom = S.prefs.accent && !ACCENTS.includes(S.prefs.accent) ? S.prefs.accent : null;
+  const outRef = useRef();
+  const outCustom = S.prefs.outColor && !OUT_COLORS.includes(S.prefs.outColor) ? S.prefs.outColor : null;
   const size = S.prefs.fontSize || 14;
   const more = e => { const r = e.currentTarget.getBoundingClientRect(); openMenu(r.right - 210, r.bottom + 4, [{ label: 'Сбросить оформление', icon: Icon.menu('menu_clear_history'), danger: true, action: resetAppearance }]); };
   return html`<${Page} title="Оформление" right=${html`<button class="sp-more" title="Ещё" onClick=${more}>${Icon.more(18)}</button>`}>
@@ -88,11 +94,6 @@ export function Appearance() {
     <div class="group">
       <div class="item"><span class="lbl">Тёмный режим</span><${Switch} on=${dark} onChange=${v => pickTheme(v ? (S.prefs.nightTheme === 'black' ? 'black' : 'night') : (['classic', 'day'].includes(S.prefs.dayTheme) ? S.prefs.dayTheme : 'classic'))}/></div>
       <div class="item"><span class="lbl">Пузыри сообщений</span><${Switch} on=${S.prefs.bubbles !== false} onChange=${v => setPref('bubbles', v)}/></div>
-      ${S.prefs.bubbles !== false && html`<div class="item"><span class="lbl">Стеклянные пузыри<small>Как Liquid Glass в iOS 26 — стандартный вид macgram${S.glassBake ? ` · стекло: ${S.glassBake === 'ok' ? 'работает' : S.glassBake}` : ''}</small></span><${Switch} on=${S.prefs.glassBubbles !== false} onChange=${v => setPref('glassBubbles', v)}/></div>`}
-      <div class="item ap-glass">
-        <div class="ap-glass-top"><span class="lbl">Прозрачность стекла</span>${typeof S.prefs.glassTint === 'number' && html`<button class="sel-btn" onClick=${() => setPref('glassTint', undefined)}>Стандарт</button>`}</div>
-        <input type="range" min="0" max="45" step="1" value=${Math.round(45 - (S.prefs.glassTint ?? .06) * 100)} onInput=${e => setPref('glassTint', (45 - Number(e.target.value)) / 100)}/>
-      </div>
       ${S.prefs.bubbles !== false && html`<div class="item wrap"><span class="lbl">Фон-картинка</span><div class="seg">${[['cover', 'Заполнить'], ['contain', 'Целиком'], ['width', 'По ширине'], ['center', 'Как есть']].map(([v, l]) => html`<button class=${(S.prefs.wallFit || 'cover') === v ? 'on' : ''} onClick=${() => setPref('wallFit', v)}>${l}</button>`)}</div></div>`}
       ${S.prefs.bubbles !== false && html`<button class="item" onClick=${() => go('wallpaper')}><span class="lbl">Фон чата</span><span class="chev">${Icon.chevron(11)}</span></button>`}
       <div class="item"><span class="lbl">Цвета под фон<small>${S.prefs.tint ? 'Цвета темы подобраны под ваш фон' : S.wallTint ? 'Подобрать акцент, свои сообщения и панели под цвет фона' : 'Сначала поставьте свой фон'}</small></span>
@@ -100,6 +101,35 @@ export function Appearance() {
         ${S.prefs.tint ? html`<button class="sel-btn" onClick=${() => { setPref('tint', null); showHud('Цвета темы — стандартные'); }}>Сбросить</button>`
           : html`<button class="sel-btn" disabled=${!S.wallTint} onClick=${() => { setPref('tint', S.wallTint); showHud('Цвета подобраны под фон'); }}>Подобрать</button>`}</div>
       <button class="item" onClick=${() => go('namecolor')}><span class="lbl">Цвет вашего имени</span><span class="ap-dot" style=${`background:${nameColor[0]}`}/><span class="chev">${Icon.chevron(11)}</span></button>
+    </div>
+
+    <div class="pane-sec">Жидкое стекло</div>
+    <div class="group">
+      ${S.prefs.bubbles !== false && html`<div class="item"><span class="lbl">Стекло в сообщениях<small>Пузыри, кнопки ботов и «Переслать» — как Liquid Glass в iOS 26${S.glassBake && S.glassBake !== 'ok' ? ` · ${S.glassBake}` : ''}</small></span><${Switch} on=${S.prefs.glassBubbles !== false} onChange=${v => setPref('glassBubbles', v)}/></div>`}
+      <div class="item"><span class="lbl">Стекло на панелях и кнопках<small>Шапка чата, поле ввода, кнопки сверху и снизу, плеер с нотой</small></span><${Switch} on=${S.prefs.glassPanels !== false} onChange=${v => setPref('glassPanels', v)}/></div>
+      ${(S.prefs.glassBubbles !== false || S.prefs.glassPanels !== false) && html`<div class="item ap-glass">
+        <div class="ap-glass-top"><span class="lbl">Прозрачность стекла</span>${typeof S.prefs.glassTint === 'number' && html`<button class="sel-btn" onClick=${() => setPref('glassTint', undefined)}>Стандарт</button>`}</div>
+        <input type="range" min="0" max="45" step="1" value=${Math.round(45 - (S.prefs.glassTint ?? .06) * 100)} onInput=${e => setPref('glassTint', (45 - Number(e.target.value)) / 100)}/>
+      </div>`}
+    </div>
+    <div class="sp-hint" style="padding:0 18px">Можно оставить стекло только у сообщений или только у панелей. Если программа всё равно подтормаживает — выключите «Эффекты стекла и анимации» внизу.</div>
+
+    <div class="pane-sec">Цвет ваших сообщений</div>
+    <div class="accent-row">
+      ${OUT_COLORS.map(c => html`<button class=${`accent-dot ${(S.prefs.outColor || null) === c ? 'on' : ''}`} style=${`background:${c || 'conic-gradient(var(--out-bg) 0 50%, #eeffde 0)'}`} title=${c ? '' : 'Как в теме'} onClick=${() => setPref('outColor', c)}/>`)}
+      <button class=${`accent-dot custom ${outCustom ? 'on' : ''}`} title="Свой цвет" style=${outCustom ? `background:${outCustom}` : ''} onClick=${() => outRef.current?.click()}>${!outCustom && Icon.plus(12)}</button>
+      <input ref=${outRef} type="color" class="hidden-input" value=${outCustom || '#4a95d6'} onInput=${e => setPref('outColor', e.target.value)}/>
+    </div>
+
+    <div class="pane-sec">Чаты</div>
+    <div class="group">
+      <div class="item wrap"><span class="lbl">Отправлять по</span>${seg('sendKey', [['enter', 'Enter'], ['ctrl', 'Ctrl + Enter']], 'enter')}</div>
+      <${Tog} k="bigEmoji" label="Большие смайлики" hint="Сообщение из 1–3 смайликов без текста — крупно"/>
+      <${Tog} k="animStickers" label="Анимированные стикеры"/>
+      <${Tog} k="autoplayGif" label="Автовоспроизведение GIF"/>
+      <${Tog} k="autoplayNotes" label="Автовоспроизведение кружочков"/>
+      <${Tog} k="linkPreview" label="Предпросмотр ссылок" hint="Карточка ссылки в отправленных сообщениях"/>
+      <${Tog} k="spellcheck" label="Проверка орфографии"/>
     </div>
 
     <div class="pane-sec">Размер текста</div>

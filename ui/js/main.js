@@ -29,7 +29,7 @@ window.addEventListener('mouseup', e => {
   e.preventDefault();
   if (S.viewer || S.modal || S.menu) return;
   if (S.thread) { closeThread(); return; }
-  if (S.profile) { S.profileClosing = true; changed(); setTimeout(() => { S.profile = false; S.profileClosing = false; changed(); }, 380); return; }
+  if (S.profile) { S.profileClosing = true; changed(); setTimeout(() => { S.profile = false; S.profileClosing = false; S.profilePeer = null; changed(); }, 380); return; }
   if (S.tab === 'settings' && S.settingsPage) { S.settingsPage = SETTINGS_PARENT[S.settingsPage] || null; changed(); }
 });
 import { LockScreen } from './components/lock.js';

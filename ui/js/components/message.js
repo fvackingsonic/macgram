@@ -2,7 +2,7 @@ import { html, useEffect, useLayoutEffect, useState, useRef, memo } from '../lib
 import { insertAtBottom } from '../mac-anim.js';
 import { openLink } from '../links.js';
 import { InlineKeyboard } from './keyboards.js';
-import { S, changed, useTick, jumpTo, download, fileUrl, fileOf, senderName, senderId, openMenu, openModal, closeModal, showHud, deleteMessages, isGroup, isChannel, chatUser } from '../store.js';
+import { S, changed, useTick, jumpTo, download, fileUrl, fileOf, senderName, senderId, openMenu, openModal, closeModal, showHud, deleteMessages, isGroup, isChannel, chatUser, openPeerProfile, selectChat } from '../store.js';
 import { send, shell } from '../td.js';
 import { Icon } from '../icons.js';
 import { MI } from '../mac-icons.js';
@@ -310,7 +310,7 @@ function AlbumRowView({ msgs, chat, first, last }) {
     { label: 'Удалить альбом', icon: Icon.trash(), danger: true, action: () => deleteMessages(chat.id, msgs.map(m => m.id), true).catch(err => showHud(err.message)) },
   ]); };
   return html`<div data-mid=${lead.id} class=${`msg-row ${out ? 'out' : 'in'} ${first ? 'first' : ''} ${last ? 'last' : ''}`} onContextMenu=${onContext}>
-    ${group && !out && html`<div class="av-slot">${last && sender && html`<${Avatar} user=${sender} size=${34}/>`}</div>`}
+    ${group && !out && html`<div class="av-slot" onClick=${e => last && openSender(e, lead.sender_id)}>${last && sender && html`<${Avatar} user=${sender} size=${34}/>`}</div>`}
     <div class=${`bubble media album ${capMsg ? 'with-caption' : ''}`} style=${`width:${W}px`}>
       ${rows.map(row => {
         const ars = row.map(m => { const i = mediaInfo(m); return i.w / i.h; });
@@ -350,8 +350,9 @@ function Upload({ msg }) {
 function Body({ msg, showName, chat }) {
   const c = msg.content;
   const t = c['@type'];
-  const nameEl = showName && html`<div class="sender" style=${`color:${nameColor(peerIndex(senderId(msg.sender_id)))}`}>${senderName(msg.sender_id) || chat.title}</div>`;
-  const fwd = msg.forward_info && html`<div class="sender" style="font-weight:500;opacity:.85">Переслано от ${forwardName(msg.forward_info)}</div>`;
+  const via = msg.via_bot_user_id && S.users.get(msg.via_bot_user_id)?.usernames?.active_usernames?.[0];
+  const nameEl = (showName || via) && html`<div class="sender">${showName && html`<span class="peer-link" style=${`color:${nameColor(peerIndex(senderId(msg.sender_id)))}`} onClick=${e => openSender(e, msg.sender_id)}>${senderName(msg.sender_id) || chat.title}</span>`}<${ViaBot} msg=${msg}/></div>`;
+  const fwd = msg.forward_info && html`<div class="sender fwd-from">Переслано от <span class="peer-link" onClick=${e => openForwardOrigin(e, msg.forward_info)}>${forwardName(msg.forward_info)}</span></div>`;
   const meta = html`<${Meta} msg=${msg} chat=${chat}/>`;
   switch (t) {
     case 'messageText': {
@@ -415,6 +416,28 @@ function Reactions({ msg }) {
     return html`<button class=${`reaction ${r.is_chosen ? 'on' : ''}`} key=${emoji} onClick=${e => { e.stopPropagation(); if (r.type?.emoji) toggleReaction(msg, emoji, r.is_chosen); }}>
       <span class="r-emoji">${emoji}</span><span>${r.total_count}</span></button>`;
   })}</div>`;
+}
+
+// Нажали на отправителя (имя, аватар): профиль человека или канала поверх чата.
+const peerOf = sid => (sid?.user_id ? { user: sid.user_id } : sid?.chat_id ? { chat: sid.chat_id } : null);
+const openSender = (e, sid) => { e.stopPropagation(); const p = peerOf(sid); if (p) openPeerProfile(p); };
+// «Переслано от»: человек — его профиль (если он не скрыл аккаунт), канал/чат — открыть его на этом посте.
+function openForwardOrigin(e, fi) {
+  e.stopPropagation();
+  const o = fi.origin || {};
+  if (o['@type'] === 'messageOriginUser') return openPeerProfile({ user: o.sender_user_id });
+  if (o['@type'] === 'messageOriginHiddenUser') return showHud(`${o.sender_name} скрыл ссылку на свой аккаунт`);
+  const cid = o.chat_id || o.sender_chat_id;
+  if (!cid) return;
+  if (o['@type'] === 'messageOriginChannel' && o.message_id) { selectChat(cid).then(() => setTimeout(() => jumpTo(cid, o.message_id), 300)).catch(() => openPeerProfile({ chat: cid })); return; }
+  openPeerProfile({ chat: cid });
+}
+// «via @bot» — сообщение отправлено через встроенного бота; нажатие вставляет @бота в поле ввода
+function ViaBot({ msg }) {
+  const bot = msg.via_bot_user_id ? S.users.get(msg.via_bot_user_id) : null;
+  const name = bot?.usernames?.active_usernames?.[0];
+  if (!name) return null;
+  return html` <span class="via-bot" onClick=${e => { e.stopPropagation(); const el = document.querySelector('.compose-input'); if (el) { el.value = `@${name} `; el.dispatchEvent(new Event('input', { bubbles: true })); el.focus(); } }}>via <b>@${name}</b></span>`;
 }
 
 function forwardName(fi) {
@@ -543,7 +566,7 @@ function MessageRowView({ msg, chat, first, last, inThread }) {
       onClickCapture=${e => { if (selecting) { e.stopPropagation(); e.preventDefault(); toggleSelected(msg.id); } }}
       onContextMenu=${e => { if (selecting) { e.preventDefault(); return; } onContext(e); }} onDblClick=${() => { if (!selecting && canReply(chat)) { S.reply = msg; changed(); focusComposer(); } }}>
     ${selecting && html`<span class=${`sel-check ${selected ? 'on' : ''}`}>${selected && Icon.check(12)}</span>`}
-    ${showAvatar && html`<div class="av-slot">${last && (sender || senderChat) && html`<${Avatar} user=${sender} chat=${senderChat} size=${34}/>`}</div>`}
+    ${showAvatar && html`<div class="av-slot" onClick=${e => last && openSender(e, msg.sender_id)}>${last && (sender || senderChat) && html`<${Avatar} user=${sender} chat=${senderChat} size=${34}/>`}</div>`}
     ${reacts ? html`<div class="with-reactions">${content}<${Reactions} msg=${msg}/>${kb}</div>` : kb ? html`<div class="with-kb">${content}${kb}</div>` : content}
     ${(share || compactComments) && html`<div class="side-actions">
       ${share && html`<button class="share-btn glass" title="Переслать" onClick=${e => { e.stopPropagation(); openForward(chat.id, [msg.id]); }}>${Icon.forward(16)}</button>`}

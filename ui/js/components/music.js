@@ -36,19 +36,26 @@ const IC = {
 
 // Стекло как у пузырей в чате: под элементом — размытая копия обоев ровно с этого места (как у
 // пузырей, без backdrop-filter), а цвет текста подстраивается под яркость фона (светлый/тёмный).
+// Место элемента без transform (масштаб при открытии, растягивание капсулы) — по раскладке страницы,
+// иначе во время анимации копия фона съезжала.
+function layoutBox(el) {
+  let x = 0, y = 0, e = el;
+  while (e) { x += e.offsetLeft; y += e.offsetTop; e = e.offsetParent; }
+  return { left: x, top: y, width: el.offsetWidth, height: el.offsetHeight };
+}
 export function bakeGlass(el) {
   if (!el?.isConnected) return;
   const root = document.documentElement;
-  if (!root.classList.contains('wall-baked') || root.classList.contains('lite')) { el.removeAttribute('data-lg'); return; }
-  const w = document.querySelector('.window > .wallpaper')?.getBoundingClientRect();
-  if (!w) return;
-  const r = el.getBoundingClientRect();
+  if (!root.classList.contains('wall-baked') || root.classList.contains('lite') || root.classList.contains('no-glass-panels')) { el.removeAttribute('data-lg'); return; }
+  const wall = document.querySelector('.window > .wallpaper');
+  if (!wall) return;
+  const w = layoutBox(wall), r = layoutBox(el);
   el.style.setProperty('--wbx', `${Math.round(w.left - r.left)}px`);
   el.style.setProperty('--wby', `${Math.round(w.top - r.top)}px`);
   const L = window.__lgLum;
   if (L && w.width && w.height) {
-    const x0 = Math.max(0, Math.floor((r.left - w.left) / w.width * L.gw)), x1 = Math.min(L.gw - 1, Math.floor((r.right - w.left) / w.width * L.gw));
-    const y0 = Math.max(0, Math.floor((r.top - w.top) / w.height * L.gh)), y1 = Math.min(L.gh - 1, Math.floor((r.bottom - w.top) / w.height * L.gh));
+    const x0 = Math.max(0, Math.floor((r.left - w.left) / w.width * L.gw)), x1 = Math.min(L.gw - 1, Math.floor((r.left + r.width - w.left) / w.width * L.gw));
+    const y0 = Math.max(0, Math.floor((r.top - w.top) / w.height * L.gh)), y1 = Math.min(L.gh - 1, Math.floor((r.top + r.height - w.top) / w.height * L.gh));
     let sum = 0, n = 0;
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { sum += L.d[y * L.gw + x]; n++; }
     if (n) el.dataset.lg = sum / n < .55 ? 'd' : 'l';
@@ -74,9 +81,15 @@ function TgImg({ file }) {
   const url = f ? fileUrl(f) : '';
   return url ? html`<img src=${url} alt="" draggable="false"/>` : IC.note(18);
 }
-const AlbumCover = ({ al, size, round, big, cls }) => (al?.img || al?.small || !al?.tgThumb
-  ? html`<${Cover} src=${big ? al?.img : al?.small || al?.img} size=${size} round=${round} cls=${cls}/>`
-  : html`<span class=${`mu-cover ${cls || ''}`} style=${size ? `width:${size}px;height:${size}px;border-radius:${round}px` : `border-radius:${round}px`}><${TgImg} file=${al.tgThumb}/></span>`);
+// обложка каталога; не загрузилась или её нет — обложка из Telegram, иначе нота
+function AlbumCover({ al, size, round, big, cls }) {
+  const [bad, setBad] = useState('');
+  const src = big ? al?.img || al?.small : al?.small || al?.img;
+  const box = size ? `width:${size}px;height:${size}px;border-radius:${round}px` : `border-radius:${round}px`;
+  if (src && bad !== src) return html`<span class=${`mu-cover ${cls || ''}`} style=${box}><img src=${src} alt="" loading="lazy" draggable="false" onError=${() => setBad(src)}/></span>`;
+  if (al?.tgThumb) return html`<span class=${`mu-cover ${cls || ''}`} style=${box}><${TgImg} file=${al.tgThumb}/></span>`;
+  return html`<${Cover} src="" size=${size} round=${round} cls=${cls}/>`;
+}
 function Cover({ src, size = 40, round = 8, cls = '' }) {
   return html`<span class=${`mu-cover ${cls}`} style=${size ? `width:${size}px;height:${size}px;border-radius:${round}px` : `border-radius:${round}px`}>
     ${src ? html`<img src=${src} alt="" loading="lazy" draggable="false"/>` : IC.note(size ? Math.round(size * .42) : 44)}</span>`;

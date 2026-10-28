@@ -1,5 +1,5 @@
 import { html, useEffect, useState } from '../lib.js';
-import { S, changed, isMuted, chatTitle, chatUser, isSaved, isChannel, showHud, download, fileUrl, openMenu } from '../store.js';
+import { S, changed, isMuted, chatTitle, chatUser, isSaved, isChannel, showHud, download, fileUrl, openMenu, selectChat } from '../store.js';
 import { send, shell } from '../td.js';
 import { Icon } from '../icons.js';
 import { MI } from '../mac-icons.js';
@@ -55,9 +55,9 @@ export function ProfileScreen({ chat }) {
   }, [chat.id]);
   const close = () => {
     if (S.profileClosing) return;
-    if (S.prefs.glass === false) { S.profile = false; changed(); return; }
+    if (S.prefs.glass === false) { S.profile = false; S.profilePeer = null; changed(); return; }
     S.profileClosing = true; changed();
-    setTimeout(() => { S.profile = false; S.profileClosing = false; changed(); }, 380);
+    setTimeout(() => { S.profile = false; S.profileClosing = false; S.profilePeer = null; changed(); }, 380);
   };
 
   const muted = isMuted(chat);
@@ -106,7 +106,7 @@ export function ProfileScreen({ chat }) {
         <div class="ps-name">${chatTitle(chat)}</div>
         <div class="ps-status">${statusLine}</div>
         <div class="ps-actions">
-          <button onClick=${close}>${Icon.chats(22)}<span>Чат</span></button>
+          <button onClick=${() => (S.profilePeer && S.profilePeer === chat.id ? selectChat(chat.id) : close())}>${Icon.chats(22)}<span>${S.profilePeer === chat.id ? 'Написать' : 'Чат'}</span></button>
           ${user && !isSaved(chat) ? html`
             <button onClick=${soon('Звонки')}>${Icon.calls(21)}<span>Звонок</span></button>
             <button onClick=${soon('Видеозвонки')}>${Icon.video(22)}<span>Видео</span></button>`

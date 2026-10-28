@@ -11,7 +11,7 @@ import { MessageRow, AlbumRow, msgDeps, canReply, focusComposer, isServiceType }
 import { ProfileScreen } from './profile.js';
 import { pickAndSend, pasteImage } from './attach.js';
 import { MediaPanel } from './media-panel.js';
-import { ReplyKeyboard } from './keyboards.js';
+import { ReplyKeyboard, useBots, startBot, openBotMenu, CommandList, BotIntro } from './keyboards.js';
 import { PlayPauseAnim } from './tgs.js';
 import { MI } from '../mac-icons.js';
 import { SelectionBar } from './forward.js';
@@ -37,7 +37,7 @@ export function Main() {
       ? html`<${ForumTopics} chat=${chat} onProfile=${openProfile} onAsChat=${() => { (S.forumAsChat ||= new Set()).add(chat.id); changed(); }}/>`
       : html`<${Chat} key=${chat.id} chat=${chat}/>`}</div>
     <${MusicPanel}/>
-    ${S.profile && html`<div class=${`nav-layer nav-next ${S.profileClosing ? 'out' : ''}`} key=${`p${chat.id}`}><${ProfileScreen} chat=${chat}/></div>`}
+    ${S.profile && html`<div class=${`nav-layer nav-next ${S.profileClosing ? 'out' : ''}`} key=${`p${S.profilePeer || chat.id}`}><${ProfileScreen} chat=${S.chats.get(S.profilePeer) || chat}/></div>`}
     ${!S.profile && S.thread && html`<div class=${`nav-layer nav-next ${S.thread.closing ? 'out' : ''}`} key=${`t${S.thread.sourceChatId || S.thread.chatId}:${S.thread.root?.id || S.thread.topicId}`}><${ThreadScreen}/></div>`}
   </main>`;
 }
@@ -61,6 +61,14 @@ function status(chat) {
     return { text: chat.type.is_channel ? count(g.member_count, 'подписчик', 'подписчика', 'подписчиков') : count(g.member_count, 'участник', 'участника', 'участников') };
   }
   return { text: '' };
+}
+
+// Чат с ботом, где ещё нет сообщений: вместо поля ввода — «Начать», в центре — что умеет бот.
+const botNew = chat => chat.type['@type'] === 'chatTypePrivate' && S.users.get(chat.type.user_id)?.type?.['@type'] === 'userTypeBot' && !chat.last_message && !(S.history.get(chat.id)?.list?.length);
+function BotStart({ chat }) {
+  const b = useBots(chat);
+  if (!b?.isBot || S.history.get(chat.id)?.list?.length) return null;
+  return html`<div class="bot-intro-wrap"><${BotIntro} b=${b}/></div>`;
 }
 
 function Chat({ chat }) {
@@ -97,7 +105,8 @@ function Chat({ chat }) {
       <${PinnedBar} chat=${chat}/>
       <${PlayerBar}/>
     </div>
-    ${S.selection?.chatId === chat.id ? html`<${SelectionBar} chat=${chat}/>` : canReply(chat) ? html`<${Composer} chat=${chat}/>` : html`<div class="composer-wrap"><button class="glass readonly-bar" onClick=${toggleMute}>${muted ? 'Включить звук' : 'Выключить звук'}</button></div>`}
+    <${BotStart} chat=${chat}/>
+    ${S.selection?.chatId === chat.id ? html`<${SelectionBar} chat=${chat}/>` : botNew(chat) ? html`<div class="composer-wrap"><button class="glass readonly-bar bot-start" onClick=${() => startBot(chat)}>Начать</button></div>` : canReply(chat) ? html`<${Composer} chat=${chat}/>` : html`<div class="composer-wrap"><button class="glass readonly-bar" onClick=${toggleMute}>${muted ? 'Включить звук' : 'Выключить звук'}</button></div>`}
   </div>`;
 }
 
@@ -217,6 +226,11 @@ export function Composer({ chat, topic, onSent }) {
   const dkey = topic ? `${chat.id}:${topic.message_thread_id || topic.forum_topic_id}` : chat.id;
   const [text, setText] = useState(() => drafts.get(dkey) ?? (topic ? '' : chat.draft_message?.input_message_text?.text?.text ?? ''));
   const [panel, setPanel] = useState(false);
+  const bots = useBots(chat);
+  const [cmdSel, setCmdSel] = useState(0);
+  const cmdQ = /^\/[\w@]*$/.test(text) ? text.slice(1).toLowerCase() : null;
+  const cmds = cmdQ != null && bots?.commands?.length ? bots.commands.filter(c => c.cmd.toLowerCase().startsWith(cmdQ.split('@')[0])) : [];
+  const pickCmd = c => { sendText(chat.id, `/${c.cmd}${c.bot ? `@${c.bot}` : ''}`, topic ? { topic, onSent } : {}); setText(''); drafts.delete(dkey); };
   const insertEmoji = e => {
     const el = ref.current; if (!el) return;
     const a = el.selectionStart ?? text.length, b = el.selectionEnd ?? text.length;
@@ -278,6 +292,10 @@ export function Composer({ chat, topic, onSent }) {
     setTimeout(() => { el.focus(); el.setSelectionRange(a + mark.length, b + mark.length); }, 0);
   };
   const onKey = e => {
+    if (cmds.length) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setCmdSel(i => (i + (e.key === 'ArrowDown' ? 1 : -1) + cmds.length) % cmds.length); return; }
+      if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') { e.preventDefault(); pickCmd(cmds[Math.min(cmdSel, cmds.length - 1)]); setCmdSel(0); return; }
+    }
     if ((e.ctrlKey || e.metaKey) && !e.altKey) {
       const marks = { KeyB: '**', KeyI: '__', KeyU: '__', KeyM: '`', KeyP: '||' };
       if (e.shiftKey && e.code === 'KeyX') { e.preventDefault(); wrapSel('~~'); return; }
@@ -320,6 +338,7 @@ export function Composer({ chat, topic, onSent }) {
   }
   return html`<div class="composer-wrap">
     <${ReplyKeyboard} chat=${chat}/>
+    <${CommandList} items=${cmds} sel=${Math.min(cmdSel, Math.max(0, cmds.length - 1))} onPick=${pickCmd}/>
     ${panel && html`<${MediaPanel} chatId=${chat.id} onEmoji=${insertEmoji} onClose=${() => setPanel(false)}/>`}
     ${!topic && html`<button class="glass circle" title="Прикрепить файл" onClick=${() => pickAndSend(false)}>${Icon.attach()}</button>`}
     <div class="composer glass">
@@ -329,6 +348,8 @@ export function Composer({ chat, topic, onSent }) {
         <button class="icon-btn gray" onClick=${() => { if (S.editing) setText(''); S.reply = null; S.editing = null; changed(); }}>${Icon.menu('Icon_ChatAction_Close')}</button>
       </div>`}
       <div class="compose-row">
+        ${bots?.menu ? html`<button class="bot-menu-btn" title=${bots.menu.text} onClick=${() => openBotMenu(chat, bots)}>${bots.menu.text}</button>`
+          : bots?.commands?.length && !text ? html`<button class="bot-menu-btn cmd" title="Команды бота" onClick=${() => { setText('/'); setCmdSel(0); ref.current?.focus(); }}>/</button>` : ''}
         <textarea ref=${ref} class="compose-input" rows="1" spellcheck=${S.prefs.spellcheck !== false} placeholder=${isChannel(chat) ? 'Публикация…' : 'Сообщение'} value=${text}
           onInput=${onInput} onKeyDown=${onKey} onPaste=${onPaste}/>
         <button class=${`icon-btn emoji-btn ${panel ? 'active' : ''}`} title="Эмодзи и стикеры" onClick=${() => setPanel(!panel)}>${Icon.smile()}</button>
@@ -478,6 +499,8 @@ function ChatSearch({ chat }) {
     } catch { st.results = []; st.total = 0; st.index = -1; }
     st.loading = false; changed();
   };
+  // открыли поиск по нажатию на хэштег — сразу ищем
+  useEffect(() => { if (st.auto && st.q) { st.auto = false; run(st.q); } }, []);
   const onInput = e => { st.q = e.target.value; changed(); clearTimeout(timer.current); const v = st.q; timer.current = setTimeout(() => run(v), 250); };
   const step = d => {
     if (!st.results.length) return;

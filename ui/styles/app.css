@@ -1563,7 +1563,7 @@ html.glass-bubbles:not(.lite) .msg-row .with-comments .comments-bar::before { ba
 html.glass-bubbles:not(.lite) .msg-row .with-comments .comments-bar:hover { background: rgba(255,255,255,.08); }
 html.glass-bubbles:not(.lite) .msg-row .cb-av { box-shadow: 0 0 0 1.5px rgba(255,255,255,.35); }
 html.glass-bubbles:not(.lite) .msg-row .bubble .doc-sub, html.glass-bubbles:not(.lite) .msg-row .bubble .audio-sub { color: var(--lg-meta) !important; }
-html.glass-bubbles .messages .day, html.wall-baked .messages .day { content-visibility: visible; }
+/* дни вне экрана браузер не раскладывает и не рисует (content-visibility: auto) — стекло берёт строки только из видимых дней */
 html.glass-bubbles .messages { will-change: auto; }
 
 /* при фоне-картинке/узоре: под пузырём — копия обоев ровно с этого места (.lg-bg, ставит glassbake.js).
@@ -1606,7 +1606,7 @@ html.wall-baked:not(.lite) :is(.chat-top, .composer-wrap, .top-bars) .glass:not(
   isolation: isolate; box-shadow: var(--lg-shadow) !important;
 }
 html.wall-baked .chat-header.glass, html.wall-baked .composer.glass, html.wall-baked .pinned-bar.glass, html.wall-baked .readonly-bar.glass,
-html.wall-baked .selection-bar.glass, html.wall-baked .rkb.glass, html.wall-baked .rkb-toggle.glass { position: relative; }
+html.wall-baked .selection-bar.glass { position: relative; }
 .lg-mirror {
   position: absolute; inset: -14px; z-index: -1; pointer-events: none; overflow: hidden; border-radius: 0;
   clip-path: inset(14px round var(--lg-r, 22px));
@@ -1868,26 +1868,26 @@ html.lite .music-panel { background: var(--bg); backdrop-filter: none; -webkit-b
 /* ── плеер и кнопка с нотой: стекло как у пузырей (с фоном-картинкой) ──
    под элементом — размытая копия обоев ровно с этого места (--wbx/--wby ставит components/music.js),
    лёгкая вуаль для читаемости, яркий ободок с бликом; цвет текста — по яркости фона (data-lg). */
-html.wall-baked:not(.lite) .mu-glass { position: relative; isolation: isolate; background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+html.wall-baked:not(.lite):not(.no-glass-panels) .mu-glass { position: relative; isolation: isolate; background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
   box-shadow: var(--lg-shadow) !important; --text: var(--lg-text); --gray-text: color-mix(in srgb, var(--lg-text) 58%, transparent); color: var(--lg-text);
   --mu-veil: rgba(255,255,255,var(--mu-va,.36)); --mu-inv: #fff; }
-html.wall-baked:not(.lite) .mu-glass[data-lg="d"] { --mu-veil: rgba(0,0,0,calc(var(--mu-va,.36) * .85)); --mu-inv: #111; }
-html.wall-baked:not(.lite) .mu-glass[data-lg="l"] { --mu-veil: rgba(255,255,255,calc(var(--mu-va,.36) * 1.05)); --mu-inv: #fff; }
-html.wall-baked:not(.lite) .mu-glass::before { content: ""; position: absolute; inset: 0; z-index: -2; border-radius: inherit; pointer-events: none;
+html.wall-baked:not(.lite):not(.no-glass-panels) .mu-glass[data-lg="d"] { --mu-veil: rgba(0,0,0,calc(var(--mu-va,.36) * .85)); --mu-inv: #111; }
+html.wall-baked:not(.lite):not(.no-glass-panels) .mu-glass[data-lg="l"] { --mu-veil: rgba(255,255,255,calc(var(--mu-va,.36) * 1.05)); --mu-inv: #fff; }
+html.wall-baked:not(.lite):not(.no-glass-panels) .mu-glass::before { content: ""; position: absolute; inset: 0; z-index: -2; border-radius: inherit; pointer-events: none;
   background: linear-gradient(var(--mu-veil), var(--mu-veil)), linear-gradient(var(--lg-tint), var(--lg-tint)), var(--wall-blur) no-repeat;
   background-size: auto, auto, var(--wall-w, 100vw) var(--wall-h, 100vh); background-position: 0 0, 0 0, var(--wbx, -99999px) var(--wby, 0px); }
 /* у кнопок в шапке вуаль слабее — как у пузырей */
 html.wall-baked:not(.lite) .music-btn.mu-glass, html.wall-baked:not(.lite) .music-cap.mu-glass { --mu-veil: transparent; }
-html.wall-baked:not(.lite) .mu-glass::after { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 8;
+html.wall-baked:not(.lite):not(.no-glass-panels) .mu-glass::after { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 8;
   background: linear-gradient(135deg, var(--lg-spec) 0%, var(--lg-line) 22%, var(--lg-line) 78%, var(--lg-spec2) 100%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
           mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; }
 html.wall-baked:not(.lite) .music-panel.mu-glass .mu-ambient { opacity: .22; }
 html.wall-baked:not(.lite) .music-panel.mu-glass { position: absolute; } /* .mu-glass не должен сбивать место панели */
-html.wall-baked:not(.lite) .mu-glass .mu-play { background: var(--lg-text); color: var(--mu-inv); }
-html.wall-baked:not(.lite) .mu-glass .mu-search { background: color-mix(in srgb, var(--lg-text) 10%, transparent); }
-html.wall-baked:not(.lite) .mu-glass .mu-hero, html.wall-baked:not(.lite) .mu-glass .mu-nowcard { background: color-mix(in srgb, var(--lg-text) 7%, transparent); }
-html.wall-baked:not(.lite) .mu-glass[data-lg="d"] .mu-link:not(.sub), html.wall-baked:not(.lite) .mu-glass[data-lg="d"] .mu-row.cur b, html.wall-baked:not(.lite) .mu-glass[data-lg="d"] .mu-back { filter: brightness(1.45) saturate(.85); }
+html.wall-baked:not(.lite):not(.no-glass-panels) .mu-glass .mu-play { background: var(--lg-text); color: var(--mu-inv); }
+html.wall-baked:not(.lite):not(.no-glass-panels) .mu-glass .mu-search { background: color-mix(in srgb, var(--lg-text) 10%, transparent); }
+html.wall-baked:not(.lite):not(.no-glass-panels) .mu-glass .mu-hero, html.wall-baked:not(.lite):not(.no-glass-panels) .mu-glass .mu-nowcard { background: color-mix(in srgb, var(--lg-text) 7%, transparent); }
+html.wall-baked:not(.lite):not(.no-glass-panels) .mu-glass[data-lg="d"] .mu-link:not(.sub), html.wall-baked:not(.lite):not(.no-glass-panels) .mu-glass[data-lg="d"] .mu-row.cur b, html.wall-baked:not(.lite):not(.no-glass-panels) .mu-glass[data-lg="d"] .mu-back { filter: brightness(1.45) saturate(.85); }
 
 /* ── медиатека: избранное и плейлисты ── */
 .mu-row-more { width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-items: center; margin-right: -4px; color: color-mix(in srgb, var(--text) 60%, transparent);
@@ -1916,3 +1916,82 @@ html.wall-baked:not(.lite) .mu-glass[data-lg="d"] .mu-link:not(.sub), html.wall-
 .mu-ask { width: 100%; box-sizing: border-box; height: 36px; margin: 4px 0 2px; padding: 0 12px; border-radius: 10px; font: inherit; font-size: 14px; color: var(--text);
   background: var(--input-bg, rgba(127,127,127,.12)); border: 1px solid var(--border); outline: none; }
 .mu-ask:focus { border-color: var(--accent); }
+
+/* ═══════════════ Боты ═══════════════ */
+/* inline-кнопки под сообщением — как в Telegram для macOS: ряды, промежуток 2px, скругление как у пузыря */
+.with-kb { display: flex; flex-direction: column; max-width: min(480px, 72%); }
+.msg-row.out .with-kb { align-items: flex-end; }
+.with-kb > .bubble, .with-kb > .with-comments { max-width: 100%; }
+.ikb { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; align-self: stretch; min-width: 180px; }
+.ikb-row { display: flex; gap: 2px; }
+.ikb-btn { position: relative; flex: 1; min-width: 0; min-height: 34px; padding: 6px 10px; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 4px;
+  font-size: var(--fs-short, 13px); font-weight: 500; color: #fff; background: var(--service-bg); overflow: hidden; transition: filter .15s, transform .2s var(--spring); }
+.ikb-btn span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ikb-btn:hover { filter: brightness(1.12); }
+.ikb-btn:active { transform: scale(.97); }
+.ikb-row:last-child .ikb-btn:first-child { border-bottom-left-radius: 14px; }
+.ikb-row:last-child .ikb-btn:last-child { border-bottom-right-radius: 14px; }
+.ikb-arrow { position: absolute; top: 3px; right: 5px; font-size: 10px; font-style: normal; opacity: .75; }
+/* со стеклянными пузырями — такое же стекло: копия фона, ободок, текст по яркости */
+html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .ikb-btn { background: var(--lg-tint); color: var(--lg-text); box-shadow: var(--lg-shadow); isolation: isolate; }
+html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .ikb-btn::before, html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .share-btn::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 2;
+  background: linear-gradient(135deg, var(--lg-spec) 0%, var(--lg-line) 22%, var(--lg-line) 78%, var(--lg-spec2) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; }
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .ikb-btn { background: transparent; }
+/* «Переслать» у постов канала — стекло как у пузырей */
+html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .share-btn.glass { position: relative; overflow: hidden; isolation: isolate; color: var(--lg-text);
+  background: var(--lg-tint) !important; box-shadow: var(--lg-shadow) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .share-btn.glass { background: color-mix(in srgb, var(--lg-text) 14%, transparent) !important; }
+.share-btn { cursor: pointer; }
+
+/* клавиатура бота над полем ввода */
+.rkb { position: absolute; left: 56px; right: 56px; bottom: calc(100% + 8px); display: flex; gap: 6px; align-items: flex-start; padding: 6px; border-radius: 18px; z-index: 2; animation: pop .25s var(--spring); }
+.rkb-rows { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto; }
+.rkb-row { display: flex; gap: 4px; }
+.rkb-row button { flex: 1; min-width: 0; min-height: 38px; padding: 6px 10px; border-radius: 12px; font-size: 13.5px; font-weight: 500; color: var(--text);
+  background: color-mix(in srgb, var(--text) 8%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background .15s, transform .2s var(--spring); }
+.rkb-row button:hover { background: color-mix(in srgb, var(--text) 13%, transparent); }
+.rkb-row button:active { transform: scale(.97); }
+.rkb-hide { width: 28px; height: 28px; flex: none; border-radius: 50%; display: grid; place-items: center; color: var(--gray-text); font-size: 12px; }
+.rkb-hide:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.rkb-toggle { position: absolute; right: 56px; bottom: calc(100% + 8px); width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 18px; z-index: 2; }
+/* команды бота: «/» в поле ввода */
+.cmd-list { position: absolute; left: 56px; right: 56px; bottom: calc(100% + 8px); max-height: 260px; overflow-y: auto; padding: 5px; border-radius: 16px; z-index: 3;
+  display: flex; flex-direction: column; animation: pop .22s var(--spring); }
+.cmd-item { display: flex; gap: 10px; align-items: baseline; padding: 7px 10px; border-radius: 10px; text-align: left; color: var(--text); min-width: 0; }
+.cmd-item b { font-weight: 600; font-size: 13.5px; flex: none; }
+.cmd-item b i { font-style: normal; font-weight: 400; color: var(--gray-text); }
+.cmd-item span { flex: 1; min-width: 0; font-size: 12.5px; color: var(--gray-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmd-item.on, .cmd-item:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.bot-menu-btn { flex: none; align-self: center; height: 28px; max-width: 120px; padding: 0 11px; margin-right: 6px; border-radius: 14px; background: var(--accent); color: #fff;
+  font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: transform .2s var(--spring); }
+.bot-menu-btn.cmd { width: 28px; padding: 0; font-size: 15px; }
+.bot-menu-btn:active { transform: scale(.92); }
+.bot-intro-wrap { position: absolute; inset: 70px 20px 80px; display: grid; place-items: center; pointer-events: none; z-index: 1; }
+.bot-intro { max-width: 340px; padding: 14px 16px; border-radius: 18px; text-align: center; pointer-events: auto; color: var(--text); }
+.bot-intro b { display: block; font-size: 14px; margin-bottom: 6px; }
+.bot-intro p { margin: 0; font-size: 13.5px; line-height: 1.45; white-space: pre-wrap; }
+.bot-start { font-size: 15px; letter-spacing: .2px; }
+/* отправитель, «via @бот», «Переслано от» — нажимаются */
+.peer-link { cursor: pointer; }
+.peer-link:hover { text-decoration: underline; }
+.via-bot { font-weight: 400; color: var(--gray-text); cursor: pointer; margin-left: 4px; }
+.via-bot b { font-weight: 600; color: var(--accent); }
+.via-bot:hover b { text-decoration: underline; }
+.fwd-from { font-weight: 500; opacity: .9; }
+.fwd-from .peer-link { font-weight: 600; }
+.msg-row .av-slot > * { cursor: pointer; }
+
+/* ── стекло только у сообщений: панели и кнопки — обычные, плотные ── */
+.lg-nofeed > .lg-feed { display: none; }
+html.no-glass-panels .lg-mirror, html.no-glass-panels .lg-feed { display: none !important; }
+html.no-glass-panels:not(#lg-x) :is(.chat-top, .composer-wrap, .top-bars) .glass:not(.send-btn.ready), html.no-glass-panels:not(#lg-x) .scroll-down.glass,
+html.no-glass-panels:not(#lg-x) .ps-top .glass, html.no-glass-panels:not(#lg-x) .sp-back, html.no-glass-panels:not(#lg-x) .sp-more, html.no-glass-panels:not(#lg-x) .ps-sub-head .glass {
+  background: color-mix(in srgb, var(--bg) 94%, transparent) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,.12), 0 0 0 .5px var(--border) !important; color: var(--text); }
+html.no-glass-panels:not(#lg-x) :is(.chat-top, .composer-wrap, .top-bars) .glass:not(.send-btn.ready)::after, html.no-glass-panels:not(#lg-x) .scroll-down.glass::after { display: none !important; }
+/* текст в клавиатуре и подсказке команд — светлый на тёмном фоне, тёмный на светлом (как у панелей) */
+html.wall-baked:not(.no-glass-panels) :is(.rkb, .cmd-list, .rkb-toggle).glass[data-lg="d"] { --text: #fff; --gray-text: rgba(255,255,255,.66); color: #fff; }
+html.wall-baked:not(.no-glass-panels) :is(.rkb, .cmd-list, .rkb-toggle).glass[data-lg="l"] { --text: #0b0b0c; --gray-text: rgba(0,0,0,.5); color: #0b0b0c; }
+html.no-glass-panels:not(#lg-x) .readonly-bar.glass { color: var(--accent); }
