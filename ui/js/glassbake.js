@@ -222,6 +222,7 @@ function update() {
     if (p.classList.contains('send-btn') && p.classList.contains('ready')) continue;
     // копии сообщений под панелью (там есть свои .glass — кнопка «Поделиться» у постов) — не панели.
     if (p.closest('.lg-feed, .lg-mirror')) continue;
+    if (p.classList.contains('mu-glass')) continue; // кнопка музыки — стекло как у пузырей (components/music.js)
     const rb = R(p);
     if (!rb.width) continue;
     seen.add(p);

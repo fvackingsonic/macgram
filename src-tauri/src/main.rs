@@ -277,6 +277,7 @@ fn main() {
             shell::toast_open,
             desktop::set_badge,
             catalog::catalog_get,
+            catalog::yt_search,
             media::spotify_now,
             media::spotify_ctl,
             media::spotify_volume,

@@ -1882,3 +1882,29 @@ html.lite .music-panel { background: var(--bg); backdrop-filter: none; -webkit-b
 .mv-btn:active:not(:disabled) { transform: scale(.85); }
 .mv-btn:disabled { opacity: .3; }
 @media (prefers-reduced-motion: reduce) { .music-panel, .mu-body, .mu-row, .music-cap, .mu-vslot, .mv-host { animation: none !important; transition: none !important; } }
+
+/* ── плеер и кнопка с нотой: стекло как у пузырей (с фоном-картинкой) ──
+   под элементом — размытая копия обоев ровно с этого места (--wbx/--wby ставит components/music.js),
+   лёгкая вуаль для читаемости, яркий ободок с бликом; цвет текста — по яркости фона (data-lg). */
+html.wall-baked:not(.lite) .mu-glass { position: relative; isolation: isolate; background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  box-shadow: var(--lg-shadow) !important; --text: var(--lg-text); --gray-text: color-mix(in srgb, var(--lg-text) 58%, transparent); color: var(--lg-text);
+  --mu-veil: rgba(255,255,255,.34); --mu-inv: #fff; }
+html.wall-baked:not(.lite) .mu-glass[data-lg="d"] { --mu-veil: rgba(0,0,0,.30); --mu-inv: #111; }
+html.wall-baked:not(.lite) .mu-glass[data-lg="l"] { --mu-veil: rgba(255,255,255,.38); --mu-inv: #fff; }
+html.wall-baked:not(.lite) .mu-glass::before { content: ""; position: absolute; inset: 0; z-index: -2; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(var(--mu-veil), var(--mu-veil)), linear-gradient(var(--lg-tint), var(--lg-tint)), var(--wall-blur) no-repeat;
+  background-size: auto, auto, var(--wall-w, 100vw) var(--wall-h, 100vh); background-position: 0 0, 0 0, var(--wbx, -99999px) var(--wby, 0px); }
+/* у кнопок в шапке вуаль слабее — как у пузырей */
+html.wall-baked:not(.lite) .music-btn.mu-glass, html.wall-baked:not(.lite) .music-cap.mu-glass { --mu-veil: transparent; }
+html.wall-baked:not(.lite) .mu-glass::after { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 8;
+  background: linear-gradient(135deg, var(--lg-spec) 0%, var(--lg-line) 22%, var(--lg-line) 78%, var(--lg-spec2) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; }
+html.wall-baked:not(.lite) .music-panel.mu-glass .mu-ambient { opacity: .22; }
+html.wall-baked:not(.lite) .music-panel.mu-glass { position: absolute; } /* .mu-glass не должен сбивать место панели */
+html.wall-baked:not(.lite) .mu-glass .mu-play { background: var(--lg-text); color: var(--mu-inv); }
+html.wall-baked:not(.lite) .mu-glass .mu-search { background: color-mix(in srgb, var(--lg-text) 10%, transparent); }
+html.wall-baked:not(.lite) .mu-glass .mu-hero, html.wall-baked:not(.lite) .mu-glass .mu-nowcard { background: color-mix(in srgb, var(--lg-text) 7%, transparent); }
+html.wall-baked:not(.lite) .mu-glass[data-lg="d"] .mu-link:not(.sub), html.wall-baked:not(.lite) .mu-glass[data-lg="d"] .mu-row.cur b, html.wall-baked:not(.lite) .mu-glass[data-lg="d"] .mu-back { filter: brightness(1.45) saturate(.85); }
+html.wall-baked:not(.lite) .mv-bar.mu-glass { border-radius: 0 0 16px 16px; }
+html.wall-baked:not(.lite) .mv-bar.mu-glass::after { border-radius: 0 0 16px 16px; }

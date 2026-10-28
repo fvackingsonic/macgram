@@ -91,19 +91,49 @@ function remember(t) {
   try { localStorage.setItem(HK, JSON.stringify(MU.hist)); } catch {}
 }
 
-// ── YouTube: какой ролик играть (song.link находит этот трек на YouTube) ──
-const YK = 'mg.music.yt';
+// ── YouTube: какой ролик играть ──
+// Сначала song.link (точная ссылка по треку Deezer), если её нет — поиск YouTube «исполнитель — название»
+// и выбор лучшего ролика: совпадает название, длительность близка, предпочтение «Official Audio»/канал артиста.
+const YK = 'mg.music.yt2';
 const ytIds = (() => { try { return JSON.parse(localStorage.getItem(YK) || '{}'); } catch { return {}; } })();
+const norm = s => (s || '').toLowerCase().replace(/ё/g, 'е').replace(/\\u0026/g, '&').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+const secs = l => (l || '').split(':').reduce((a, x) => a * 60 + (Number(x) || 0), 0);
+function pick(list, t) {
+  const tt = norm(t.title).replace(/ (feat|ft|with|prod)\b.*$/, ''), ta = norm(t.artist?.name);
+  let best = null, bestScore = -1e9;
+  for (const v of list || []) {
+    const title = norm(v.title), ch = norm(v.channel);
+    let sc = 0;
+    if (tt && title.includes(tt)) sc += 40; else continue;
+    if (ta && (title.includes(ta) || ch.includes(ta))) sc += 25;
+    if (/official audio|audio|topic/.test(`${title} ${ch}`)) sc += 8;
+    if (/official (music )?video|клип/.test(title)) sc += 4;
+    if (/live|концерт|cover|кавер|remix|ремикс|sped up|slowed|nightcore|karaoke|караоке|instrumental|reverb|8d/.test(title) && !/live|remix|cover|instrumental/.test(norm(`${t.title} ${t.version}`))) sc -= 30;
+    const d = secs(v.len);
+    if (d && t.dur) sc -= Math.min(30, Math.abs(d - t.dur) / 4);
+    if (sc > bestScore) { bestScore = sc; best = v; }
+  }
+  return best?.id || '';
+}
 async function ytFor(t) {
-  if (t.id in ytIds) return ytIds[t.id];
+  const c = ytIds[t.id];
+  if (c && typeof c === 'string') return c;
+  if (c && c.none && Date.now() - c.at < 86400000) return '';
   let id = '';
   try {
     const r = await get(`sl/links?url=${encodeURIComponent(`https://www.deezer.com/track/${t.id}`)}&userCountry=UA`);
     const L = r?.linksByPlatform || {};
     const url = L.youtube?.url || L.youtubeMusic?.url || '';
     id = (url.match(/[?&]v=([\w-]{11})/) || url.match(/youtu\.be\/([\w-]{11})/) || [])[1] || '';
-  } catch { return ''; } // сеть/лимит — не запоминаем, попробуем в следующий раз
-  ytIds[t.id] = id;
+  } catch {}
+  if (!id) {
+    try {
+      const q = `${t.artist?.name || ''} ${t.title}${t.version ? ` ${t.version}` : ''}`.trim();
+      const list = T ? await T.core.invoke('yt_search', { query: q }) : window.__mockYt ? window.__mockYt(q) : [];
+      id = pick(list, t);
+    } catch { return ''; } // сеть — не запоминаем, попробуем в следующий раз
+  }
+  ytIds[t.id] = id || { none: true, at: Date.now() };
   try { localStorage.setItem(YK, JSON.stringify(ytIds)); } catch {}
   return id;
 }

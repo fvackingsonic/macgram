@@ -26,6 +26,39 @@ const IC = {
   yt: (s = 14) => SV(s, html`<rect x="3" y="6" width="18" height="12" rx="3.5"/><path d="M10.5 9.6v4.8l4-2.4z" fill="currentColor"/>`),
 };
 
+// Стекло как у пузырей в чате: под элементом — размытая копия обоев ровно с этого места (как у
+// пузырей, без backdrop-filter), а цвет текста подстраивается под яркость фона (светлый/тёмный).
+export function bakeGlass(el) {
+  if (!el?.isConnected) return;
+  const root = document.documentElement;
+  if (!root.classList.contains('wall-baked') || root.classList.contains('lite')) { el.removeAttribute('data-lg'); return; }
+  const w = document.querySelector('.window > .wallpaper')?.getBoundingClientRect();
+  if (!w) return;
+  const r = el.getBoundingClientRect();
+  el.style.setProperty('--wbx', `${Math.round(w.left - r.left)}px`);
+  el.style.setProperty('--wby', `${Math.round(w.top - r.top)}px`);
+  const L = window.__lgLum;
+  if (L && w.width && w.height) {
+    const x0 = Math.max(0, Math.floor((r.left - w.left) / w.width * L.gw)), x1 = Math.min(L.gw - 1, Math.floor((r.right - w.left) / w.width * L.gw));
+    const y0 = Math.max(0, Math.floor((r.top - w.top) / w.height * L.gh)), y1 = Math.min(L.gh - 1, Math.floor((r.bottom - w.top) / w.height * L.gh));
+    let sum = 0, n = 0;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { sum += L.d[y * L.gw + x]; n++; }
+    if (n) el.dataset.lg = sum / n < .55 ? 'd' : 'l';
+  }
+}
+// следить за местом элемента: после появления, анимаций и при изменении окна
+function useBake(ref) {
+  useLayoutEffect(() => {
+    const el = ref.current; if (!el) return;
+    const run = () => bakeGlass(ref.current);
+    run();
+    const t1 = setTimeout(run, 80), t2 = setTimeout(run, 520);
+    el.addEventListener('animationend', run);
+    window.addEventListener('resize', run);
+    return () => { clearTimeout(t1); clearTimeout(t2); el.removeEventListener('animationend', run); window.removeEventListener('resize', run); };
+  });
+}
+
 function Cover({ src, size = 40, round = 8, cls = '' }) {
   return html`<span class=${`mu-cover ${cls}`} style=${size ? `width:${size}px;height:${size}px;border-radius:${round}px` : `border-radius:${round}px`}>
     ${src ? html`<img src=${src} alt="" loading="lazy" draggable="false"/>` : IC.note(size ? Math.round(size * .42) : 44)}</span>`;
@@ -44,10 +77,13 @@ function Ring({ size }) {
 
 // Нота / капсула в шапке (капсулу можно тянуть, как стеклянные кнопки — effects.js).
 export function MusicChip() {
+  const ref = useRef();
+  useBake(ref);
   const on = MU.open && !MU.closing;
   const t = MU.cur;
-  if (!t) return html`<button class=${`glass circle music-btn no-drag ${on ? 'active' : ''}`} title="Музыка" onClick=${e => { e.stopPropagation(); togglePanel(); }}>${IC.note(22)}</button>`;
-  return html`<div class=${`glass music-cap no-drag ${on ? 'active' : ''}`} role="button" title="Музыка" onClick=${e => { e.stopPropagation(); togglePanel(on ? false : true, on ? null : { kind: 'track' }); }}>
+  const g = 'mu-glass';
+  if (!t) return html`<button ref=${ref} class=${`glass circle music-btn no-drag ${g} ${on ? 'active' : ''}`} title="Музыка" onClick=${e => { e.stopPropagation(); togglePanel(); }}>${IC.note(22)}</button>`;
+  return html`<div ref=${ref} class=${`glass music-cap no-drag ${g} ${on ? 'active' : ''}`} role="button" title="Музыка" onClick=${e => { e.stopPropagation(); togglePanel(on ? false : true, on ? null : { kind: 'track' }); }}>
     <span class="mc-art"><${Cover} src=${t.album?.small} size=${32} round=${16}/><${Ring} size=${38}/></span>
     <span class="mc-txt"><b>${t.title}</b><small>${t.artist?.name || ''}</small></span>
     <button class="mc-btn" title=${playing() ? 'Пауза' : 'Играть'} onClick=${e => { e.stopPropagation(); toggle(); }}>${playing() ? IC.pause(16) : IC.play(16)}</button>
@@ -214,6 +250,7 @@ const TITLES = { artist: 'Исполнитель', album: 'Альбом', track:
 // Панель: открывается из ноты, закрывается щелчком мимо или Esc; угол слева снизу — изменить размер.
 export function MusicPanel() {
   const ref = useRef();
+  useBake(ref);
   const inputRef = useRef();
   const [size, setSize] = useState(null);
   useEffect(() => {
@@ -236,7 +273,7 @@ export function MusicPanel() {
     window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
   };
   const sub = v.kind !== 'home' && v.kind !== 'search';
-  return html`<div class=${`music-panel ${MU.closing ? 'out' : ''} ${w > 470 ? 'wide' : ''} view-${v.kind}`} ref=${ref}
+  return html`<div class=${`music-panel mu-glass ${MU.closing ? 'out' : ''} ${w > 470 ? 'wide' : ''} view-${v.kind}`} ref=${ref}
     style=${`width:${w}px;max-height:min(${h}px, calc(100% - var(--gap) * 2 - 64px))${size ? `;height:${h}px` : ''}`}>
     ${v.kind === 'track' && MU.cur?.album?.img && html`<div class="mu-ambient" style=${`background-image:url("${MU.cur.album.img}")`}/>`}
     <div class="mu-head">
@@ -259,6 +296,8 @@ const embed = id => `https://www.youtube-nocookie.com/embed/${id}?${new URLSearc
   enablejsapi: '1', autoplay: '1', controls: '0', disablekb: '1', playsinline: '1', rel: '0', iv_load_policy: '3', fs: '0',
   origin: location.origin, widget_referrer: location.origin })}`;
 
+let bakeT = 0;
+const bakeLater = el => { clearTimeout(bakeT); bakeT = setTimeout(() => bakeGlass(el), 560); };
 export function MusicVideoHost() {
   const host = useRef(), slotBox = useRef(), ifr = useRef(null), dragRef = useRef(null);
   const [pos, setPos] = useState(null);
@@ -299,6 +338,7 @@ export function MusicVideoHost() {
       el.style.width = `${Math.round(r.w)}px`;
       el.style.setProperty('--vh', `${Math.round(r.h)}px`);
       el.dataset.mode = r.mode;
+      if (r.mode === 'mini') { const bar = el.querySelector('.mv-bar'); if (bar) bakeLater(bar); }
       if (performance.now() < until) raf = requestAnimationFrame(place);
     };
     place();
@@ -313,14 +353,14 @@ export function MusicVideoHost() {
     e.currentTarget.setPointerCapture(e.pointerId);
     dragRef.current = { dx, dy, last: null };
     const mv = ev => { const p = { x: ev.clientX - dx, y: ev.clientY - dy }; dragRef.current.last = p; setPos(p); };
-    const up = () => { e.target.removeEventListener('pointermove', mv); e.target.removeEventListener('pointerup', up); host.current?.classList.remove('dragging'); if (dragRef.current.last) setPref('musicMini', dragRef.current.last); };
+    const up = () => { e.target.removeEventListener('pointermove', mv); e.target.removeEventListener('pointerup', up); host.current?.classList.remove('dragging'); if (dragRef.current.last) setPref('musicMini', dragRef.current.last); bakeLater(host.current?.querySelector('.mv-bar')); };
     e.target.addEventListener('pointermove', mv); e.target.addEventListener('pointerup', up);
   };
   const t = MU.cur;
   const visible = yt && (onTrack || mini);
   return html`<div class=${`mv-host ${visible ? 'on' : ''} ${mini ? 'mini' : ''}`} ref=${host} aria-hidden=${visible ? 'false' : 'true'}>
     <div class="mv-video" ref=${slotBox}/>
-    ${t && html`<div class="mv-bar" onPointerDown=${startDrag}>
+    ${t && html`<div class="mv-bar mu-glass" onPointerDown=${startDrag}>
       <span class="mv-txt"><b>${t.title}</b><small>${t.artist?.name || ''}</small></span>
       <button class="mv-btn" title=${playing() ? 'Пауза' : 'Играть'} onClick=${toggle}>${playing() ? IC.pause(16) : IC.play(16)}</button>
       <button class="mv-btn" title="Вперёд" disabled=${!neighbor(1)} onClick=${next}>${IC.next(16)}</button>

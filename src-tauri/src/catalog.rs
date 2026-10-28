@@ -29,3 +29,86 @@ pub async fn catalog_get(query: String) -> Result<serde_json::Value, String> {
     .await
     .map_err(|e| e.to_string())?
 }
+
+/// Найти ролик на YouTube для трека (страница поиска YouTube, только видео). Возвращает до 10
+/// результатов: id, название, канал, длительность — интерфейс выбирает подходящий.
+#[tauri::command]
+pub async fn yt_search(query: String) -> Result<serde_json::Value, String> {
+    if query.trim().is_empty() || query.len() > 300 {
+        return Err("пустой запрос".into());
+    }
+    let q: String = query
+        .bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => (b as char).to_string(),
+            b' ' => "+".to_string(),
+            _ => format!("%{b:02X}"),
+        })
+        .collect();
+    let url = format!("https://www.youtube.com/results?search_query={q}&sp=EgIQAQ%253D%253D");
+    tauri::async_runtime::spawn_blocking(move || -> Result<serde_json::Value, String> {
+        let text = ureq::get(&url)
+            .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36")
+            .set("Accept-Language", "en-US,en;q=0.8,ru;q=0.6")
+            .set("Cookie", "SOCS=CAI; CONSENT=YES+1")
+            .timeout(std::time::Duration::from_secs(12))
+            .call()
+            .map_err(|e| format!("YouTube недоступен: {e}"))?
+            .into_string()
+            .map_err(|e| e.to_string())?;
+        let mut out = Vec::new();
+        let key = "\"videoRenderer\":{\"videoId\":\"";
+        let mut from = 0;
+        while let Some(i) = text[from..].find(key) {
+            let start = from + i + key.len();
+            let id: String = text[start..].chars().take(11).collect();
+            from = start;
+            if id.len() != 11 || out.iter().any(|v: &serde_json::Value| v["id"] == id.as_str()) {
+                continue;
+            }
+            let end = (start + 6000).min(text.len());
+            let end = (0..=end).rev().find(|&k| text.is_char_boundary(k)).unwrap_or(start);
+            let block = &text[start..end];
+            let length = block.find("\"lengthText\":").map(|k| grab(&block[k..], "\"simpleText\":\"")).unwrap_or_default();
+            out.push(serde_json::json!({
+                "id": id,
+                "title": grab(block, "\"title\":{\"runs\":[{\"text\":\""),
+                "channel": grab(block, "\"ownerText\":{\"runs\":[{\"text\":\""),
+                "len": length,
+            }));
+            if out.len() >= 10 {
+                break;
+            }
+        }
+        Ok(serde_json::Value::Array(out))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Строка JSON после `pat` (до закрывающей кавычки), экранирование оставляем как есть.
+fn grab(block: &str, pat: &str) -> String {
+    let Some(k) = block.find(pat) else { return String::new() };
+    let mut res = String::new();
+    let mut esc = false;
+    for c in block[k + pat.len()..].chars() {
+        if esc {
+            res.push('\\');
+            res.push(c);
+            esc = false;
+            continue;
+        }
+        if c == '\\' {
+            esc = true;
+            continue;
+        }
+        if c == '"' {
+            break;
+        }
+        res.push(c);
+        if res.len() > 400 {
+            break;
+        }
+    }
+    res
+}
