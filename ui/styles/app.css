@@ -1619,7 +1619,7 @@ html.wall-baked:not(.lite) .top-bars .glass, html.wall-baked:not(.lite) .scroll-
 }
 html.wall-baked:not(.lite) .chat-top .glass::before, html.wall-baked:not(.lite) .composer-wrap .glass::before,
 html.wall-baked:not(.lite) .top-bars .glass::before, html.wall-baked:not(.lite) .scroll-down.glass::before {
-  content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1; pointer-events: none;
+  content: ""; position: absolute; inset: -14px; z-index: -1; pointer-events: none;
   background: linear-gradient(var(--lg-tint), var(--lg-tint)), var(--wall-blur) no-repeat;
   background-size: auto, var(--wall-w, 100vw) var(--wall-h, 100vh);
   background-position: 0 0, var(--bp, -99999px 0);
@@ -1628,5 +1628,31 @@ html.wall-baked:not(.lite) .top-bars .glass::before, html.wall-baked:not(.lite) 
 html.wall-baked .chat-header.glass, html.wall-baked .composer.glass, html.wall-baked .pinned-bar.glass, html.wall-baked .readonly-bar.glass, html.wall-baked .selection-bar.glass { position: relative; }
 /* слой с линзой обрезаем по форме панели (иначе у круглых кнопок проступали квадратные углы) */
 html.wall-baked:not(.lite) .chat-top .glass::before, html.wall-baked:not(.lite) .composer-wrap .glass::before,
-html.wall-baked:not(.lite) .top-bars .glass::before { clip-path: inset(0 round 22px); }
-html.wall-baked:not(.lite) .glass.circle::before, html.wall-baked:not(.lite) .scroll-down.glass::before { clip-path: circle(50%); }
+html.wall-baked:not(.lite) .top-bars .glass::before { clip-path: inset(14px round 22px); }
+html.wall-baked:not(.lite) .glass.circle::before, html.wall-baked:not(.lite) .scroll-down.glass::before { clip-path: inset(14px round 50%); }
+
+/* ── Стекло как на референсах iOS 26 (вид 0.7.14) для сообщений при фоне-картинке:
+   слой ::after с копией обоев (лёгкое размытие) + линза --lens по краям; сам пузырь — только кант и тень.
+   Без backdrop-filter — не пропадает после прокрутки. ── */
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble.media.with-caption,
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments { background: transparent !important; isolation: isolate; }
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo)::after,
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble.media.with-caption::after,
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments::after {
+  content: "" !important; display: block !important; position: absolute !important; inset: -14px !important; left: -14px !important; right: -14px !important; top: -14px !important; bottom: -14px !important;
+  clip-path: inset(14px round 16px);
+  width: auto !important; height: auto !important; transform: none !important; -webkit-mask: none !important; mask: none !important;
+  border-radius: inherit; z-index: -1; pointer-events: none;
+  background: linear-gradient(var(--lg-tint), var(--lg-tint)), var(--wall-blur) no-repeat !important;
+  background-size: auto, var(--wall-w, 100vw) var(--wall-h, 100vh) !important;
+  background-position: 0 0, var(--bp, -99999px 0) !important;
+  filter: var(--lens, none);
+}
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .bubble:not(.media):not(.sticker):not(.round):not(.jumbo)::after,
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .bubble.media.with-caption::after {
+  background: linear-gradient(var(--lg-out), var(--lg-out)), var(--wall-blur) no-repeat !important;
+  background-size: auto, var(--wall-w, 100vw) var(--wall-h, 100vh) !important;
+  background-position: 0 0, var(--bp, -99999px 0) !important;
+}
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble:not(.z1):not(.z2):not(.z3):not(.z4):not(.z5):not(.z6)::after { display: none !important; }
