@@ -6,7 +6,7 @@ const reduce = () => S.prefs.glass === false || matchMedia('(prefers-reduced-mot
 // 1. Стеклянные кнопки как «жидкое стекло» в новом Telegram для macOS: зажатая кнопка
 // тянется за курсором (с резиновым сопротивлением), вытягивается в сторону рывка и
 // немного увеличивается; отпустили — пружиной возвращается на место с лёгким перелётом.
-const STRETCHY = '.glass.circle, .chat-header.glass, .pinned-bar, .archive-btn, .ps-actions button, .story-av';
+const STRETCHY = '.glass.circle, .chat-header.glass, .pinned-bar, .archive-btn, .ps-actions button, .story-av, .music-cap';
 let drag = null;
 const springs = new Map(); // el -> состояние пружины
 function springFor(el) {
@@ -17,16 +17,18 @@ function springFor(el) {
 function run(el) {
   const st = springFor(el);
   if (st.raf) return;
-  const small = el.offsetWidth < 80; // круглые кнопки тянутся сильнее, широкие плашки — едва
+  // круглые кнопки тянутся сильнее, капсулы — заметно, широкие плашки — едва
+  const w = el.offsetWidth, small = w < 80, mid = !small && w < 240;
+  const maxS = small ? .16 : mid ? .09 : .04, reach = small ? 70 : mid ? 160 : 400;
   const step = () => {
-    const k = 0.16, d = 0.74;               // мягкая пружина с небольшим перелётом
+    const k = 0.17, d = 0.72;               // мягкая «жидкая» пружина с перелётом
     st.vx = (st.vx + (st.tx - st.x) * k) * d;
     st.vy = (st.vy + (st.ty - st.y) * k) * d;
     st.vs = (st.vs + (st.ts - st.s) * k) * d;
     st.x += st.vx; st.y += st.vy; st.s += st.vs;
     // вытягивание вдоль направления смещения
     const dist = Math.hypot(st.x, st.y);
-    const stretch = Math.min(small ? .16 : .04, dist / (small ? 70 : 400));
+    const stretch = Math.min(maxS, dist / reach);
     const ang = Math.atan2(st.y, st.x) * 180 / Math.PI;
     const idle = dist < .05 && Math.abs(st.s - 1) < .001;
     const sx = st.s * (1 + stretch), sy = st.s * (1 - stretch * .55);
@@ -55,16 +57,17 @@ document.addEventListener('pointerdown', e => {
   if (e.button !== 0 || reduce()) return;
   const el = e.target.closest(STRETCHY);
   if (!el) return;
-  drag = { el, x: e.clientX, y: e.clientY, small: el.offsetWidth < 80 };
+  const w = el.offsetWidth;
+  drag = { el, x: e.clientX, y: e.clientY, small: w < 80, mid: w >= 80 && w < 240 };
   const st = springFor(el);
-  st.ts = drag.small ? 1.1 : 1.02;
+  st.ts = drag.small ? 1.1 : drag.mid ? 1.05 : 1.02;
   run(el);
 }, true);
 document.addEventListener('pointermove', e => {
   if (!drag) return;
   const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
   // резиновое сопротивление: чем дальше тянешь, тем меньше прибавка
-  const lim = drag.small ? 18 : 6;
+  const lim = drag.small ? 18 : drag.mid ? 12 : 6;
   const rub = v => Math.sign(v) * lim * (1 - 1 / (Math.abs(v) / (lim * 1.6) + 1));
   const st = springFor(drag.el);
   st.tx = rub(dx); st.ty = rub(dy);

@@ -78,7 +78,7 @@ function Chat({ chat }) {
   };
   const openProfile = () => { S.profile = true; changed(); };
   const pinned = S.pinned.get(chat.id);
-  const bars = (pinned?.list?.length ? 1 : 0) + (S.player && S.player.kind !== 'audio' ? 1 : 0);
+  const bars = (pinned?.list?.length ? 1 : 0) + (S.player ? 1 : 0);
   return html`<div class=${`chat bars-${bars}`}>
     <${Messages} chat=${chat}/>
     ${S.chatSearch?.chatId === chat.id ? html`<${ChatSearch} chat=${chat}/>` : html`<div class="chat-top" ...${dragHandlers()}>
@@ -349,7 +349,7 @@ function PlayerBar() {
   const p = S.player;
   const [hover, setHover] = useState(null);
   const [expanded, setExpanded] = useState(false);
-  if (!p || p.kind === 'audio') return null; // музыка — в капсуле мини-плеера в шапке
+  if (!p) return null;
   const owner = S.chats.get(p.chatId);
   const goto = () => { if (p.chatId !== S.currentChatId) selectChat(p.chatId); else jumpTo(p.chatId, p.msgId); };
   const posFromEvent = e => { const r = e.currentTarget.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); };

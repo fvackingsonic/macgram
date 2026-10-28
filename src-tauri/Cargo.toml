@@ -23,6 +23,8 @@ sha2 = "0.10"
 
 [target.'cfg(windows)'.dependencies]
 keyring = { version = "3", features = ["windows-native"] }
+# плеер Spotify: «Управление мультимедиа» Windows и громкость приложения в микшере
+windows = { version = "0.58", features = ["Foundation", "Foundation_Collections", "Media", "Media_Control", "Storage_Streams", "Win32_Foundation", "Win32_Media_Audio", "Win32_System_Com", "Win32_System_Threading"] }
 
 [profile.release]
 # «тонкая» оптимизация связей: сборка заметно быстрее, программа почти такая же быстрая

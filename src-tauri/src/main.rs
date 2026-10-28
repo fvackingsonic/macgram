@@ -6,6 +6,7 @@ mod tdjson;
 mod updater;
 mod shell;
 mod catalog;
+mod media;
 
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -275,7 +276,12 @@ fn main() {
             shell::stage_wallpaper,
             shell::toast_open,
             desktop::set_badge,
-            catalog::catalog_get
+            catalog::catalog_get,
+            media::spotify_now,
+            media::spotify_ctl,
+            media::spotify_volume,
+            media::spotify_open,
+            media::spotify_auth_wait
         ])
         .run(tauri::generate_context!())
         .expect("не удалось запустить приложение");

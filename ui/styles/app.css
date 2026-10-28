@@ -1706,7 +1706,7 @@ html.wall-baked [data-lg="d"] :is(.sender, .rq-name, .comments-bar .cb-text, .co
 .mu-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 /* панель */
-.music-panel { position: absolute; top: calc(var(--gap) + 56px); right: var(--gap); z-index: 30; width: 344px; max-height: calc(100% - var(--gap) * 2 - 64px);
+.music-panel { position: absolute; top: calc(var(--gap) + 56px); right: var(--gap); z-index: 30; width: 360px; max-width: calc(100% - var(--gap) * 2); max-height: calc(100% - var(--gap) * 2 - 64px);
   display: flex; flex-direction: column; border-radius: 22px; overflow: hidden; color: var(--text);
   background: var(--menu-bg); backdrop-filter: blur(28px) saturate(1.7); -webkit-backdrop-filter: blur(28px) saturate(1.7);
   box-shadow: var(--menu-shadow), inset 0 0 0 .5px var(--glass-edge), inset 0 1px 0 var(--glass-hi);
@@ -1817,3 +1817,86 @@ html.lite .music-panel { background: var(--bg); backdrop-filter: none; -webkit-b
 .mu-load i:nth-child(2) { animation-delay: .15s; } .mu-load i:nth-child(3) { animation-delay: .3s; }
 @keyframes mu-dot { 0%, 100% { opacity: .25; transform: scale(.8); } 50% { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .music-panel, .mu-body, .mu-row, .music-cap, .mu-now-art { animation: none !important; } }
+
+/* ── плеер Spotify: дополнения ── */
+.music-cap { touch-action: none; }
+.mc-x { position: absolute; top: -4px; left: -4px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; z-index: 4;
+  background: var(--menu-bg); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,.3), 0 0 0 .5px var(--glass-edge);
+  opacity: 0; transform: scale(.6); transition: opacity .15s, transform .25s var(--spring); }
+.music-cap:hover .mc-x { opacity: 1; transform: none; }
+.mu-grip { position: absolute; left: 0; bottom: 0; width: 22px; height: 22px; cursor: nesw-resize; z-index: 5; }
+.mu-grip::after { content: ""; position: absolute; left: 6px; bottom: 6px; width: 9px; height: 9px; border-left: 2px solid color-mix(in srgb, var(--text) 30%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--text) 30%, transparent); border-bottom-left-radius: 5px; transition: border-color .15s; }
+.mu-grip:hover::after { border-color: var(--accent); }
+.mu-search.off { opacity: .6; }
+.mu-head .mu-ic { width: 32px; height: 32px; flex: none; }
+.mu-hint { display: flex; align-items: center; gap: 10px; margin: 2px 4px 6px; padding: 12px; border-radius: 14px; font-size: 12.5px; color: var(--gray-text); line-height: 1.35;
+  background: color-mix(in srgb, var(--text) 5%, transparent); }
+.mu-hint > svg { flex: none; color: #1ed760; }
+.mu-hint .mu-mini { flex: none; }
+.mu-nowcard { position: relative; display: flex; align-items: center; gap: 10px; margin: 2px 4px 6px; padding: 10px; border-radius: 16px; overflow: hidden; isolation: isolate; cursor: pointer;
+  background: color-mix(in srgb, var(--text) 5%, transparent); box-shadow: inset 0 0 0 .5px color-mix(in srgb, var(--text) 8%, transparent); transition: transform .25s var(--spring); }
+.mu-nowcard:active { transform: scale(.98); }
+.mu-nowcard .mu-cover { box-shadow: 0 4px 12px rgba(0,0,0,.25); }
+.mu-nowcard .mu-ic { color: var(--text); }
+.mu-now-bg { position: absolute; inset: -30px; z-index: -1; background: center/cover; filter: blur(26px) saturate(1.6); opacity: .42; }
+.mu-e { display: inline-block; font-style: normal; font-size: 9px; font-weight: 700; line-height: 13px; padding: 0 3px; margin-right: 4px; border-radius: 2px; background: var(--gray-text); color: var(--bg); vertical-align: 1px; }
+.mu-num { position: relative; height: 40px; display: grid; place-items: center; }
+.mu-num .mu-eq { background: none; padding-bottom: 13px; }
+.mu-num .mu-eq i { background: var(--accent); }
+.mu-quick { display: flex; gap: 8px; padding: 2px 4px; }
+.mu-liked { flex: 1; display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 12px; text-align: left; color: var(--text);
+  background: color-mix(in srgb, var(--text) 5%, transparent); transition: transform .2s var(--spring), background .15s; }
+.mu-liked:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.mu-liked:active { transform: scale(.97); }
+.mu-liked > span:last-child { display: flex; flex-direction: column; }
+.mu-liked b { font-size: 13px; font-weight: 600; } .mu-liked small { font-size: 11.5px; color: var(--gray-text); }
+.mu-liked-ic { width: 40px; height: 40px; border-radius: 8px; flex: none; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, #4a2bdc, #8fc5e0); }
+.mu-liked-ic.big { width: 84px; height: 84px; border-radius: 12px; box-shadow: 0 8px 22px rgba(0,0,0,.25); }
+.mu-hero.liked { gap: 14px; }
+.mu-artists-line { font-size: 13px; color: var(--gray-text); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mu-artists-line .mu-link { display: inline; }
+.mu-hero-txt .mu-artists-line { margin-top: 1px; }
+/* страница трека */
+.mu-track { position: relative; padding: 4px 8px 6px; gap: 0; isolation: isolate; }
+.mu-track-bg { position: absolute; inset: -40px -20px; z-index: -1; background: center/cover; filter: blur(40px) saturate(1.7); opacity: .38; }
+.mu-track-art { width: min(100%, 230px); margin: 4px auto 12px; animation: art-in .5s var(--spring); }
+.music-panel.narrow .mu-track-art { width: min(100%, 190px); }
+.music-panel.wide .mu-track-art { width: min(100%, 320px); }
+.mu-cover.fill { width: 100%; aspect-ratio: 1; box-shadow: 0 14px 36px rgba(0,0,0,.35); transform: scale(.94); transition: transform .5s var(--spring); }
+.mu-cover.fill.playing { transform: none; }
+.mu-track-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mu-track-info > b { font-size: 17px; font-weight: 700; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mu-track-info small { font-size: 12px; color: var(--gray-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mu-track .mu-artists-line { font-size: 14px; }
+.mu-wait { font-size: 11.5px; color: var(--gray-text); margin-top: 4px; animation: mu-dot 1.2s ease-in-out infinite; }
+.mu-ctl.big { padding: 8px 0 4px; }
+.mu-ctl.big .mu-play { width: 58px; height: 58px; }
+.mu-seek-bar.off { cursor: default; }
+.mu-vol { padding: 8px 2px 2px; }
+.mu-vol.off { font-size: 11.5px; gap: 8px; }
+.mu-vol-n { width: 26px; text-align: right; font-size: 11px; font-variant-numeric: tabular-nums; }
+.mu-track-actions { display: flex; gap: 8px; justify-content: center; padding-top: 12px; flex-wrap: wrap; }
+.mu-chipbtn { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 14px; font-size: 12px; font-weight: 500; color: var(--text);
+  background: color-mix(in srgb, var(--text) 7%, transparent); box-shadow: inset 0 0 0 .5px color-mix(in srgb, var(--text) 10%, transparent); transition: transform .2s var(--spring), background .15s; }
+.mu-chipbtn:hover { background: color-mix(in srgb, var(--text) 11%, transparent); }
+.mu-chipbtn:active { transform: scale(.94); }
+/* подключение */
+.mu-connect { margin: 4px; padding: 14px; border-radius: 16px; background: color-mix(in srgb, var(--text) 5%, transparent); font-size: 12.5px; line-height: 1.45; animation: row-in .4s var(--ease-out) both; }
+.mu-connect-h { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.mu-connect-h > svg { color: #1ed760; flex: none; }
+.mu-connect-h b { display: block; font-size: 14px; } .mu-connect-h small { color: var(--gray-text); font-size: 12px; }
+.mu-connect ol { margin: 6px 0 10px; padding-left: 20px; display: flex; flex-direction: column; gap: 5px; }
+.mu-connect .mu-link { display: inline; font-size: inherit; }
+.mu-code { font-family: var(--font-mono); font-size: 11.5px; padding: 1px 6px; border-radius: 5px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.mu-connect-row { display: flex; gap: 8px; }
+.mu-connect-row input { flex: 1; min-width: 0; height: 32px; border-radius: 10px; border: .5px solid color-mix(in srgb, var(--text) 16%, transparent); background: color-mix(in srgb, var(--bg) 60%, transparent);
+  padding: 0 10px; font-family: var(--font-mono); font-size: 12px; color: var(--text); outline: none; }
+.mu-connect-row input:focus { border-color: var(--accent); }
+.mu-connect-row .mu-pill { margin: 0; height: 32px; }
+.mu-pill:disabled { opacity: .5; }
+.mu-connect-note { display: block; margin-top: 8px; color: var(--gray-text); font-size: 11.5px; }
+.music-panel.wide .mu-albums.grid { grid-template-columns: repeat(4, 1fr); }
+.music-panel.narrow .mu-albums.grid { grid-template-columns: repeat(2, 1fr); }
+.mu-albums.grid .mu-album { width: auto; }
+.mu-albums.grid .mu-album .mu-cover { width: 100% !important; height: auto !important; aspect-ratio: 1; }
