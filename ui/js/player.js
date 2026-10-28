@@ -6,14 +6,20 @@ const audio = new Audio();
 audio.preload = 'auto';
 let pendingFile = null;
 
+// Обложка трека из Telegram: маленькая вшитая или большая из каталога обложек Telegram.
+export const coverOf = a => a?.external_album_covers?.[0]?.file || a?.album_cover_thumbnail?.file || null;
+const sameMsg = (a, b) => a && b && a.chat_id === b.chat_id && a.id === b.id;
+
 export const player = {
   get state() { return S.player; },
   isCurrent: msg => S.player && S.player.chatId === msg.chat_id && S.player.msgId === msg.id,
-  play(msg) {
+  // queue — список треков мини-плеера (поиск, исполнитель, «музыка из чатов»): «вперёд/назад» идут по нему.
+  play(msg, queue) {
     const c = msg.content;
     const isVoice = c['@type'] === 'messageVoiceNote';
     const file = isVoice ? c.voice_note.voice : c.audio.audio;
     if (player.isCurrent(msg)) { toggle(); return; }
+    const q = isVoice ? null : queue || (S.player?.queue?.some(m => sameMsg(m, msg)) ? S.player.queue : null);
     S.player = {
       chatId: msg.chat_id, msgId: msg.id, kind: isVoice ? 'voice' : 'audio', file,
       title: isVoice ? 'Голосовое сообщение' : (c.audio.title || c.audio.file_name || 'Аудио'),
@@ -21,7 +27,9 @@ export const player = {
       duration: isVoice ? c.voice_note.duration : c.audio.duration,
       time: 0, playing: false, loading: true,
       rate: S.player?.rate || 1, volume: S.player?.volume ?? 1, repeat: S.player?.repeat || 'none',
+      cover: isVoice ? null : coverOf(c.audio), queue: q, shuffle: !!S.player?.shuffle, msg,
     };
+    if (S.player.cover) download(S.player.cover, 8);
     audio.pause();
     pendingFile = file.id;
     download(file, 32);
@@ -50,6 +58,14 @@ export const player = {
   // Соседние треки того же вида в этом чате (как «назад/вперёд» в плеере Mac).
   neighbor(dir) {
     const p = S.player; if (!p || p.kind === 'note') return null;
+    if (p.queue?.length) {
+      const q = p.queue, i = q.findIndex(m => m.chat_id === p.chatId && m.id === p.msgId);
+      if (p.shuffle && dir > 0 && q.length > 1) {
+        p.shuffleNext ||= q.filter((_, k) => k !== i)[Math.floor(Math.random() * (q.length - 1))];
+        return p.shuffleNext;
+      }
+      return q[i + dir] || (p.repeat === 'all' ? q[dir > 0 ? 0 : q.length - 1] : null);
+    }
     const type = p.kind === 'voice' ? 'messageVoiceNote' : 'messageAudio';
     const list = (S.history.get(p.chatId)?.list || []).filter(m => m.content['@type'] === type);
     const i = list.findIndex(m => m.id === p.msgId);
@@ -62,6 +78,7 @@ export const player = {
     player.play(player.neighbor(-1));
   },
   setRepeat(r) { if (S.player) { S.player.repeat = r; changed(); } },
+  setShuffle(on) { if (S.player) { S.player.shuffle = on; S.player.shuffleNext = null; changed(); } },
   toggleMute() { if (!S.player) return; const m = media(); m.muted = !m.muted; S.player.muted = m.muted; changed(); },
   seek(fraction) {
     if (!S.player) return;
@@ -121,6 +138,7 @@ audio.addEventListener('ended', () => {
   const p = S.player;
   if (!p) return;
   if (p.repeat === 'one') { audio.currentTime = 0; audio.play().catch(() => {}); return; }
+  if (p.queue?.length) { const n = player.neighbor(1); if (n) player.play(n); else { p.playing = false; p.time = 0; changed(); } return; }
   // Как на Mac: после голосового сразу включается следующее голосовое в этом чате.
   const list = S.history.get(p.chatId)?.list || [];
   const next = list.find(m => m.id > p.msgId && m.content['@type'] === (p.kind === 'voice' ? 'messageVoiceNote' : 'messageAudio'));

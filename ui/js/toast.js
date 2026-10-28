@@ -23,10 +23,15 @@
   const dark = window.matchMedia('(prefers-color-scheme: dark)');
   const applyLook = l => {
     const h = document.documentElement;
-    const theme = l.theme === 'dark' || (l.theme !== 'light' && dark.matches) ? 'dark' : '';
-    h.className = [`style-${l.style || 'mac'}`, `size-${l.size || 'm'}`, theme, (l.pos || 'tr').endsWith('l') ? 'left' : '',
+    const theme = l.theme === 'dark' || (l.theme !== 'light' && l.theme !== 'dark' && (l.theme === 'auto' ? dark.matches : l.dark)) ? 'dark' : '';
+    h.className = [`style-${l.style || 'glass'}`, l.blur ? 'blur' : '', `size-${l.size || 'm'}`, theme, (l.pos || 'tr').endsWith('l') ? 'left' : '',
       l.avatar === false ? 'no-avatar' : '', l.reply === false ? 'no-reply' : ''].filter(Boolean).join(' ');
-    if (typeof l.opacity === 'number') h.style.setProperty('--alpha', String(l.opacity)); else h.style.removeProperty('--alpha');
+    // Прозрачность 0…100: 0 — плотная карточка, 100 — почти чистое стекло. Без размытия под окном
+    // самое прозрачное всё равно оставляет немного заливки, чтобы текст читался.
+    const c = Math.max(0, Math.min(100, l.clear ?? 55)) / 100;
+    const a = l.style === 'mac' ? .97 - c * .3 : l.blur ? .92 - c * .86 : .97 - c * .6;
+    h.style.setProperty('--a', a.toFixed(3));
+    if (l.accent) h.style.setProperty('--accent', l.accent); else h.style.removeProperty('--accent');
     stay = typeof l.secs === 'number' ? l.secs : 6;
   };
   card.addEventListener('mouseenter', () => { hover = true; });

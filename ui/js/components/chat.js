@@ -17,13 +17,15 @@ import { MI } from '../mac-icons.js';
 import { SelectionBar } from './forward.js';
 import { startRecording, finishRecording, cancelRecording } from '../voice.js';
 import { player, progress } from '../player.js';
+import { MusicChip, MusicPanel } from './music.js';
 import { duration } from '../format.js';
 import { ThreadScreen, ForumTopics, isForum } from './thread.js';
 
 export function Main() {
   const chat = S.chats.get(S.currentChatId);
   if (!chat) return html`<main class="main"><div class="main-drag" ...${dragHandlers()}/>
-    <div class="main-empty"><span class="service-pill">Выберите, кому хотели бы написать</span></div></main>`;
+    <div class="main-empty"><span class="service-pill">Выберите, кому хотели бы написать</span></div>
+    <div class="main-top no-drag"><${MusicChip}/></div><${MusicPanel}/></main>`;
   // Профиль открывается как push в NavigationViewController (macOS): чат уезжает влево на треть
   // и гаснет, профиль въезжает справа (0.4 с, spring); «назад» — обратное движение.
   // Ветка комментариев и тема форума открываются так же, как профиль.
@@ -34,6 +36,7 @@ export function Main() {
     <div class="nav-layer nav-prev" key=${`c${chat.id}${forum ? 'f' : ''}`}>${forum
       ? html`<${ForumTopics} chat=${chat} onProfile=${openProfile} onAsChat=${() => { (S.forumAsChat ||= new Set()).add(chat.id); changed(); }}/>`
       : html`<${Chat} key=${chat.id} chat=${chat}/>`}</div>
+    <${MusicPanel}/>
     ${S.profile && html`<div class=${`nav-layer nav-next ${S.profileClosing ? 'out' : ''}`} key=${`p${chat.id}`}><${ProfileScreen} chat=${chat}/></div>`}
     ${!S.profile && S.thread && html`<div class=${`nav-layer nav-next ${S.thread.closing ? 'out' : ''}`} key=${`t${S.thread.sourceChatId || S.thread.chatId}:${S.thread.root?.id || S.thread.topicId}`}><${ThreadScreen}/></div>`}
   </main>`;
@@ -75,7 +78,7 @@ function Chat({ chat }) {
   };
   const openProfile = () => { S.profile = true; changed(); };
   const pinned = S.pinned.get(chat.id);
-  const bars = (pinned?.list?.length ? 1 : 0) + (S.player ? 1 : 0);
+  const bars = (pinned?.list?.length ? 1 : 0) + (S.player && S.player.kind !== 'audio' ? 1 : 0);
   return html`<div class=${`chat bars-${bars}`}>
     <${Messages} chat=${chat}/>
     ${S.chatSearch?.chatId === chat.id ? html`<${ChatSearch} chat=${chat}/>` : html`<div class="chat-top" ...${dragHandlers()}>
@@ -86,6 +89,7 @@ function Chat({ chat }) {
           ${st.text && html`<div class=${`status ${st.cls || ''}`}>${st.text}</div>`}
         </div>
       </header>
+      <${MusicChip}/>
       <button class="glass circle" title="Поиск (Ctrl+F)" onClick=${() => { S.chatSearch = { chatId: chat.id, q: '', results: [], index: -1, total: 0 }; changed(); }}>${Icon.menu('Icon_SearchChatMessages')}</button>
       <button class="glass circle" title="Ещё" onClick=${more}>${Icon.more()}</button>
     </div>`}
@@ -345,7 +349,7 @@ function PlayerBar() {
   const p = S.player;
   const [hover, setHover] = useState(null);
   const [expanded, setExpanded] = useState(false);
-  if (!p) return null;
+  if (!p || p.kind === 'audio') return null; // музыка — в капсуле мини-плеера в шапке
   const owner = S.chats.get(p.chatId);
   const goto = () => { if (p.chatId !== S.currentChatId) selectChat(p.chatId); else jumpTo(p.chatId, p.msgId); };
   const posFromEvent = e => { const r = e.currentTarget.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); };

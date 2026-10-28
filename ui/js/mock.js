@@ -85,6 +85,13 @@ export function createMock(dispatch) {
     13: [msg(13, 601, 13, 'Скинул файлы в облако', now - 3 * D)],
     16: [msg(16, 701, 16, 'Сегодня +18°, без осадков ☀️', now - 6 * H)],
   };
+  // Музыка для мини-плеера: аудио-посты в канале и в чате (файлы — window.__mockFiles[950…]).
+  const song = (chat, id, performer, title, dur, ago) => msg(chat, id, chat, '', now - ago, { content: { '@type': 'messageAudio', caption: { text: '', entities: [] }, audio: {
+    duration: dur, title, performer, file_name: `${performer} - ${title}.mp3`, mime_type: 'audio/mpeg', album_cover_minithumbnail: null,
+    album_cover_thumbnail: { format: { '@type': 'thumbnailFormatJpeg' }, width: 90, height: 90, file: { id: 960 + (id % 5), size: 1, local: { can_be_downloaded: true } } },
+    external_album_covers: [], audio: { id: 950, size: 1, local: { can_be_downloaded: true } } } } });
+  hist[-200].push(song(-200, 410, 'Daft Punk', 'Instant Crush', 337, 3 * H), song(-200, 411, 'The Weeknd', 'Blinding Lights', 200, 2.5 * H),
+    song(-200, 412, 'Daft Punk', 'Get Lucky', 369, 2 * H), song(-200, 413, 'Arctic Monkeys', 'Do I Wanna Know?', 272, 1.5 * H), song(-200, 414, 'Daft Punk', 'One More Time', 320, H));
   // Проверка скорости: ?mock=ready&long=400 — длинная лента в канале и в группе; &wall=1 — фото-фон (window.__mockFiles[900]).
   const qs = new URLSearchParams(location.search), longN = +qs.get('long') || 0;
   if (longN) {
@@ -294,6 +301,13 @@ export function createMock(dispatch) {
         case 'getActiveSessions': return reply({ '@type': 'sessions', sessions: [
           { id: '1', is_current: true, application_name: 'macgram', application_version: '0.3.0', device_model: 'Windows PC', platform: 'Windows', system_version: '11', country: 'Украина', last_active_date: now },
           { id: '2', application_name: 'Telegram iOS', application_version: '12.1', device_model: 'iPhone 16', platform: 'iOS', system_version: '26', country: 'Украина', ip_address: '93.x.x.x', last_active_date: now - 3600 }] }, 200);
+        case 'searchMessages': {
+          if (q.filter?.['@type'] !== 'searchMessagesFilterAudio') return reply({ '@type': 'foundMessages', total_count: 0, messages: [], next_offset: '' });
+          const words = (q.query || '').toLowerCase().split(/\s+/).filter(Boolean);
+          const all = Object.values(hist).flat().filter(m => m.content['@type'] === 'messageAudio')
+            .filter(m => words.every(w => `${m.content.audio.performer} ${m.content.audio.title}`.toLowerCase().includes(w))).sort((a, b) => b.date - a.date);
+          return reply({ '@type': 'foundMessages', total_count: all.length, messages: all.slice(0, q.limit), next_offset: '' }, 180);
+        }
         case 'getStorageStatisticsFast': return reply({ files_size: 734003200, file_count: 1873, database_size: 52428800 }, 100);
         case 'getUserPrivacySettingRules': return reply({ rules: [{ '@type': 'userPrivacySettingRuleAllowContacts' }] }, 100);
         case 'getPasswordState': return reply({ has_password: true }, 100);

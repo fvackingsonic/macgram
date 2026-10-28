@@ -73,38 +73,38 @@ pub fn shell_prefs(app: AppHandle, close_to_tray: bool, notify: bool) {
     }
 }
 
-/// Вид и место уведомления — из настроек (Настройки → Уведомления → Всплывающие уведомления).
+/// Вид и место уведомления — из настроек (Настройки → Уведомления → Вид баннера).
 #[derive(Clone, PartialEq)]
 struct ToastLook {
-    style: String, // "mac" — своя скруглённая карточка; "glass" — размытие Windows (акрил)
-    pos: String,   // "tr" | "br" | "tl" | "bl"
+    blur: bool,  // размытие того, что под окном (акрил Windows): окно = карточка
+    pos: String, // "tr" | "br" | "tl" | "bl"
     w: f64,
     h: f64,
 }
 static LOOK: std::sync::Mutex<Option<ToastLook>> = std::sync::Mutex::new(None);
+/// Какое размытие сейчас стоит у окна (чтобы не менять его без нужды).
+static BLUR_ON: std::sync::Mutex<Option<bool>> = std::sync::Mutex::new(None);
 const REPLY_EXTRA: f64 = 44.0;
+/// Одно окно на все виды. Раньше при смене вида старое окно удалялось и сразу создавалось новое —
+/// WebView2 иногда не успевал и отвечал ошибкой 0x80010108 («объект отключился от клиентов»).
+const TOAST: &str = "toast";
 
-/// У каждого вида своё окно: размытие задаётся только при создании окна.
-fn label_for(style: &str) -> &'static str {
-    if style == "glass" { "toastg" } else { "toast" }
-}
 fn cur_toast(app: &AppHandle) -> Option<tauri::WebviewWindow> {
-    let style = LOOK.lock().ok().and_then(|l| l.as_ref().map(|x| x.style.clone())).unwrap_or_else(|| "mac".into());
-    app.get_webview_window(label_for(&style))
+    app.get_webview_window(TOAST)
 }
 
 fn look_from(p: &serde_json::Value) -> ToastLook {
     let o = p.get("look");
     let get = |k: &str, d: &str| o.and_then(|o| o.get(k)).and_then(|v| v.as_str()).unwrap_or(d).to_string();
-    let style = get("style", "mac");
+    let blur = o.and_then(|o| o.get("blur")).and_then(|v| v.as_bool()).unwrap_or(false);
     let (w, h) = match get("size", "m").as_str() {
         "s" => (330.0, 78.0),
         "l" => (420.0, 112.0),
         _ => (372.0, 92.0),
     };
-    // у карточки «mac» прозрачные поля 10px под тень и скругление
-    let pad = if style == "mac" { 20.0 } else { 0.0 };
-    ToastLook { style, pos: get("pos", "tr"), w: w + pad, h: h + pad }
+    // без размытия карточка рисуется страницей: прозрачные поля 10px под тень и скругление
+    let pad = if blur { 0.0 } else { 20.0 };
+    ToastLook { blur, pos: get("pos", "tr"), w: w + pad, h: h + pad }
 }
 
 /// Угол основного монитора (сверху справа — как в macOS).
@@ -113,7 +113,7 @@ fn place_toast(win: &tauri::WebviewWindow, look: &ToastLook, h: f64) {
         let scale = m.scale_factor();
         let size = m.size().to_logical::<f64>(scale);
         let pos = m.position().to_logical::<f64>(scale);
-        let edge = if look.style == "mac" { 2.0 } else { 12.0 };
+        let edge = if look.blur { 12.0 } else { 2.0 };
         let left = look.pos.ends_with('l');
         let top = look.pos.starts_with('t');
         let x = if left { pos.x + edge } else { pos.x + size.width - look.w - edge };
@@ -122,30 +122,55 @@ fn place_toast(win: &tauri::WebviewWindow, look: &ToastLook, h: f64) {
     }
 }
 
-fn create_toast(app: &AppHandle, look: &ToastLook) -> Result<tauri::WebviewWindow, String> {
-    let mut b = WebviewWindowBuilder::new(app, label_for(&look.style), WebviewUrl::App("toast.html".into()))
+fn build_toast(app: &AppHandle, look: &ToastLook) -> Result<tauri::WebviewWindow, String> {
+    let mut b = WebviewWindowBuilder::new(app, TOAST, WebviewUrl::App("toast.html".into()))
         .title("macgram")
         .inner_size(look.w, look.h)
         .decorations(false)
         .transparent(true)
+        .shadow(false)
         .always_on_top(true)
         .skip_taskbar(true)
         .resizable(false)
         .focused(false)
         .focusable(false)
         .visible(false);
-    // У всех окон WebView2 с общей папкой данных должны быть одинаковые параметры браузера —
-    // иначе второе окно молча не создаётся (из-за этого уведомления macgram не появлялись).
+    // У всех окон WebView2 с общей папкой данных должны быть одинаковые параметры браузера.
     if let Some(args) = app.config().app.windows.iter().find(|w| w.label == "main").and_then(|w| w.additional_browser_args.clone()) {
         b = b.additional_browser_args(&args);
     }
-    b = if look.style == "glass" {
-        // Настоящее размытие того, что под окном (акрил Windows), углы скругляет Windows 11.
-        b.shadow(true).effects(tauri::window::EffectsBuilder::new().effect(tauri::window::Effect::Acrylic).build())
-    } else {
-        b.shadow(false)
-    };
     b.build().map_err(|e| e.to_string())
+}
+
+async fn create_toast(app: &AppHandle, look: &ToastLook) -> Result<tauri::WebviewWindow, String> {
+    match build_toast(app, look) {
+        Ok(w) => Ok(w),
+        Err(_) => {
+            // WebView2 бывает занят (например, только что закрылось другое окно) — пробуем ещё раз
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            if let Some(w) = app.get_webview_window(TOAST) {
+                let _ = w.destroy();
+                std::thread::sleep(std::time::Duration::from_millis(300));
+            }
+            build_toast(app, look)
+        }
+    }
+}
+
+/// Размытие под окном: включаем/выключаем на ходу, без пересоздания окна.
+fn apply_blur(win: &tauri::WebviewWindow, on: bool) {
+    let mut cur = BLUR_ON.lock().unwrap_or_else(|e| e.into_inner());
+    if *cur == Some(on) {
+        return;
+    }
+    if on {
+        let _ = win.set_effects(tauri::window::EffectsBuilder::new().effect(tauri::window::Effect::Acrylic).build());
+        let _ = win.set_shadow(true); // Windows 11 скругляет углы и даёт тень
+    } else {
+        let _ = win.set_effects(Option::<tauri::utils::config::WindowEffectsConfig>::None);
+        let _ = win.set_shadow(false);
+    }
+    *cur = Some(on);
 }
 
 /// Показать всплывающее уведомление macgram (окно без рамки поверх всех, не забирает фокус).
@@ -154,19 +179,23 @@ fn create_toast(app: &AppHandle, look: &ToastLook) -> Result<tauri::WebviewWindo
 #[tauri::command]
 pub async fn toast_show(app: AppHandle, payload: serde_json::Value) -> Result<(), String> {
     let look = look_from(&payload);
-    // Сменили вид в настройках — старое окно другого вида больше не нужно.
-    let other = label_for(if look.style == "glass" { "mac" } else { "glass" });
-    if let Some(w) = app.get_webview_window(other) {
+    // старые окна прежних версий (по одному на вид) больше не нужны
+    if let Some(w) = app.get_webview_window("toastg") {
         let _ = w.destroy();
     }
     if let Ok(mut l) = LOOK.lock() {
         *l = Some(look.clone());
     }
-    let label = label_for(&look.style);
-    let win = match app.get_webview_window(label) {
+    let win = match app.get_webview_window(TOAST) {
         Some(w) => w,
-        None => create_toast(&app, &look)?,
+        None => {
+            if let Ok(mut b) = BLUR_ON.lock() {
+                *b = None;
+            }
+            create_toast(&app, &look).await?
+        }
     };
+    apply_blur(&win, look.blur);
     let seq = TOAST_SEQ.fetch_add(1, Ordering::Relaxed) + 1;
     let mut payload = payload;
     if let Some(o) = payload.as_object_mut() {
@@ -177,7 +206,7 @@ pub async fn toast_show(app: AppHandle, payload: serde_json::Value) -> Result<()
     if let Ok(mut l) = LAST_TOAST.lock() {
         *l = Some(payload.clone());
     }
-    let _ = app.emit_to(label, "toast", payload.clone());
+    let _ = app.emit_to(TOAST, "toast", payload.clone());
     let _ = win.show();
     // Доставка надёжнее событий: вызываем функцию страницы напрямую, пока она не подтвердит показ.
     // Если за 5 с подтверждения нет — прячем окно и просим главное окно показать уведомление Windows.

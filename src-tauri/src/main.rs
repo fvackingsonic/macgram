@@ -5,6 +5,7 @@ mod secrets;
 mod tdjson;
 mod updater;
 mod shell;
+mod catalog;
 
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -273,7 +274,8 @@ fn main() {
             shell::clear_live_wallpaper,
             shell::stage_wallpaper,
             shell::toast_open,
-            desktop::set_badge
+            desktop::set_badge,
+            catalog::catalog_get
         ])
         .run(tauri::generate_context!())
         .expect("не удалось запустить приложение");

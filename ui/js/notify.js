@@ -31,8 +31,11 @@ let toastBroken = false;
 // Вид всплывающего уведомления — из «Настройки → Уведомления → Вид баннера».
 export function toastLook() {
   const p = S.prefs;
-  return { style: p.toastStyle || 'mac', pos: p.toastPos || 'tr', size: p.toastSize || 'm', secs: p.toastSecs ?? 6,
-    theme: p.toastTheme || 'auto', opacity: p.toastOpacity ?? null, avatar: p.toastAvatar !== false, reply: p.toastReply !== false };
+  const style = p.toastKind || 'glass';
+  const theme = p.toastTheme2 || 'app';
+  return { style, blur: style === 'glass' && p.toastBlur !== false, clear: p.toastClear ?? 55, pos: p.toastPos || 'tr', size: p.toastSize || 'm', secs: p.toastSecs ?? 6,
+    theme, dark: document.documentElement.dataset.palette === 'night', accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '',
+    avatar: p.toastAvatar !== false, reply: p.toastReply !== false };
 }
 function show(chat, title, body) {
   if (S.prefs.notifyStyle === 'windows' || toastBroken || !window.__TAURI__) { shell.notify(title, body).catch(() => {}); return; }

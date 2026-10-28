@@ -1,6 +1,7 @@
 // Ветки комментариев к постам каналов и темы форумов — как в Telegram для macOS:
 // открываются «push»-переходом поверх чата, сверху — исходный пост, внизу — поле ввода.
 import { html, useRef, useEffect, useState, useLayoutEffect } from '../lib.js';
+import { MusicChip } from './music.js';
 import { S, changed, chatTitle, showHud, updateHooks, isChannel, senderName } from '../store.js';
 import { send } from '../td.js';
 import { Icon } from '../icons.js';
@@ -205,6 +206,7 @@ export function ThreadScreen() {
           <div class="status">${sub}</div>
         </div>
       </header>
+      <${MusicChip}/>
     </div>
     <button class=${`glass circle scroll-down ${atBottom ? '' : 'show'}`} title="Вниз" onClick=${() => ref.current?.scrollTo({ top: 0, behavior: 'smooth' })}>${Icon.menu('Icon_SearchArrow')}</button>
     ${canWrite ? html`<${Composer} chat=${chat} topic=${t.topic} key=${`tc${t.chatId}:${t.threadId || t.topicId}`}
@@ -289,6 +291,7 @@ export function ForumTopics({ chat, onAsChat, onProfile }) {
         <div class="titles"><div class="title">${chatTitle(chat)}</div>
           <div class="status">${list ? count(list.length, 'тема', 'темы', 'тем') : 'темы'}${sg?.member_count ? ` · ${count(sg.member_count, 'участник', 'участника', 'участников')}` : ''}</div></div>
       </header>
+      <${MusicChip}/>
       <button class="glass circle no-drag" title="Показать как сообщения" onClick=${onAsChat}>${MI('Icon_Profile_Topics', 22) || Icon.chats(20)}</button>
     </div>
   </div>`;

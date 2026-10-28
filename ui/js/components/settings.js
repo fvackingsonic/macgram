@@ -6,7 +6,7 @@ import { Icon } from '../icons.js';
 import { setPasscode, lockNow } from '../passcode.js';
 import { checkUpdates, showUpdate, REPO } from '../updates.js';
 import { openLink } from '../links.js';
-import { playTone, SOUND_NAMES } from '../sound.js';
+import { playTone, SOUND_NAMES, NEW_SOUNDS } from '../sound.js';
 import { toastLook } from '../notify.js';
 import { FoldersSettings, FolderEdit } from './folders.js';
 import { openAvatar } from './profile.js';
@@ -175,15 +175,16 @@ const SCOPES = [
 function Switch({ on, onChange }) {
   return html`<span class=${`switch ${on ? 'on' : ''}`} onClick=${e => { e.stopPropagation(); onChange(!on); }}><i/></span>`;
 }
-// Живое превью баннера прямо в настройках.
+// Живое превью баннера прямо в настройках (те же стили, что у окна уведомления).
 function ToastPreview() {
   const l = toastLook();
   const me = S.users.get(S.myId);
   const sysDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-  const dark = l.theme === 'dark' || (l.theme !== 'light' && sysDark);
-  const a = l.opacity ?? (dark ? .84 : .86);
-  const bg = dark ? `rgba(38,38,42,${l.style === 'glass' ? a * .45 + .3 : a})` : `rgba(246,246,248,${l.style === 'glass' ? a * .45 + .3 : a})`;
-  return html`<div class=${`toast-prev size-${l.size} ${dark ? 'dark' : ''} ${l.style}`} style=${`background:${bg}`}>
+  const dark = l.theme === 'dark' || (l.theme === 'auto' ? sysDark : l.theme === 'app' && l.dark);
+  const c = Math.max(0, Math.min(100, l.clear)) / 100;
+  const a = l.style === 'mac' ? .97 - c * .3 : l.blur ? .92 - c * .86 : .97 - c * .6;
+  const tint = dark ? '28,28,32' : '250,250,252';
+  return html`<div class=${`toast-prev size-${l.size} ${dark ? 'dark' : ''} st-${l.style} ${l.blur ? 'blur' : ''}`} style=${`--tp-bg:rgba(${tint},${a.toFixed(3)})`}>
     ${l.avatar ? html`<span class="tp-av"><${Avatar} user=${me} size=${l.size === 's' ? 30 : l.size === 'l' ? 44 : 36}/><i/></span>` : html`<img class="tp-app" src="icons/macgram-logo.svg" alt=""/>`}
     <div class="tp-body"><div class="tp-top"><b>${me ? userName(me) : 'Мария'}</b><span>сейчас</span></div><div class="tp-text">Так выглядит уведомление macgram 👋</div></div>
   </div>`;
@@ -211,10 +212,11 @@ async function testNotify() {
 function pickTone(e) {
   const r = e.currentTarget.getBoundingClientRect();
   const cur = S.prefs.notifyTone || 'in_app';
-  openMenu(r.right - 190, r.top, SOUND_NAMES.map(([k, l]) => ({
+  const item = ([k, l]) => ({
     label: l, icon: k === cur ? Icon.check(13) : html`<span style="width:18px;display:inline-block"/>`,
-    action: () => { setPref('notifyTone', k); setTimeout(() => playTone(k), 50); },
-  })));
+    action: () => { setPref('notifyTone', k); setTimeout(() => playTone(k, .8, true), 50); },
+  });
+  openMenu(r.right - 190, Math.max(8, r.top - 200), [...SOUND_NAMES.filter(([k]) => !NEW_SOUNDS.has(k)).map(item), '-', ...SOUND_NAMES.filter(([k]) => NEW_SOUNDS.has(k)).map(item)]);
 }
 function Notifications() {
   const [, force] = useState(0);
@@ -236,12 +238,15 @@ function Notifications() {
     ${S.prefs.notifyStyle !== 'windows' && html`<div class="pane-sec">Вид баннера</div>
     <div class="toast-prev-wrap"><${ToastPreview}/></div>
     <div class="group">
-      <div class="item wrap"><span class="lbl">Стиль</span>${seg('toastStyle', [['mac', 'Как на Mac'], ['glass', 'Стекло Windows']], 'mac')}</div>
+      <div class="item wrap"><span class="lbl">Стиль</span>${seg('toastKind', [['glass', 'Стекло macgram'], ['mac', 'Как на Mac']], 'glass')}</div>
+      ${(S.prefs.toastKind || 'glass') === 'glass' && html`<${Toggle} k="toastBlur" label="Размытие под уведомлением" hint="Настоящее размытие Windows того, что под баннером. Выключите — будет лёгкое стекло без размытия (чуть меньше нагрузки)"/>`}
+      <div class="item ap-size"><span class="lbl" style="flex:none">Прозрачность</span>
+        <input type="range" min="0" max="100" step="5" value=${S.prefs.toastClear ?? 55} onInput=${e => setPref('toastClear', Number(e.target.value))} style="flex:1;accent-color:var(--accent)"/>
+        <span class="val" style="min-width:36px;text-align:right">${(S.prefs.toastClear ?? 55) === 0 ? 'Нет' : `${S.prefs.toastClear ?? 55}%`}</span></div>
       <div class="item wrap"><span class="lbl">Где показывать</span>${seg('toastPos', [['tr', 'Справа сверху'], ['br', 'Справа снизу'], ['tl', 'Слева сверху'], ['bl', 'Слева снизу']], 'tr')}</div>
       <div class="item wrap"><span class="lbl">Размер</span>${seg('toastSize', [['s', 'Маленький'], ['m', 'Обычный'], ['l', 'Крупный']], 'm')}</div>
       <div class="item wrap"><span class="lbl">Сколько показывать</span>${seg('toastSecs', [[3, '3 с'], [6, '6 с'], [10, '10 с'], [0, 'Пока не закрою']], 6)}</div>
-      <div class="item wrap"><span class="lbl">Тема</span>${seg('toastTheme', [['auto', 'Как в системе'], ['light', 'Светлая'], ['dark', 'Тёмная']], 'auto')}</div>
-      <div class="item ap-size"><span class="lbl" style="flex:none">Прозрачность</span><input type="range" min="55" max="100" value=${Math.round((S.prefs.toastOpacity ?? .86) * 100)} onInput=${e => setPref('toastOpacity', Number(e.target.value) / 100)} style="flex:1;accent-color:var(--accent)"/></div>
+      <div class="item wrap"><span class="lbl">Тема</span>${seg('toastTheme2', [['app', 'Как в macgram'], ['auto', 'Как в системе'], ['light', 'Светлая'], ['dark', 'Тёмная']], 'app')}</div>
       <${Toggle} k="toastAvatar" label="Фото отправителя" hint="Выключите — будет значок macgram"/>
       <${Toggle} k="toastReply" label="Кнопка «Ответить»" hint="Быстрый ответ прямо из уведомления"/>
     </div>`}
