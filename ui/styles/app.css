@@ -1792,7 +1792,7 @@ html.lite .music-panel { background: var(--bg); backdrop-filter: none; -webkit-b
 .mu-artist:hover { background: var(--row-hover); }
 .mu-artist:active { transform: scale(.94); }
 .mu-albums { display: flex; gap: 8px; overflow-x: auto; padding: 2px 6px 6px; scrollbar-width: none; }
-.mu-albums.grid { display: grid; grid-template-columns: repeat(3, 1fr); overflow: visible; }
+.mu-albums.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; }
 .mu-album { width: 96px; flex: none; display: flex; flex-direction: column; gap: 2px; text-align: left; color: var(--text); border-radius: 10px; transition: transform .2s var(--spring); }
 .mu-album .mu-cover { box-shadow: 0 3px 10px rgba(0,0,0,.18); margin-bottom: 3px; }
 .mu-album b { font-size: 11.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1896,7 +1896,7 @@ html.lite .music-panel { background: var(--bg); backdrop-filter: none; -webkit-b
 .mu-connect-row .mu-pill { margin: 0; height: 32px; }
 .mu-pill:disabled { opacity: .5; }
 .mu-connect-note { display: block; margin-top: 8px; color: var(--gray-text); font-size: 11.5px; }
-.music-panel.wide .mu-albums.grid { grid-template-columns: repeat(4, 1fr); }
-.music-panel.narrow .mu-albums.grid { grid-template-columns: repeat(2, 1fr); }
-.mu-albums.grid .mu-album { width: auto; }
+.music-panel.wide .mu-albums.grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.music-panel.narrow .mu-albums.grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.mu-albums.grid .mu-album { width: auto; min-width: 0; }
 .mu-albums.grid .mu-album .mu-cover { width: 100% !important; height: auto !important; aspect-ratio: 1; }

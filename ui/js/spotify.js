@@ -23,7 +23,7 @@ async function poll() {
     const n = await invoke('spotify_now', { have: SP.key });
     if (n?.found) {
       if (n.thumb) SP.thumb = n.thumb;
-      if (n.key !== SP.key) { SP.key = n.key; if (!n.thumb) SP.thumb = ''; if (SP.pending && sameTrack(SP.pending, n)) SP.pending = null; }
+      if (n.key !== SP.key) { SP.key = n.key; if (!n.thumb) SP.thumb = ''; if (SP.pending && sameTrack(SP.pending, n)) SP.pending = null; remember(n); }
       SP.now = { ...n, at: performance.now() };
     } else { SP.now = null; SP.key = ''; SP.thumb = ''; }
   } catch { SP.now = null; }
@@ -141,6 +141,108 @@ export async function api(path, { method = 'GET', body, fresh } = {}) {
   throw new Error('Spotify не отвечает');
 }
 
+// ── без Premium: открытый каталог Deezer (поиск, исполнители, альбомы, чарты) ──
+// Данные приводятся к виду Spotify, поэтому экраны одни и те же. Включить трек: song.link находит
+// этот же трек в Spotify, и он открывается в приложении Spotify на компьютере.
+export const free = () => !loggedIn();
+const fcache = new Map();
+function dz(path) {
+  if (fcache.has(path)) return fcache.get(path);
+  const p = invoke('catalog_get', { query: `dz/${path}` }).then(j => { if (j?.error) throw new Error(j.error.message || 'Каталог недоступен'); return j; });
+  p.catch(() => fcache.delete(path));
+  fcache.set(path, p);
+  return p;
+}
+const dzImgs = (o, kind) => o ? [[`${kind}_xl`, 1000], [`${kind}_big`, 500], [`${kind}_medium`, 250], [`${kind}_small`, 56]].filter(([k]) => o[k]).map(([k, w]) => ({ url: o[k], width: w, height: w })) : [];
+const dzArtist = a => a && ({ id: `dz${a.id}`, dz: a.id, name: a.name, images: dzImgs(a, 'picture'), followers: { total: a.nb_fan || 0 }, genres: [] });
+const RT = { single: 'single', ep: 'single', compile: 'compilation' };
+const dzAlbum = (al, artist) => al && ({ id: `dz${al.id}`, dz: al.id, name: al.title, images: dzImgs(al, 'cover'), release_date: al.release_date || '', total_tracks: al.nb_tracks,
+  album_type: RT[al.record_type] || 'album', artists: [dzArtist(al.artist || artist)].filter(Boolean), uri: '' });
+const dzTrack = (t, album, i) => t && ({ id: `dz${t.id}`, dz: t.id, name: t.title_short || t.title, duration_ms: (t.duration || 0) * 1000, explicit: !!t.explicit_lyrics,
+  artists: [dzArtist(t.artist)].filter(Boolean), album: album || dzAlbum(t.album), track_number: t.track_position || (i != null ? i + 1 : undefined), uri: '', preview: t.preview });
+
+function freeSearch(q) {
+  const e = encodeURIComponent(q);
+  return Promise.allSettled([dz(`search?q=${e}&limit=12`), dz(`search/artist?q=${e}&limit=8`), dz(`search/album?q=${e}&limit=12`)]).then(([t, a, al]) => {
+    if (t.status === 'rejected' && a.status === 'rejected') throw t.reason;
+    return { tracks: (t.value?.data || []).map(x => dzTrack(x)), artists: (a.value?.data || []).map(dzArtist), albums: (al.value?.data || []).map(x => dzAlbum(x)), playlists: [] };
+  });
+}
+function freeArtist(v) {
+  const id = String(v.id).replace(/^dz/, '');
+  const run = id && /^\d+$/.test(id) ? Promise.resolve(id) : dz(`search/artist?q=${encodeURIComponent(v.name)}&limit=1`).then(r => r.data?.[0]?.id);
+  run.then(aid => {
+    if (!aid) { v.top = []; v.albums = []; changed(); return; }
+    dz(`artist/${aid}`).then(r => { v.artist = dzArtist(r); changed(); }).catch(() => {});
+    dz(`artist/${aid}/top?limit=10`).then(r => { v.top = (r.data || []).map(x => dzTrack(x)); changed(); }).catch(() => { v.top = []; changed(); });
+    dz(`artist/${aid}/albums?limit=60`).then(r => {
+      const seen = new Set(), a = { id: aid, name: v.name };
+      v.albums = (r.data || []).map(x => dzAlbum(x, a)).filter(x => !seen.has(x.name.toLowerCase()) && seen.add(x.name.toLowerCase()))
+        .sort((x, y) => (y.release_date || '').localeCompare(x.release_date || ''));
+      changed();
+    }).catch(() => { v.albums = []; changed(); });
+  }).catch(() => { v.top = []; v.albums = []; changed(); });
+}
+function freeAlbum(v) {
+  dz(`album/${String(v.id).replace(/^dz/, '')}`).then(r => {
+    const al = dzAlbum(r);
+    v.album = al;
+    v.tracks = (r.tracks?.data || []).map((t, i) => dzTrack(t, al, i));
+    changed();
+  }).catch(() => { v.tracks = []; changed(); });
+}
+export function loadCharts() {
+  if (SP.charts) return;
+  SP.charts = { loading: true };
+  dz('chart/0/tracks?limit=20').then(r => { SP.charts = { tracks: (r.data || []).map(x => dzTrack(x)) }; changed(); })
+    .catch(() => { SP.charts = { tracks: [] }; changed(); });
+}
+
+// История: что играло в Spotify (видно через Windows) — список «Недавно играло» без входа.
+const HK = 'mg.spotify.hist';
+SP.hist = (() => { try { return JSON.parse(localStorage.getItem(HK) || '[]'); } catch { return []; } })();
+const saveHist = () => { try { localStorage.setItem(HK, JSON.stringify(SP.hist.slice(0, 40))); } catch {} };
+function remember(n) {
+  if (!n.title) return;
+  const k = `${n.artist}|${n.title}`.toLowerCase();
+  const old = SP.hist.find(h => h.k === k);
+  SP.hist = [{ k, name: n.title, artists: n.artist.split(/,\s*/).filter(Boolean).map(name => ({ name })), album: old?.album || { name: n.album || '', images: [] }, dz: old?.dz },
+    ...SP.hist.filter(h => h.k !== k)].slice(0, 40);
+  saveHist();
+  coverFor(SP.hist[0]);
+}
+// обложку и номер трека в каталоге для истории находим один раз
+function coverFor(h) {
+  if (h.dz || h.miss) return;
+  dz(`search?q=${encodeURIComponent(`artist:"${h.artists[0]?.name || ''}" track:"${h.name}"`)}&limit=1`).then(r => {
+    const t = r.data?.[0];
+    if (!t) { h.miss = true; saveHist(); return; }
+    const x = dzTrack(t);
+    h.dz = x.dz; h.id = x.id; h.album = x.album; h.duration_ms = x.duration_ms;
+    h.artists = h.artists.map((a, i) => (i === 0 ? { ...a, id: x.artists[0]?.id } : a));
+    saveHist(); changed();
+  }).catch(() => {});
+}
+export function histTracks() { SP.hist.slice(0, 12).forEach(coverFor); return SP.hist; }
+
+// Найти трек в Spotify (по треку из каталога) и открыть его в приложении Spotify.
+async function spotifyUri(t) {
+  let id = t.dz;
+  if (!id) {
+    const r = await dz(`search?q=${encodeURIComponent(`${t.artists?.[0]?.name || ''} ${t.name}`)}&limit=1`).catch(() => null);
+    id = r?.data?.[0]?.id;
+  }
+  if (id) {
+    try {
+      const r = await invoke('catalog_get', { query: `sl/links?url=${encodeURIComponent(`https://www.deezer.com/track/${id}`)}&userCountry=UA` });
+      const sp = r?.linksByPlatform?.spotify;
+      const uri = sp?.nativeAppUriDesktop || (sp?.url || '').replace(/^https:\/\/open\.spotify\.com\/track\/([A-Za-z0-9]+).*$/, 'spotify:track:$1');
+      if (/^spotify:track:[A-Za-z0-9]+$/.test(uri)) return uri;
+    } catch {}
+  }
+  return `spotify:search:${encodeURIComponent(`${t.artists?.[0]?.name || ''} ${t.name}`.trim())}`;
+}
+
 // ── включить трек ──
 // Premium — прямо командой Spotify; без Premium — открываем трек в приложении Spotify на этом компьютере.
 export async function playTrack(t, context) {
@@ -149,6 +251,14 @@ export async function playTrack(t, context) {
   SP.hiddenKey = '';
   if (SP.view.kind !== 'track') go({ kind: 'track' }); else changed();
   try {
+    if (free()) {
+      const uri = await spotifyUri(t);
+      await invoke('spotify_open', { uri });
+      setTimeout(poll, 1500); setTimeout(poll, 3500);
+      // Spotify иногда только открывает трек, не включая его — подскажем
+      setTimeout(() => { if (SP.pending === pend) showHud(uri.startsWith('spotify:search:') ? 'Spotify открыл поиск — выберите трек там' : 'Трек открыт в Spotify — нажмите ▶, если он не заиграл'); }, 4500);
+      return;
+    }
     const me = await getMe();
     if (me?.product === 'premium') {
       const body = context && !context.startsWith('spotify:artist:') ? { context_uri: context, offset: { uri: t.uri } } : { uris: [t.uri] };
@@ -177,6 +287,7 @@ export function toggle(force) {
     SP.open = true; SP.closing = false;
     poll(); getVolume();
     if (loggedIn() && !SP.home) loadHome();
+    if (!loggedIn()) loadCharts();
   } else if (SP.open) { SP.closing = true; setTimeout(() => { if (SP.closing) { SP.open = false; SP.closing = false; changed(); } }, 200); }
   changed();
 }
@@ -210,8 +321,9 @@ export function setQuery(q) {
   changed();
   searchT = setTimeout(() => {
     const n = ++seq;
-    api(`search?${new URLSearchParams({ q: q.trim(), type: 'track,artist,album,playlist', limit: '10' })}`)
-      .then(r => { if (n === seq) { SP.search = { tracks: r.tracks?.items?.filter(Boolean) || [], artists: r.artists?.items?.filter(Boolean) || [], albums: r.albums?.items?.filter(Boolean) || [], playlists: r.playlists?.items?.filter(Boolean) || [] }; changed(); } })
+    (free() ? freeSearch(q.trim()) : api(`search?${new URLSearchParams({ q: q.trim(), type: 'track,artist,album,playlist', limit: '10' })}`)
+      .then(r => ({ tracks: r.tracks?.items?.filter(Boolean) || [], artists: r.artists?.items?.filter(Boolean) || [], albums: r.albums?.items?.filter(Boolean) || [], playlists: r.playlists?.items?.filter(Boolean) || [] })))
+      .then(r => { if (n === seq) { SP.search = r; changed(); } })
       .catch(e => { if (n === seq) { SP.search = { err: String(e.message || e) }; changed(); } });
   }, 300);
 }
@@ -219,6 +331,7 @@ export function setQuery(q) {
 export function openArtist(a) {
   const v = { kind: 'artist', id: a.id, name: a.name, artist: null, top: null, albums: null };
   go(v);
+  if (free() || String(a.id || '').startsWith('dz') || !a.id) { freeArtist(v); return; }
   api(`artists/${a.id}`).then(r => { v.artist = r; changed(); }).catch(() => {});
   api(`artists/${a.id}/top-tracks?market=from_token`).then(r => { v.top = r.tracks || []; changed(); }).catch(() => { v.top = []; changed(); });
   api(`artists/${a.id}/albums?include_groups=album,single&limit=40`).then(r => {
@@ -230,6 +343,7 @@ export function openArtist(a) {
 export function openAlbum(al) {
   const v = { kind: 'album', id: al.id, album: al, tracks: null };
   go(v);
+  if (free() || String(al.id).startsWith('dz')) { freeAlbum(v); return; }
   api(`albums/${al.id}`).then(r => { v.album = r; v.tracks = (r.tracks?.items || []).map(t => ({ ...t, album: { id: r.id, name: r.name, images: r.images, uri: r.uri } })); changed(); })
     .catch(() => { v.tracks = []; changed(); });
 }

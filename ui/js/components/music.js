@@ -7,7 +7,7 @@ import { duration } from '../format.js';
 import { Icon } from '../icons.js';
 import {
   SP, REDIRECT, toggle, back, home, setQuery, ctl, close, capsuleVisible, position, setVolume, getVolume, connect, disconnect, loggedIn,
-  loadHome, playTrack, openArtist, openAlbum, openPlaylist, openLiked, moreLiked, openInSpotify, imgOf, artistsOf, api, go,
+  loadHome, playTrack, openArtist, openAlbum, openPlaylist, openLiked, moreLiked, openInSpotify, imgOf, artistsOf, api, go, histTracks, loadCharts,
 } from '../spotify.js';
 
 const SV = (s, body, fill) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill=${fill ? 'currentColor' : 'none'} stroke=${fill ? 'none' : 'currentColor'} stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
@@ -137,7 +137,7 @@ function TrackView() {
   const title = p?.name || n?.title || 'Ничего не играет';
   const artists = p?.artists || null;
   const findArtist = async name => {
-    if (!loggedIn()) { openInSpotify(`spotify:search:${encodeURIComponent(name)}`); return; }
+    if (!loggedIn()) { openArtist({ name }); return; }
     try { const r = await api(`search?${new URLSearchParams({ q: name, type: 'artist', limit: '1' })}`); const a = r.artists?.items?.[0]; if (a) openArtist(a); } catch (e) { showHud(e.message); }
   };
   useEffect(() => { getVolume(); }, []);
@@ -180,11 +180,24 @@ function ConnectCard() {
   </div>`;
 }
 
+// Без входа (без Premium): история того, что играло в Spotify, и чарты из открытого каталога.
+function FreeHome() {
+  const [conn, setConn] = useState(false);
+  useEffect(() => { loadCharts(); }, []);
+  const hist = histTracks(), ch = SP.charts;
+  return html`
+    ${hist.length > 0 && html`<${Sec} title="Недавно играло">${hist.slice(0, 8).map((t, i) => html`<${TrackRow} key=${t.k || i} t=${t} i=${i}/>`)}</${Sec}>`}
+    <${Sec} title="Популярное сейчас">${!ch || ch.loading ? html`<${Loading}/>` : ch.tracks.length ? ch.tracks.map((t, i) => html`<${TrackRow} key=${t.id} t=${t} i=${i} num=${i + 1}/>`)
+      : html`<${Empty} text="Каталог сейчас недоступен — проверьте интернет"/>`}</${Sec}>
+    <div class="mu-note">Поиск, исполнители и альбомы — из открытого каталога. Нажмите на трек — он откроется в Spotify на этом компьютере.</div>
+    ${conn ? html`<${ConnectCard}/>` : html`<button class="mu-more" onClick=${() => setConn(true)}>Есть Spotify Premium? Подключить плейлисты и «Любимые»</button>`}`;
+}
+
 function HomeView() {
   const h = SP.home;
   return html`<div class="mu-view">
     <${NowCard}/>
-    ${!loggedIn() ? html`<${ConnectCard}/>` : !h || h.loading ? html`<${Loading}/>` : h.err ? html`<${Empty} text=${h.err}/>` : html`
+    ${!loggedIn() ? html`<${FreeHome}/>` : !h || h.loading ? html`<${Loading}/>` : h.err ? html`<${Empty} text=${h.err}/>` : html`
       <div class="mu-quick">
         <button class="mu-liked" onClick=${openLiked}><span class="mu-liked-ic">${IC.heart(18)}</span><span><b>Любимые треки</b><small>${h.likedTotal || 0} тр.</small></span></button>
       </div>
@@ -221,7 +234,7 @@ function ArtistView({ v }) {
   const top = v.top || [];
   const albums = (v.albums || []).filter(x => x.album_type !== 'single'), singles = (v.albums || []).filter(x => x.album_type === 'single');
   return html`<div class="mu-view">
-    <${Hero} img=${imgOf(a?.images, 300)} round=${48} title=${a?.name || v.name} sub=${a ? [`${fmtN(a.followers?.total)} подписчиков`, a.genres?.[0]].filter(Boolean).join(' · ') : ''}>
+    <${Hero} img=${imgOf(a?.images, 300)} round=${48} title=${a?.name || v.name} sub=${a ? [a.followers?.total ? `${fmtN(a.followers.total)} ${String(a.id).startsWith('dz') ? 'поклонников' : 'подписчиков'}` : '', a.genres?.[0]].filter(Boolean).join(' · ') : ''}>
       ${top.length > 0 && html`<button class="mu-pill" onClick=${() => playTrack(top[0], `spotify:artist:${v.id}`)}>${IC.play(13)} Слушать</button>`}
     </${Hero}>
     <${Sec} title="Популярное">${v.top == null ? html`<${Loading}/>` : top.length ? (all ? top : top.slice(0, 5)).map((t, i) => html`<${TrackRow} key=${t.id} t=${t} i=${i} num=${i + 1}/>`) : html`<${Empty} text="Нет данных"/>`}
@@ -259,7 +272,7 @@ function LikedView({ v }) {
   </div>`;
 }
 
-const TITLES = { artist: 'Исполнитель', album: 'Альбом', playlist: 'Плейлист', liked: 'Любимые', track: 'Сейчас играет' };
+const TITLES = { artist: 'Исполнитель', album: 'Альбом', playlist: 'Плейлист', liked: 'Любимые', track: 'Сейчас играет', connect: 'Spotify Premium' };
 
 // Панель: открывается из ноты, закрывается щелчком мимо или Esc. Угол слева снизу — изменить размер.
 export function MusicPanel() {
@@ -289,20 +302,21 @@ export function MusicPanel() {
     const r = e.currentTarget.getBoundingClientRect();
     openMenu(r.right - 210, r.bottom + 4, [
       { label: 'Открыть Spotify', icon: Icon.menu('menu_play'), action: () => openInSpotify('spotify:') },
-      ...(loggedIn() ? [{ label: 'Обновить', icon: Icon.menu('menu_select_all'), action: () => loadHome() }, { label: 'Отключить Spotify', icon: Icon.menu('menu_leave'), action: disconnect }] : []),
+      ...(loggedIn() ? [{ label: 'Обновить', icon: Icon.menu('menu_select_all'), action: () => loadHome() }, { label: 'Отключить Spotify', icon: Icon.menu('menu_leave'), action: disconnect }]
+        : [{ label: 'Подключить Spotify (Premium)', icon: Icon.menu('menu_add_member'), action: () => { home(); go({ kind: 'connect' }); } }]),
     ]);
   };
   const sub = v.kind !== 'home' && v.kind !== 'search';
   return html`<div class=${`music-panel ${SP.closing ? 'out' : ''} ${w < 340 ? 'narrow' : w > 460 ? 'wide' : ''}`} ref=${ref} style=${`width:${w}px;max-height:min(${h}px, calc(100% - var(--gap) * 2 - 64px))${size ? `;height:${h}px` : ''}`}>
     <div class="mu-head">
       ${sub ? html`<button class="mu-back" onClick=${back}>${IC.back(16)}<span>Назад</span></button><b class="mu-head-t">${TITLES[v.kind] || ''}</b><span style="width:64px"/>`
-        : html`<label class=${`mu-search ${loggedIn() ? '' : 'off'}`}>${IC.search(14)}<input ref=${inputRef} placeholder=${loggedIn() ? 'Поиск в Spotify' : 'Поиск — после входа в Spotify'} disabled=${!loggedIn()} value=${SP.q} onInput=${e => setQuery(e.target.value)}/>
+        : html`<label class="mu-search">${IC.search(14)}<input ref=${inputRef} placeholder=${loggedIn() ? 'Поиск в Spotify' : 'Треки, исполнители, альбомы'} value=${SP.q} onInput=${e => setQuery(e.target.value)}/>
             ${SP.q && html`<button class="mu-clear" onClick=${() => { home(); inputRef.current?.focus(); }}>${IC.close(10)}</button>`}</label>
           <button class="mu-ic" title="Ещё" onClick=${more}>${IC.more(18)}</button>`}
     </div>
     <div class="mu-body" key=${v.kind + (v.id || '')}>
       ${v.kind === 'search' ? html`<${SearchView}/>` : v.kind === 'artist' ? html`<${ArtistView} v=${v}/>` : v.kind === 'album' ? html`<${AlbumView} v=${v}/>`
-        : v.kind === 'playlist' ? html`<${PlaylistView} v=${v}/>` : v.kind === 'liked' ? html`<${LikedView} v=${v}/>` : v.kind === 'track' ? html`<${TrackView}/>` : html`<${HomeView}/>`}
+        : v.kind === 'connect' ? html`<div class="mu-view"><${ConnectCard}/></div>` : v.kind === 'playlist' ? html`<${PlaylistView} v=${v}/>` : v.kind === 'liked' ? html`<${LikedView} v=${v}/>` : v.kind === 'track' ? html`<${TrackView}/>` : html`<${HomeView}/>`}
     </div>
     <i class="mu-grip" title="Изменить размер" onPointerDown=${grip}/>
   </div>`;
