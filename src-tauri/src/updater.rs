@@ -80,7 +80,9 @@ pub async fn update_release() -> Result<serde_json::Value, String> {
         for repo in ["fvackingsonic/macgram", "fvackingsonic/mactele"] {
             let url = format!("https://api.github.com/repos/{repo}/releases/tags/latest");
             if let Ok(r) = ureq::get(&url).set("User-Agent", "macgram-updater").set("Accept", "application/vnd.github+json").call() {
-                if let Ok(v) = r.into_json::<serde_json::Value>() { return Ok(v); }
+                if let Ok(text) = r.into_string() {
+                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) { return Ok(v); }
+                }
             }
         }
         for repo in ["fvackingsonic/macgram", "fvackingsonic/mactele"] {
@@ -89,11 +91,12 @@ pub async fn update_release() -> Result<serde_json::Value, String> {
             let Ok(page) = r.into_string() else { continue };
             let marker = "_x64-setup.exe";
             let Some(end) = page.find(marker) else { continue };
-            let start = page[..end].rfind("/releases/download/").ok_or("не разобрал страницу релиза")?;
+            let Some(start) = page[..end].rfind("/fvackingsonic/") else { continue };
             let path = format!("{}{}", &page[start..end], marker);
+            if !path.contains("/releases/download/") { continue; }
             let name = path.rsplit('/').next().unwrap_or("").to_string();
             let tail = &page[end..];
-            let digest = tail.find("sha256:").map(|i| tail[i..i + 71.min(tail.len() - i)].to_string()).unwrap_or_default();
+            let digest = tail.find("sha256:").map(|i| tail[i..].chars().take(71).collect::<String>()).unwrap_or_default();
             let ver = name.split('_').nth(1).unwrap_or("").to_string();
             return Ok(serde_json::json!({
                 "name": format!("macgram {ver}"), "tag_name": "latest", "body": "", "html_url": format!("https://github.com/{repo}/releases/tag/latest"),
