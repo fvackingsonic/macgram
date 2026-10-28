@@ -1606,15 +1606,27 @@ html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comment
 /* панели поверх ленты — отдельный слой, чтобы размытие не сбрасывалось при прокрутке */
 .chat-top .glass, .composer-wrap .glass, .top-bars .glass, .scroll-down.glass { will-change: backdrop-filter; }
 
-/* Панели поверх ленты (шапка, закреп, поле ввода, кнопки) при фоне-картинке — тоже «запечённое»
-   стекло: размытая копия обоев ровно под панелью. Не зависит от backdrop-filter, поэтому не пропадает
-   после прокрутки и не размазывает фон. */
+/* Панели поверх ленты (шапка, закреп, поле ввода, кнопки) при фоне-картинке — стекло с линзой,
+   как в 0.7.14, но без backdrop-filter: под панелью слой ::before с размытой копией обоев ровно с этого
+   места (--bp считает glassbake.js), и линза (#lg-lens) применяется к этому слою обычным filter —
+   это стабильно, ничего не пропадает после прокрутки. */
 html.wall-baked:not(.lite) .chat-top .glass, html.wall-baked:not(.lite) .composer-wrap .glass,
 html.wall-baked:not(.lite) .top-bars .glass, html.wall-baked:not(.lite) .scroll-down.glass {
-  background: linear-gradient(var(--lg-tint), var(--lg-tint)), var(--wall-blur) no-repeat !important;
-  background-size: auto, var(--wall-w, 100vw) var(--wall-h, 100vh) !important;
-  background-position: 0 0, var(--bp, -99999px 0) !important;
+  background: transparent !important; isolation: isolate;
   backdrop-filter: none !important; -webkit-backdrop-filter: none !important; will-change: auto !important;
   box-shadow: 0 8px 24px rgba(0,0,0,.18), inset 0 0 0 1px var(--lg-rim-line), inset 0 0 10px var(--lg-in-glow),
     inset 1.5px 1.5px 0 -.2px var(--lg-rim), inset -1px -1px 0 -.2px var(--lg-rim2) !important;
 }
+html.wall-baked:not(.lite) .chat-top .glass::before, html.wall-baked:not(.lite) .composer-wrap .glass::before,
+html.wall-baked:not(.lite) .top-bars .glass::before, html.wall-baked:not(.lite) .scroll-down.glass::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1; pointer-events: none;
+  background: linear-gradient(var(--lg-tint), var(--lg-tint)), var(--wall-blur) no-repeat;
+  background-size: auto, var(--wall-w, 100vw) var(--wall-h, 100vh);
+  background-position: 0 0, var(--bp, -99999px 0);
+  filter: var(--lens, url(#lg-lens-el));
+}
+html.wall-baked .chat-header.glass, html.wall-baked .composer.glass, html.wall-baked .pinned-bar.glass, html.wall-baked .readonly-bar.glass, html.wall-baked .selection-bar.glass { position: relative; }
+/* слой с линзой обрезаем по форме панели (иначе у круглых кнопок проступали квадратные углы) */
+html.wall-baked:not(.lite) .chat-top .glass::before, html.wall-baked:not(.lite) .composer-wrap .glass::before,
+html.wall-baked:not(.lite) .top-bars .glass::before { clip-path: inset(0 round 22px); }
+html.wall-baked:not(.lite) .glass.circle::before, html.wall-baked:not(.lite) .scroll-down.glass::before { clip-path: circle(50%); }
