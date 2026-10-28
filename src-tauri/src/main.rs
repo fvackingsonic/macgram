@@ -259,6 +259,7 @@ fn main() {
             desktop::save_paste,
             desktop::notify,
             updater::update_install,
+            updater::update_release,
             shell::shell_prefs,
             shell::toast_show,
             shell::toast_hide,

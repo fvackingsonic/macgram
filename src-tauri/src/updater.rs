@@ -71,3 +71,35 @@ pub async fn update_install(app: AppHandle, url: String, sha256: String) -> Resu
     app.exit(0);
     Ok(())
 }
+
+/// Данные последнего релиза. Сначала API GitHub; если он отказал (лимит запросов без ключа, 403) —
+/// берём страницу со списком файлов релиза: она не упирается в этот лимит.
+#[tauri::command]
+pub async fn update_release() -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(|| -> Result<serde_json::Value, String> {
+        for repo in ["fvackingsonic/macgram", "fvackingsonic/mactele"] {
+            let url = format!("https://api.github.com/repos/{repo}/releases/tags/latest");
+            if let Ok(r) = ureq::get(&url).set("User-Agent", "macgram-updater").set("Accept", "application/vnd.github+json").call() {
+                if let Ok(v) = r.into_json::<serde_json::Value>() { return Ok(v); }
+            }
+        }
+        for repo in ["fvackingsonic/macgram", "fvackingsonic/mactele"] {
+            let url = format!("https://github.com/{repo}/releases/expanded_assets/latest");
+            let Ok(r) = ureq::get(&url).set("User-Agent", "macgram-updater").call() else { continue };
+            let Ok(page) = r.into_string() else { continue };
+            let marker = "_x64-setup.exe";
+            let Some(end) = page.find(marker) else { continue };
+            let start = page[..end].rfind("/releases/download/").ok_or("не разобрал страницу релиза")?;
+            let path = format!("{}{}", &page[start..end], marker);
+            let name = path.rsplit('/').next().unwrap_or("").to_string();
+            let tail = &page[end..];
+            let digest = tail.find("sha256:").map(|i| tail[i..i + 71.min(tail.len() - i)].to_string()).unwrap_or_default();
+            let ver = name.split('_').nth(1).unwrap_or("").to_string();
+            return Ok(serde_json::json!({
+                "name": format!("macgram {ver}"), "tag_name": "latest", "body": "", "html_url": format!("https://github.com/{repo}/releases/tag/latest"),
+                "assets": [{ "name": name, "browser_download_url": format!("https://github.com{path}"), "size": 0, "digest": digest }]
+            }));
+        }
+        Err("GitHub не отвечает".into())
+    }).await.map_err(|e| e.to_string())?
+}

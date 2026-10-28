@@ -8,6 +8,8 @@ export const REPO = 'fvackingsonic/macgram';
 // Пока репозиторий не переименован, он доступен и по старому имени — пробуем оба.
 const API = [`https://api.github.com/repos/${REPO}/releases/tags/latest`, 'https://api.github.com/repos/fvackingsonic/mactele/releases/tags/latest'];
 async function fetchRelease() {
+  // В приложении запрос идёт через Rust (с запасным путём, если GitHub ограничил API — ответ 403).
+  if (window.__TAURI__?.core) { try { return await window.__TAURI__.core.invoke('update_release'); } catch (e) { throw new Error(String(e)); } }
   let last = null;
   for (const url of API) {
     const r = await fetch(url, { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' });
