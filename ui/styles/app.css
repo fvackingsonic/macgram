@@ -1616,8 +1616,8 @@ html.wall-baked:not(.lite) :is(.chat-top, .composer-wrap, .top-bars) .glass:not(
 html.wall-baked .chat-header.glass, html.wall-baked .composer.glass, html.wall-baked .pinned-bar.glass, html.wall-baked .readonly-bar.glass,
 html.wall-baked .selection-bar.glass { position: relative; }
 .lg-mirror {
-  position: absolute; inset: -28px; z-index: -1; pointer-events: none; overflow: hidden; border-radius: 0;
-  clip-path: inset(28px round var(--lg-r, 22px));
+  position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; border-radius: 0;
+  clip-path: inset(0 round var(--lg-r, 22px));
   filter: blur(var(--lg-pblur)) saturate(1.2) var(--lens, );
 }
 /* то, что видно сквозь панель: рамка (.lg-mirror/.lg-feed) двигается вместе с кнопкой, а слой внутри
@@ -1632,8 +1632,8 @@ html.wall-baked .selection-bar.glass { position: relative; }
 /* копии сообщений под панелью — отдельный слой поверх «стекла»: при прокрутке он только сдвигается
    (каждая копия — свой слой), размытие считает видеокарта; линза — только у неподвижного слоя обоев */
 .lg-feed {
-  position: absolute; inset: -28px; z-index: -1; pointer-events: none; overflow: hidden;
-  clip-path: inset(28px round var(--lg-r, 22px)); filter: blur(var(--lg-pblur)) saturate(1.2) var(--lens, ); will-change: transform;
+  position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
+  clip-path: inset(0 round var(--lg-r, 22px)); filter: blur(var(--lg-pblur)) saturate(1.2) var(--lens, ); will-change: transform;
 }
 .lg-fin { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; will-change: transform; }
 html.lg-tl .lg-fin { animation: lg-feedf 1s linear both; animation-timeline: --lg-sc; }

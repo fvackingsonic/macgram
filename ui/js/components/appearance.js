@@ -106,7 +106,7 @@ export function Appearance() {
     <div class="pane-sec">Жидкое стекло</div>
     <div class="group">
       ${S.prefs.bubbles !== false && html`<div class="item"><span class="lbl">Стекло в сообщениях<small>Пузыри, кнопки ботов и «Переслать» — как Liquid Glass в iOS 26${S.glassBake && S.glassBake !== 'ok' ? ` · ${S.glassBake}` : ''}</small></span><${Switch} on=${S.prefs.glassBubbles !== false} onChange=${v => setPref('glassBubbles', v)}/></div>`}
-      ${S.prefs.bubbles !== false && S.prefs.glassBubbles !== false && html`<div class="item"><span class="lbl">Линза у краёв сообщений<small>Фон у края пузыря изгибается, как в толстом стекле. Выключите, если прокрутка дёргается</small></span><${Switch} on=${S.prefs.glassLens !== false} onChange=${v => setPref('glassLens', v)}/></div>`}
+      ${S.prefs.bubbles !== false && S.prefs.glassBubbles !== false && html`<div class="item"><span class="lbl">Линза у краёв сообщений<small>Фон у края пузыря изгибается, как в толстом стекле. Нагружает видеокарту — включайте, если прокрутка остаётся плавной</small></span><${Switch} on=${S.prefs.glassLens === true} onChange=${v => setPref('glassLens', v)}/></div>`}
       <div class="item"><span class="lbl">Стекло на панелях и кнопках<small>Шапка чата, поле ввода, кнопки сверху и снизу, плеер с нотой</small></span><${Switch} on=${S.prefs.glassPanels !== false} onChange=${v => setPref('glassPanels', v)}/></div>
       ${(S.prefs.glassBubbles !== false || S.prefs.glassPanels !== false) && html`<div class="item ap-glass">
         <div class="ap-glass-top"><span class="lbl">Прозрачность стекла</span>${typeof S.prefs.glassTint === 'number' && html`<button class="sel-btn" onClick=${() => setPref('glassTint', undefined)}>Стандарт</button>`}</div>

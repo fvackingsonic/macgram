@@ -206,7 +206,14 @@ pub async fn toast_show(app: AppHandle, payload: serde_json::Value) -> Result<()
     if let Ok(mut l) = LAST_TOAST.lock() {
         *l = Some(payload.clone());
     }
+    // Новое уведомление поверх показанного: окно прячем и показываем заново, иначе прозрачное окно
+    // WebView2 могло не стереть прошлый текст — буквы двоились.
+    if win.is_visible().unwrap_or(false) {
+        let _ = win.hide();
+        std::thread::sleep(std::time::Duration::from_millis(30));
+    }
     let _ = app.emit_to(TOAST, "toast", payload.clone());
+    std::thread::sleep(std::time::Duration::from_millis(40));
     let _ = win.show();
     // Доставка надёжнее событий: вызываем функцию страницы напрямую, пока она не подтвердит показ.
     // Если за 5 с подтверждения нет — прячем окно и просим главное окно показать уведомление Windows.

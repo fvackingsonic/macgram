@@ -20,20 +20,21 @@
     border-radius: 20px; isolation: isolate;
     background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,0) 55%), rgba(var(--tint), var(--a));
     box-shadow: 0 8px 24px rgba(0,0,0,.22), 0 1px 3px rgba(0,0,0,.12), inset 0 0 18px rgba(255,255,255,.08);
-    opacity: 0; transform: translateX(var(--from, 46px)) scale(.96); transition: transform .55s cubic-bezier(.2, 1.2, .3, 1), opacity .22s; }
+    opacity: 0; transition: opacity .2s; }
   /* ободок с бликом — как у стекла в macgram */
   .card::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 2;
     background: linear-gradient(135deg, var(--spec) 0%, var(--line) 24%, var(--line) 76%, var(--spec2) 100%);
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
   html.left { --from: -46px; }
   /* с размытием Windows окно само и есть карточка: углы скругляет система */
-  html.blur .card { inset: 0; border-radius: 8px; box-shadow: inset 0 0 18px rgba(255,255,255,.06); transform: translateY(-6px); }
-  html.blur .card.out { transform: translateY(-6px); }
+  html.blur .card { inset: 0; border-radius: 8px; box-shadow: inset 0 0 18px rgba(255,255,255,.06); }
   /* «Как на Mac» — плотная карточка без стеклянного ободка */
   html.style-mac .card { border-radius: 18px; background: rgba(var(--tint), var(--a)); box-shadow: 0 6px 18px rgba(0,0,0,.2), 0 0 0 .5px var(--edge), inset 0 .5px 0 rgba(255,255,255,.5); }
   html.style-mac .card::before { display: none; }
-  .card.in { transform: none; opacity: 1; }
-  .card.out { opacity: 0; transform: translateX(var(--from, 46px)) scale(.97); transition-duration: .3s; }
+  /* Только прозрачность, без сдвига: прозрачное окно Windows не всегда стирает прошлый кадр, и при движении
+     или смене текста оставались «двойные» буквы */
+  .card.in { opacity: 1; }
+  .card.out { opacity: 0; transition-duration: .25s; }
   .row { display: flex; gap: 11px; align-items: center; width: 100%; min-width: 0; }
   .av { width: 38px; height: 38px; border-radius: 50%; flex: none; display: grid; place-items: center; color: #fff; font-weight: 600; font-size: 15px;
     background-size: cover; background-position: center; position: relative; }
@@ -49,9 +50,9 @@
   html.size-l { font-size: 14px; } html.size-l .av { width: 46px; height: 46px; } html.size-l .text { -webkit-line-clamp: 3; }
   .x { position: absolute; top: -6px; left: -6px; width: 20px; height: 20px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; z-index: 3;
     background: rgba(var(--tint), .96); color: var(--sub); font-size: 10px; line-height: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.25), 0 0 0 .5px var(--edge);
-    opacity: 0; transform: scale(.7); transition: opacity .15s, transform .2s cubic-bezier(.2,1.3,.35,1); }
+    opacity: 0; transition: opacity .15s; }
   html.blur .x { top: 5px; left: 5px; }
-  .card:hover .x { opacity: 1; transform: none; }
+  .card:hover .x { opacity: 1; }
   .reply-btn { flex: none; height: 26px; padding: 0 11px; border-radius: 13px; border: 0; font-size: 12px; font-weight: 500; font-family: inherit;
     background: var(--btn); color: inherit; cursor: pointer; display: none; transition: background .15s; box-shadow: inset 0 0 0 .5px var(--line); }
   .card:hover .reply-btn { display: block; }

@@ -52,8 +52,20 @@ function App() {
         setTimeout(() => document.querySelector('.search input')?.focus(), 0);
       }
     };
+    // Печать без фокуса (фокус «слетел» после щелчка по ленте, меню и т. п.) — буквы идут в поле ввода, как в Telegram
+    const typeTo = e => {
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1 || e.isComposing) return;
+      if (!S.currentChatId || S.modal || S.viewer || S.menu || S.forward || S.sendDialog || S.storyView || S.newChat) return;
+      const a = document.activeElement;
+      if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable || a.tagName === 'SELECT')) return;
+      const el = document.querySelector('.nav-next .compose-input') || document.querySelector('.compose-input');
+      if (!el || el.disabled || !el.offsetParent) return;
+      el.focus();
+      el.setSelectionRange?.(el.value.length, el.value.length);
+    };
     window.addEventListener('keydown', keys);
-    return () => { window.removeEventListener('focus', f); window.removeEventListener('blur', b); window.removeEventListener('keydown', keys); };
+    window.addEventListener('keydown', typeTo, true);
+    return () => { window.removeEventListener('focus', f); window.removeEventListener('blur', b); window.removeEventListener('keydown', keys); window.removeEventListener('keydown', typeTo, true); };
   }, []);
   // Своё контекстное меню вместо системного (кроме полей ввода).
   useEffect(() => {

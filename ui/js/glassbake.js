@@ -5,8 +5,9 @@
 // плюс копии сообщений, которые сейчас проходят под панелью. Зеркало размыто и преломляется линзой,
 // поэтому сквозь шапку видно ленту, как сквозь стекло в iOS. Всё это обычные слои с обычным filter —
 // ничего не пропадает и не моргает.
-// PAD — запас вокруг панели (копии сообщений чуть за краем).
-const PAD = 28;
+// PAD — запас вокруг панели. Линза берёт картинку изнутри стекла, поэтому запас не нужен: слои под панелью
+// ровно по её размеру — так видеокарте вдвое-втрое меньше работы на каждом кадре прокрутки.
+const PAD = 0;
 const BUBBLES = ['.bubble:not(.media):not(.sticker):not(.round):not(.jumbo)', '.bubble.media.with-caption', '.with-comments']
   .map(s => `.messages .msg-row ${s}`).join(', ');
 const PANELS = '.chat-top .glass, .composer-wrap .glass, .top-bars .glass, .scroll-down.glass.show';
@@ -91,6 +92,9 @@ function lensFor(el, kind, w0, h0) {
   const r = el.__lgR, W = w + P.pad * 2, H = h + P.pad * 2;
   const key = `${kind}${W}x${H}r${r}`;
   if (el.__lensKey === key) return;
+  // окно меняет размер — без линзы, карты построятся, когда размер устоится (старая карта до тех пор
+  // не мешает: под ней нейтральный фон и запас по размеру)
+  if (document.documentElement.classList.contains('lg-resizing')) { if (el.__lensKey) { el.style.removeProperty('--lens'); el.__lensKey = ''; } return; }
   let e = lensCache.get(key);
   if (!e) {
     if (budget <= 0) { raf || (raf = requestAnimationFrame(update)); return; } // не больше двух новых карт за кадр
@@ -112,8 +116,11 @@ function lensFor(el, kind, w0, h0) {
       e.url = URL.createObjectURL(b);
       const f = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
       f.id = e.id;
-      for (const [k, v] of [['x', 0], ['y', 0], ['width', W], ['height', H], ['filterUnits', 'userSpaceOnUse'], ['primitiveUnits', 'userSpaceOnUse'], ['color-interpolation-filters', 'sRGB']]) f.setAttribute(k, v);
-      f.innerHTML = `<feImage href="${e.url}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="none" result="map"/>`
+      // область фильтра с запасом и нейтральный серый под картой: если элемент на миг больше карты,
+      // лишнее не обрезается и не сдвигается
+      for (const [k, v] of [['x', 0], ['y', 0], ['width', W * 2 + 200], ['height', H * 2 + 200], ['filterUnits', 'userSpaceOnUse'], ['primitiveUnits', 'userSpaceOnUse'], ['color-interpolation-filters', 'sRGB']]) f.setAttribute(k, v);
+      f.innerHTML = `<feFlood flood-color="rgb(128,128,128)" result="n"/><feImage href="${e.url}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="none" result="i"/>`
+        + `<feMerge result="map"><feMergeNode in="n"/><feMergeNode in="i"/></feMerge>`
         + `<feDisplacementMap in="SourceGraphic" in2="map" scale="${S}" xChannelSelector="R" yChannelSelector="G"/>`;
       defs.appendChild(f);
       e.ready = true;
@@ -308,7 +315,7 @@ function update() {
   // 1) чтение: где пузыри и панели, какие строки ленты под панелями
   const bubbles = [];
   const lay = new Map();
-  const lens = !root.classList.contains('no-lg-lens');
+  const lens = root.classList.contains('lg-lens-on') && !root.classList.contains('lg-resizing');
   if (root.classList.contains('glass-bubbles')) {
     for (const sc of document.querySelectorAll('.messages')) {
       const sr = R(sc);
@@ -463,7 +470,17 @@ const onScroll = () => {
 };
 document.addEventListener('scroll', e => { const t = e.target; if (t === document || !t.closest || !t.closest('.sidebar')) onScroll(); }, { capture: true, passive: true });
 document.addEventListener('scrollend', e => { const t = e.target; if (t === document || !t.closest || !t.closest('.sidebar')) glassUpdate(); }, { capture: true, passive: true });
-window.addEventListener('resize', glassUpdate);
+// Изменение размера окна (в т. ч. во весь экран): пока окно меняется, линзы выключены и новые карты не
+// строятся (иначе на каждый промежуточный размер — своя карта, и всё подвисало), стекло досчитывается
+// реже; через 300 мс после последнего изменения всё пересчитывается начисто.
+let resizeT = 0, resizeU = 0;
+window.addEventListener('resize', () => {
+  const root = document.documentElement;
+  root.classList.add('lg-resizing');
+  clearTimeout(resizeT);
+  resizeT = setTimeout(() => { root.classList.remove('lg-resizing'); glassUpdate(); }, 300);
+  if (!resizeU) resizeU = setTimeout(() => { resizeU = 0; glassUpdate(); }, 120);
+});
 // Изменения в ленте: строку под панелью копируем заново; свои копии (внутри .lg-mirror) не считаем.
 new MutationObserver(recs => {
   let any = false;

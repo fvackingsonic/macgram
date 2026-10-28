@@ -123,8 +123,12 @@ function Messages({ chat }) {
   useLayoutEffect(() => {
     const el = ref.current; if (!el) return;
     const p = pos.current;
-    if (lastId !== p.lastId && p.lastId && !p.bottom) {
-      el.scrollTop = p.fromTop - (el.scrollHeight - el.clientHeight);
+    const last = list[list.length - 1];
+    if (lastId !== p.lastId && p.lastId) {
+      // у конца ленты или своё сообщение — остаёмся внизу (раньше порог был 5 px, и при дробном масштабе
+      // экрана лента «не листалась сама вниз»)
+      if (p.bottom || last?.is_outgoing) el.scrollTop = 0;
+      else el.scrollTop = p.fromTop - (el.scrollHeight - el.clientHeight);
     }
     p.lastId = lastId;
     p.fromTop = el.scrollHeight - el.clientHeight + el.scrollTop;
@@ -132,7 +136,7 @@ function Messages({ chat }) {
   const onScroll = () => {
     const el = ref.current; if (!el) return;
     pos.current.fromTop = el.scrollHeight - el.clientHeight + el.scrollTop;
-    pos.current.bottom = el.scrollTop > -5;
+    pos.current.bottom = el.scrollTop > -60;
     // column-reverse: scrollTop отрицательный, 0 — у самого низа
     if (el.scrollHeight - el.clientHeight + el.scrollTop < 600) loadHistory(chat.id, true);
     if (el.scrollTop > -400 && h?.hasNewer) loadNewer(chat.id);
