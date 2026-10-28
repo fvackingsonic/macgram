@@ -119,7 +119,21 @@ export async function install() {
   S.updateProgress = { done: 0, total: u.size || 0 }; changed();
   const off = await T.event.listen('update-progress', e => { S.updateProgress = e.payload; changed(); });
   try {
-    await T.core.invoke('update_install', { url: u.url, sha256: u.sha });
+    try {
+      await T.core.invoke('update_install', { url: u.url, sha256: u.sha });
+    } catch (e) {
+      // Пока окно было открыто, вышла ещё более новая сборка и заменила файл (ошибка 404) —
+      // берём свежие данные релиза и сразу скачиваем новую версию.
+      if (!/404/.test(String(e))) throw e;
+      const rel = await fetchRelease();
+      const asset = (rel.assets || []).find(a => /_x64-setup\.exe$/.test(a.name));
+      const sha = asset?.digest || (rel.body || '').match(/SHA-?256:\s*([0-9a-f]{64})/i)?.[1] || '';
+      if (!asset || !sha) throw e;
+      S.update = { ...u, version: parse(rel.name || rel.tag_name).join('.'), url: asset.browser_download_url, sha, size: asset.size };
+      S.updateProgress = { done: 0, total: asset.size || 0 }; changed();
+      showHud(`Вышла более новая версия ${S.update.version} — скачиваю её`);
+      await T.core.invoke('update_install', { url: S.update.url, sha256: S.update.sha });
+    }
   } catch (e) {
     showHud(String(e)); S.updateProgress = null; changed();
   } finally { off(); }
