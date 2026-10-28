@@ -149,11 +149,65 @@ async function bakeWall(url, fit, extraBlur) {
   const c = document.createElement('canvas'); c.width = Math.round(W * k); c.height = Math.round(H * k);
   const g = c.getContext('2d');
   g.fillStyle = fit === 'cover' ? '#000' : marginColor(); g.fillRect(0, 0, c.width, c.height);
-  g.filter = `blur(${(extraBlur ? 12 : 1.6) * k}px) saturate(1.6) brightness(1.1)`;
+  g.filter = `blur(${(extraBlur ? 12 : 1.6) * k}px) saturate(1.15) brightness(1.06)`;
   g.drawImage(bmp, dx * k - 2, dy * k - 2, dw * k + 4, dh * k + 4);
   const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', .88));
   return blob ? URL.createObjectURL(blob) : '';
 }
+// Цвета/градиент/узор (стандартные обои Telegram) — рисуем на холсте так же, как их рисует CSS.
+function paintFill(g, W, H, fill, fallback, plainColor) {
+  const css = n => hex(n);
+  if (plainColor) { g.fillStyle = plainColor; g.fillRect(0, 0, W, H); return; }
+  const f = fill || { '@type': 'backgroundFillFreeformGradient', colors: fallback };
+  if (f['@type'] === 'backgroundFillSolid') { g.fillStyle = css(f.color); g.fillRect(0, 0, W, H); return; }
+  if (f['@type'] === 'backgroundFillGradient') {
+    const a = ((f.rotation_angle || 0) - 90) * Math.PI / 180, cx = W / 2, cy = H / 2;
+    const len = Math.abs(W * Math.cos(a)) + Math.abs(H * Math.sin(a));
+    const lg = g.createLinearGradient(cx - Math.cos(a) * len / 2, cy - Math.sin(a) * len / 2, cx + Math.cos(a) * len / 2, cy + Math.sin(a) * len / 2);
+    lg.addColorStop(0, css(f.top_color)); lg.addColorStop(1, css(f.bottom_color));
+    g.fillStyle = lg; g.fillRect(0, 0, W, H); return;
+  }
+  const cols = (f.colors || fallback).map(css);
+  { // linear-gradient(160deg, first, last)
+    const a = (160 - 90) * Math.PI / 180, cx = W / 2, cy = H / 2;
+    const len = Math.abs(W * Math.cos(a)) + Math.abs(H * Math.sin(a));
+    const lg = g.createLinearGradient(cx - Math.cos(a) * len / 2, cy - Math.sin(a) * len / 2, cx + Math.cos(a) * len / 2, cy + Math.sin(a) * len / 2);
+    lg.addColorStop(0, cols[0]); lg.addColorStop(1, cols[cols.length - 1]);
+    g.fillStyle = lg; g.fillRect(0, 0, W, H);
+  }
+  const pts = [[.8, .1], [.35, .25], [.2, .9], [.65, .75]];
+  cols.slice(0, 4).forEach((c, i) => {
+    const x = pts[i][0] * W, y = pts[i][1] * H;
+    const far = Math.max(Math.hypot(x, y), Math.hypot(W - x, y), Math.hypot(x, H - y), Math.hypot(W - x, H - y));
+    const rg = g.createRadialGradient(x, y, 0, x, y, far * .65);
+    rg.addColorStop(0, c); rg.addColorStop(1, c + '00');
+    g.fillStyle = rg; g.fillRect(0, 0, W, H);
+  });
+}
+async function bakeScene({ fill, fallback, plainColor, pattern, patColor, patOpacity }) {
+  const W = innerWidth, H = innerHeight, k = .5;
+  const c = document.createElement('canvas'); c.width = Math.round(W * k); c.height = Math.round(H * k);
+  const g = c.getContext('2d'); g.scale(k, k);
+  paintFill(g, W, H, fill, fallback, plainColor);
+  if (pattern) {
+    const img = new Image(); img.src = pattern;
+    await img.decode();
+    const th = 900, tw = img.naturalWidth && img.naturalHeight ? th * img.naturalWidth / img.naturalHeight : th;
+    const p = document.createElement('canvas'); p.width = W; p.height = H;
+    const pg = p.getContext('2d');
+    let x0 = (W - tw) / 2; while (x0 > 0) x0 -= tw;
+    for (let y = 0; y < H; y += th) for (let x = x0; x < W; x += tw) pg.drawImage(img, x, y, tw, th);
+    pg.globalCompositeOperation = 'source-in'; pg.fillStyle = patColor; pg.fillRect(0, 0, W, H);
+    g.globalAlpha = patOpacity; g.drawImage(p, 0, 0); g.globalAlpha = 1;
+  }
+  const out = document.createElement('canvas'); out.width = c.width; out.height = c.height;
+  const og = out.getContext('2d');
+  og.filter = `blur(${1.6 * k}px) saturate(1.15) brightness(1.06)`;
+  og.drawImage(c, 0, 0);
+  const blob = await new Promise(r => out.toBlob(r, 'image/jpeg', .9));
+  return blob ? URL.createObjectURL(blob) : '';
+}
+
 function setBaked(u) {
   const root = document.documentElement;
   if (bakedUrl) URL.revokeObjectURL(bakedUrl);
@@ -203,12 +257,16 @@ export function Wallpaper({ main }) {
   const fitCss = { cover: 'center/cover', contain: 'center/contain', width: 'center top/100% auto', center: 'center/auto' }[fit] || 'center/cover';
   const objFit = { cover: 'cover', contain: 'contain', width: 'cover', center: 'none' }[fit] || 'cover';
   const fitted = isPhoto && photoUrl && fit !== 'cover';
-  const bakeKey = main && !liveUrl && isPhoto && photoUrl ? `${photoUrl}|${fit}|${!!type.is_blurred}|${S.wallTint?.h ?? ''}` : '';
+  const sceneFill = type?.['@type'] === 'backgroundTypeFill' ? type.fill : fill;
+  const bakeKey = !main || liveUrl ? '' : isPhoto ? (photoUrl ? `${photoUrl}|${fit}|${!!type.is_blurred}|${S.wallTint?.h ?? ''}` : '')
+    : `scene|${palette()}|${JSON.stringify(sceneFill || fallback)}|${plain}|${isPattern ? pattern : ''}|${intensity}|${inverted}`;
   useEffect(() => {
     if (!main) return;
-    if (!bakeKey) { setBaked(''); S.glassBake = liveUrl ? 'живой фон' : isPhoto ? 'фон ещё грузится' : 'не фон-картинка'; return; }
+    if (!bakeKey) { setBaked(''); S.glassBake = liveUrl ? 'живой фон' : 'фон ещё грузится'; return; }
     let alive = true, t = 0;
-    const run = () => bakeWall(photoUrl, fit, type.is_blurred).then(u => { if (alive) { setBaked(u); S.glassBake = u ? 'ok' : 'пустой результат'; } else if (u) URL.revokeObjectURL(u); }).catch(e => { if (alive) { setBaked(''); S.glassBake = String(e?.message || e); } });
+    const run = () => (isPhoto ? bakeWall(photoUrl, fit, type.is_blurred) : bakeScene({
+      fill: sceneFill, fallback, plainColor: plain ? getComputedStyle(document.documentElement).getPropertyValue('--chat-bg').trim() || '#fff' : '',
+      pattern: !plain && isPattern && pattern ? pattern : '', patColor: inverted ? '#fff' : '#000', patOpacity: inverted ? intensity * 0.12 : intensity * 0.32 })).then(u => { if (alive) { setBaked(u); S.glassBake = u ? 'ok' : 'пустой результат'; } else if (u) URL.revokeObjectURL(u); }).catch(e => { if (alive) { setBaked(''); S.glassBake = String(e?.message || e); } });
     run();
     const onResize = () => { clearTimeout(t); t = setTimeout(run, 250); };
     window.addEventListener('resize', onResize);
