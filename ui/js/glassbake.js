@@ -298,6 +298,7 @@ function update() {
   if (root.__lgH !== wh) { root.__lgH = wh; root.style.setProperty('--wall-h', wh); }
   const H = innerHeight;
   const noPanels = root.classList.contains('no-glass-panels');
+  const copyMode = root.classList.contains('lg-copy');
   const rect = new Map();
   const R = el => { let r = rect.get(el); if (!r) { r = el.getBoundingClientRect(); rect.set(el, r); } return r; };
   const scrolls = new Map(); // лента -> [scrollTop, размах прокрутки со знаком]
@@ -358,7 +359,7 @@ function update() {
     // под маленькими круглыми кнопками копии сообщений почти не видны — только фон (меньше работы видеокарте)
     const small = p.classList.contains('circle');
     if (small !== p.__lgSmall) { p.__lgSmall = small; p.classList.toggle('lg-nofeed', small); }
-    if (sc && !small) {
+    if (sc && !small && copyMode) {
       st = ST(sc)[0];
       const top = r.top - PAD - 320, bottom = r.bottom + PAD + 320;
       for (const x of rowsIn(sc, top, bottom, R)) if (x[1].right > r.left - PAD && x[1].left < r.right + PAD) rows.push(x);
@@ -410,6 +411,8 @@ function update() {
     setTone(p, toneAt(o, r));
     const v = `${Math.round(o.left - r.left + PAD + (L ? L.dx : 0))}px ${Math.round(o.top - r.top + PAD + (L ? L.dy : 0))}px`;
     if (p.__bp !== v) { p.__bp = v; p.style.setProperty('--bp', v); }
+    // настоящее стекло (по умолчанию): копии не нужны — всё делает backdrop-filter с линзой
+    if (!copyMode) { if (p.__lgMirror || p.__lgFeed) dropMirror(p); continue; }
     let m = p.__lgMirror, f = p.__lgFeed;
     if (!m || m.parentNode !== p || !f || f.parentNode !== p) {
       dropMirror(p);

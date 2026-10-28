@@ -190,6 +190,8 @@ export function applyPrefs() {
   // линза у краёв пузырей (фон у края затягивается под стекло) — можно выключить, если тормозит
   // по умолчанию выключена: у каждого пузыря своя отрисовка, на слабой видеокарте прокрутка подвисала
   root.classList.toggle('lg-lens-on', S.prefs.glassLens === true);
+  // «Совместимое стекло»: панели рисуются копиями сообщений, а не настоящим размытием (если в WebView2 мигает)
+  root.classList.toggle('lg-copy', S.prefs.glassCopy === true);
   if (typeof S.prefs.glassTint === 'number') {
     const v = S.prefs.glassTint, dark = palette() === 'night';
     root.style.setProperty('--lg-tint', `rgba(255,255,255,${(dark ? v * .65 : v).toFixed(3)})`);

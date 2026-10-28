@@ -1615,6 +1615,15 @@ html.wall-baked:not(.lite) :is(.chat-top, .composer-wrap, .top-bars) .glass:not(
 }
 html.wall-baked .chat-header.glass, html.wall-baked .composer.glass, html.wall-baked .pinned-bar.glass, html.wall-baked .readonly-bar.glass,
 html.wall-baked .selection-bar.glass { position: relative; }
+/* 0.9.5: по умолчанию панели — настоящее стекло (backdrop-filter): браузер сам берёт то, что под панелью
+   (сообщения, картинки, фон), размывает и преломляет линзой. Без копий сообщений — намного быстрее.
+   «Совместимое стекло» в «Оформлении» (html.lg-copy) возвращает старый способ с копиями. */
+html.wall-baked:not(.lite):not(.lg-copy):not(.no-glass-panels) :is(.chat-top, .composer-wrap, .top-bars) .glass:not(.send-btn.ready):not(#lg-x),
+html.wall-baked:not(.lite):not(.lg-copy):not(.no-glass-panels) .scroll-down.glass:not(#lg-x) {
+  background: var(--lg-tint) !important;
+  backdrop-filter: var(--lens, ) blur(var(--lg-pblur)) saturate(1.5) !important; -webkit-backdrop-filter: blur(var(--lg-pblur)) saturate(1.5) !important;
+}
+html.wall-baked:not(.lg-copy) .lg-mirror, html.wall-baked:not(.lg-copy) .lg-feed { display: none !important; }
 .lg-mirror {
   position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; border-radius: 0;
   clip-path: inset(0 round var(--lg-r, 22px));
