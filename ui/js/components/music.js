@@ -176,7 +176,7 @@ function ConnectCard() {
       <input placeholder="Client ID" value=${id} onInput=${e => setId(e.target.value)} spellcheck="false" maxlength="40"/>
       <button class="mu-pill" disabled=${SP.connecting || id.trim().length < 32} onClick=${() => connect(id)}>${SP.connecting ? 'Жду браузер…' : 'Войти'}</button>
     </div>
-    <small class="mu-connect-note">Ключ и вход хранятся только на этом компьютере. Подписка Premium не нужна: без неё треки включаются в приложении Spotify.</small>
+    <small class="mu-connect-note">Важно: с февраля 2026 Spotify разрешает такой вход только если у владельца аккаунта разработчика есть Premium. Без Premium поиск и плейлисты здесь не заработают, но всё остальное работает: что играет, обложка, пауза, перемотка, громкость. Ключ и вход хранятся только на этом компьютере.</small>
   </div>`;
 }
 
