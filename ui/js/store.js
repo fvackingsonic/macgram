@@ -192,6 +192,8 @@ export function applyPrefs() {
   root.classList.toggle('lg-lens-on', S.prefs.glassLens === true);
   // «Совместимое стекло»: панели рисуются копиями сообщений, а не настоящим размытием (если в WebView2 мигает)
   root.classList.toggle('lg-copy', S.prefs.glassCopy === true);
+  // «Матовые сообщения»: под пузырями размытая копия обоев (дороже); по умолчанию — просто прозрачное стекло
+  root.classList.toggle('lg-frost', S.prefs.glassFrost === true);
   if (typeof S.prefs.glassTint === 'number') {
     const v = S.prefs.glassTint, dark = palette() === 'night';
     root.style.setProperty('--lg-tint', `rgba(255,255,255,${(dark ? v * .65 : v).toFixed(3)})`);

@@ -299,6 +299,7 @@ function update() {
   const H = innerHeight;
   const noPanels = root.classList.contains('no-glass-panels');
   const copyMode = root.classList.contains('lg-copy');
+  const frost = root.classList.contains('lg-frost');
   const rect = new Map();
   const R = el => { let r = rect.get(el); if (!r) { r = el.getBoundingClientRect(); rect.set(el, r); } return r; };
   const scrolls = new Map(); // лента -> [scrollTop, размах прокрутки со знаком]
@@ -377,6 +378,9 @@ function update() {
   }
   for (const [el, r, st, L, vis] of bubbles) {
     setTone(el, toneAt(o, r));
+    // по умолчанию пузыри — просто прозрачное стекло над обоями (без размытой копии): у каждой копии свой
+    // слой на видеокарте, и это была самая дорогая часть стекла. Размытие — «Оформление» → «Матовые сообщения».
+    if (!frost) { if (el.__lgBg) { el.__lgBg.remove(); el.__lgBg = null; } continue; }
     let bg = el.__lgBg;
     if (!bg || bg.parentNode !== el) {
       // .lg-lens — слой с линзой по краю (как фаска толстого стекла, см. LENS);

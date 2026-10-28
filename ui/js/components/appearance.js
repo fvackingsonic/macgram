@@ -62,7 +62,7 @@ function resetAppearance() {
   openModal({
     title: 'Сбросить оформление?', text: 'Тема, цвета, размер текста, пузыри, автоночь и значок вернутся к стандартным.',
     buttons: [
-      { label: 'Сбросить', kind: 'danger', action: () => { closeModal(); for (const k of ['theme', 'dayTheme', 'nightTheme', 'accent', 'bubbles', 'fontSize', 'autoNight', 'nightFrom', 'nightTo', 'appIcon', 'autoTint', 'glassBubbles', 'glassPanels', 'glassLens', 'glassCopy', 'glassTint', 'wallFit', 'tint', 'outColor']) setPref(k, k === 'fontSize' ? 14 : k === 'appIcon' ? 'blue' : undefined); showHud('Оформление сброшено'); } },
+      { label: 'Сбросить', kind: 'danger', action: () => { closeModal(); for (const k of ['theme', 'dayTheme', 'nightTheme', 'accent', 'bubbles', 'fontSize', 'autoNight', 'nightFrom', 'nightTo', 'appIcon', 'autoTint', 'glassBubbles', 'glassPanels', 'glassLens', 'glassCopy', 'glassFrost', 'glassTint', 'wallFit', 'tint', 'outColor']) setPref(k, k === 'fontSize' ? 14 : k === 'appIcon' ? 'blue' : undefined); showHud('Оформление сброшено'); } },
       { label: 'Отмена', kind: 'second', action: closeModal },
     ],
   });
@@ -106,6 +106,7 @@ export function Appearance() {
     <div class="pane-sec">Жидкое стекло</div>
     <div class="group">
       ${S.prefs.bubbles !== false && html`<div class="item"><span class="lbl">Стекло в сообщениях<small>Пузыри, кнопки ботов и «Переслать» — как Liquid Glass в iOS 26${S.glassBake && S.glassBake !== 'ok' ? ` · ${S.glassBake}` : ''}</small></span><${Switch} on=${S.prefs.glassBubbles !== false} onChange=${v => setPref('glassBubbles', v)}/></div>`}
+      ${S.prefs.bubbles !== false && S.prefs.glassBubbles !== false && html`<div class="item"><span class="lbl">Матовые сообщения<small>Фон под пузырями слегка размыт. Красивее, но прокрутка тяжелее</small></span><${Switch} on=${S.prefs.glassFrost === true} onChange=${v => setPref('glassFrost', v)}/></div>`}
       ${S.prefs.bubbles !== false && S.prefs.glassBubbles !== false && html`<div class="item"><span class="lbl">Линза у краёв сообщений<small>Фон у края пузыря изгибается, как в толстом стекле. Нагружает видеокарту — включайте, если прокрутка остаётся плавной</small></span><${Switch} on=${S.prefs.glassLens === true} onChange=${v => setPref('glassLens', v)}/></div>`}
       <div class="item"><span class="lbl">Стекло на панелях и кнопках<small>Шапка чата, поле ввода, кнопки сверху и снизу, плеер с нотой</small></span><${Switch} on=${S.prefs.glassPanels !== false} onChange=${v => setPref('glassPanels', v)}/></div>
       ${S.prefs.glassPanels !== false && html`<div class="item"><span class="lbl">Совместимое стекло<small>Включите, только если стекло на шапке и кнопках мигает или пропадает. Работает медленнее</small></span><${Switch} on=${S.prefs.glassCopy === true} onChange=${v => setPref('glassCopy', v)}/></div>`}

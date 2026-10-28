@@ -1477,8 +1477,7 @@ html.no-bubbles .date-sep span, html.no-bubbles .service span, html.no-bubbles .
   background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,0) 55%), var(--tp-bg); backdrop-filter: blur(14px) saturate(1.5);
   box-shadow: 0 8px 24px rgba(0,0,0,.2), 0 1px 3px rgba(0,0,0,.1), inset 0 0 18px rgba(255,255,255,.08); }
 .toast-prev::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
-  background: linear-gradient(135deg, rgba(255,255,255,.95) 0%, rgba(255,255,255,.4) 24%, rgba(255,255,255,.4) 76%, rgba(255,255,255,.7) 100%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+  border: 1px solid rgba(255,255,255,.4); border-top-color: rgba(255,255,255,.85); border-left-color: rgba(255,255,255,.65); border-bottom-color: rgba(255,255,255,.55); }
 .toast-prev:not(.blur) { backdrop-filter: none; }
 .toast-prev.blur { border-radius: 8px; }
 .toast-prev.st-mac { border-radius: 18px; background: var(--tp-bg); box-shadow: 0 6px 18px rgba(0,0,0,.18), 0 0 0 .5px rgba(0,0,0,.1), inset 0 .5px 0 rgba(255,255,255,.5); }
@@ -1552,9 +1551,7 @@ html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out :is(.bubble:not(.med
 /* кромка с бликом */
 html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row :is(.bubble:not(.media):not(.sticker):not(.round):not(.jumbo), .bubble.media.with-caption, .with-comments)::before {
   content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 2;
-  background: linear-gradient(135deg, var(--lg-spec) 0%, var(--lg-line) 22%, var(--lg-line) 78%, var(--lg-spec2) 100%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
-          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude;
+  /* кромка рамкой, а не маской: маска — отдельный проход видеокарты на каждый пузырь */ border: 1px solid var(--lg-line); border-top-color: color-mix(in srgb, var(--lg-spec) 70%, var(--lg-line)); border-left-color: color-mix(in srgb, var(--lg-spec) 45%, var(--lg-line)); border-bottom-color: color-mix(in srgb, var(--lg-spec2) 45%, var(--lg-line));
 }
 /* пост с комментариями: стекло только у общей обёртки, внутренний пузырь прозрачный */
 html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble:not(#lg-x) {
@@ -1624,6 +1621,13 @@ html.wall-baked:not(.lite):not(.lg-copy):not(.no-glass-panels) .scroll-down.glas
   backdrop-filter: var(--lens, ) blur(var(--lg-pblur)) saturate(1.5) !important; -webkit-backdrop-filter: blur(var(--lg-pblur)) saturate(1.5) !important;
 }
 html.wall-baked:not(.lg-copy) .lg-mirror, html.wall-baked:not(.lg-copy) .lg-feed { display: none !important; }
+/* пузыри без «Матовых сообщений» — прозрачное стекло прямо над обоями: заливка и кромка, без копий-слоёв */
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles):not(.lg-frost) .msg-row :is(.bubble:not(.media):not(.sticker):not(.round):not(.jumbo), .bubble.media.with-caption, .with-comments):not(#lg-x) { background: linear-gradient(var(--lg-veil, transparent), var(--lg-veil, transparent)), var(--lg-tint) !important; }
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles):not(.lg-frost) .msg-row.out :is(.bubble:not(.media):not(.sticker):not(.round):not(.jumbo), .bubble.media.with-caption):not(#lg-x) { background: linear-gradient(var(--lg-veil, transparent), var(--lg-veil, transparent)), var(--lg-out) !important; }
+/* без размытия текст читался хуже — лёгкая вуаль по яркости фона под пузырём */
+html.wall-baked:not(.lg-frost) .msg-row [data-lg="d"] { --lg-veil: rgba(0,0,0,.16); }
+html.wall-baked:not(.lg-frost) .msg-row [data-lg="l"] { --lg-veil: rgba(255,255,255,.22); }
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles):not(.lg-frost) .msg-row .with-comments > .bubble:not(#lg-x) { background: transparent !important; }
 .lg-mirror {
   position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; border-radius: 0;
   clip-path: inset(0 round var(--lg-r, 22px));
@@ -1654,9 +1658,7 @@ html.glass-bubbles .lg-feed .msg-row :is(.bubble:not(.media):not(.sticker):not(.
 /* кромка-блик у панелей */
 html.wall-baked:not(.lite) :is(.chat-top, .composer-wrap, .top-bars) .glass:not(.send-btn.ready)::after, html.wall-baked:not(.lite) .scroll-down.glass::after {
   content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 3;
-  background: linear-gradient(135deg, var(--lg-spec) 0%, var(--lg-line) 22%, var(--lg-line) 78%, var(--lg-spec2) 100%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
-          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude;
+  /* кромка рамкой, а не маской: маска — отдельный проход видеокарты на каждый пузырь */ border: 1px solid var(--lg-line); border-top-color: color-mix(in srgb, var(--lg-spec) 70%, var(--lg-line)); border-left-color: color-mix(in srgb, var(--lg-spec) 45%, var(--lg-line)); border-bottom-color: color-mix(in srgb, var(--lg-spec2) 45%, var(--lg-line));
 }
 .composer-wrap > .send-btn.ready, .composer-wrap > .send-btn.ready:hover { background: var(--accent) !important; color: #fff !important; }
 
@@ -1896,9 +1898,7 @@ html.wall-baked:not(.lite):not(.no-glass-panels) .mu-glass::before { content: ""
 /* у кнопок в шапке вуаль слабее — как у пузырей */
 html.wall-baked:not(.lite) .music-btn.mu-glass, html.wall-baked:not(.lite) .music-cap.mu-glass { --mu-veil: transparent; }
 html.wall-baked:not(.lite):not(.no-glass-panels) .mu-glass::after { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 8;
-  background: linear-gradient(135deg, var(--lg-spec) 0%, var(--lg-line) 22%, var(--lg-line) 78%, var(--lg-spec2) 100%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
-          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; }
+  /* кромка рамкой, а не маской: маска — отдельный проход видеокарты на каждый пузырь */ border: 1px solid var(--lg-line); border-top-color: color-mix(in srgb, var(--lg-spec) 70%, var(--lg-line)); border-left-color: color-mix(in srgb, var(--lg-spec) 45%, var(--lg-line)); border-bottom-color: color-mix(in srgb, var(--lg-spec2) 45%, var(--lg-line)); }
 html.wall-baked:not(.lite) .music-panel.mu-glass .mu-ambient { opacity: .22; }
 html.wall-baked:not(.lite) .music-panel.mu-glass { position: absolute; } /* .mu-glass не должен сбивать место панели */
 html.wall-baked:not(.lite):not(.no-glass-panels) .mu-glass .mu-play { background: var(--lg-text); color: var(--mu-inv); }
@@ -1953,8 +1953,7 @@ html.wall-baked:not(.lite):not(.no-glass-panels) .mu-glass[data-lg="d"] .mu-link
 html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .ikb-btn { background: var(--lg-tint); color: var(--lg-text); box-shadow: var(--lg-shadow); isolation: isolate; }
 html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .ikb-btn::before, html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .share-btn::before {
   content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 2;
-  background: linear-gradient(135deg, var(--lg-spec) 0%, var(--lg-line) 22%, var(--lg-line) 78%, var(--lg-spec2) 100%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; }
+  /* кромка рамкой, а не маской: маска — отдельный проход видеокарты на каждый пузырь */ border: 1px solid var(--lg-line); border-top-color: color-mix(in srgb, var(--lg-spec) 70%, var(--lg-line)); border-left-color: color-mix(in srgb, var(--lg-spec) 45%, var(--lg-line)); border-bottom-color: color-mix(in srgb, var(--lg-spec2) 45%, var(--lg-line)); }
 html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .ikb-btn { background: transparent; }
 /* «Переслать» у постов канала — стекло как у пузырей */
 html.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .share-btn.glass { position: relative; overflow: hidden; isolation: isolate; color: var(--lg-text);
@@ -2028,8 +2027,7 @@ html:not(.lite):not(.no-glass-panels) .music-panel.mu-glass[data-lg="l"]:not(#lg
 html:not(.lite):not(.no-glass-panels) .music-panel.mu-glass:not(#lg-x)::before { content: ""; position: absolute; inset: 0; z-index: -2; border-radius: inherit; pointer-events: none;
   background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,0) 40%), linear-gradient(var(--mu-veil), var(--mu-veil)) !important; }
 html:not(.lite):not(.no-glass-panels) .music-panel.mu-glass:not(#lg-x)::after { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 8;
-  background: linear-gradient(135deg, var(--lg-spec) 0%, var(--lg-line) 22%, var(--lg-line) 78%, var(--lg-spec2) 100%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; }
+  /* кромка рамкой, а не маской: маска — отдельный проход видеокарты на каждый пузырь */ border: 1px solid var(--lg-line); border-top-color: color-mix(in srgb, var(--lg-spec) 70%, var(--lg-line)); border-left-color: color-mix(in srgb, var(--lg-spec) 45%, var(--lg-line)); border-bottom-color: color-mix(in srgb, var(--lg-spec2) 45%, var(--lg-line)); }
 /* открытие — «капля»: кнопка с нотой набухает, вытягивается вниз каплей и с пружинкой растекается в
    плеер (как меню из кнопки в iOS 26); содержимое проявляется из размытия. Закрытие — втягивается обратно. */
 .music-panel.opening, .music-panel.out { transform-origin: var(--o-x, calc(100% - 20px)) var(--o-y, -30px); will-change: transform; }
