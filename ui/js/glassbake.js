@@ -475,7 +475,21 @@ const onScroll = () => {
   if (scrollT) return;
   scrollT = setTimeout(() => { scrollT = 0; glassUpdate(); }, 60);
 };
-document.addEventListener('scroll', e => { const t = e.target; if (t === document || !t.closest || !t.closest('.sidebar')) onScroll(); }, { capture: true, passive: true });
+// Пока ленту крутят, линзы пузырей отдыхают: под каждым пузырём картинка движется, и линзу пришлось бы
+// пересчитывать на каждом кадре для каждого пузыря (вдвое больше работы видеокарте). Как только лента
+// остановилась (через 160 мс) — линзы снова на месте. Класс ставится только на ленту, а не на всю страницу.
+let restT = 0, restSc = null;
+const scrolling = sc => {
+  if (restSc !== sc) { restSc?.classList.remove('lg-scrolling'); restSc = sc; }
+  if (!sc.classList.contains('lg-scrolling')) sc.classList.add('lg-scrolling');
+  clearTimeout(restT);
+  restT = setTimeout(() => { sc.classList.remove('lg-scrolling'); restSc = null; }, 160);
+};
+document.addEventListener('scroll', e => {
+  const t = e.target;
+  if (t?.classList?.contains('messages')) scrolling(t);
+  if (t === document || !t.closest || !t.closest('.sidebar')) onScroll();
+}, { capture: true, passive: true });
 document.addEventListener('scrollend', e => { const t = e.target; if (t === document || !t.closest || !t.closest('.sidebar')) glassUpdate(); }, { capture: true, passive: true });
 // Изменение размера окна (в т. ч. во весь экран): пока окно меняется, линзы выключены и новые карты не
 // строятся (иначе на каждый промежуточный размер — своя карта, и всё подвисало), стекло досчитывается
@@ -495,6 +509,7 @@ new MutationObserver(recs => {
     const t = rec.target.nodeType === 1 ? rec.target : rec.target.parentElement;
     // список чатов слева и полосы прокрутки на стекло ленты не влияют — не пересчитываем из-за них
     if (!t || t.closest('.lg-mirror, .lg-feed, .sidebar, .sb-track, .compose-input, .music-panel, .ctx, .hud, .veil, .cmd-list')) continue;
+    if (rec.type === 'attributes' && t.classList?.contains('messages')) continue; // lg-scrolling на ленте
     if (rec.type === 'childList' && [...rec.addedNodes, ...rec.removedNodes].every(n => n.nodeType === 1 && (n.classList.contains('lg-mirror') || n.classList.contains('lg-feed') || n.classList.contains('lg-bg')))) continue;
     any = true;
     const sc = t.closest('.messages');

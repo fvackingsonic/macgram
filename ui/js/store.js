@@ -187,13 +187,9 @@ export function applyPrefs() {
   root.classList.toggle('lg-panels', S.prefs.glass !== false);
   // стекло можно оставить только у сообщений или только у панелей (Оформление → Жидкое стекло)
   root.classList.toggle('no-glass-panels', S.prefs.glassPanels === false);
-  // линза у краёв пузырей (фон у края затягивается под стекло) — можно выключить, если тормозит
-  // по умолчанию выключена: у каждого пузыря своя отрисовка, на слабой видеокарте прокрутка подвисала
-  root.classList.toggle('lg-lens-on', S.prefs.glassLens === true);
-  // «Совместимое стекло»: панели рисуются копиями сообщений, а не настоящим размытием (если в WebView2 мигает)
-  root.classList.toggle('lg-copy', S.prefs.glassCopy === true);
-  // «Матовые сообщения»: под пузырями размытая копия обоев (дороже); по умолчанию — просто прозрачное стекло
-  root.classList.toggle('lg-frost', S.prefs.glassFrost === true);
+  // стекло как в iOS: линза у краёв и размытый фон под пузырями — всегда (без лишних переключателей)
+  root.classList.add('lg-lens-on', 'lg-frost');
+  root.classList.remove('lg-copy');
   if (typeof S.prefs.glassTint === 'number') {
     const v = S.prefs.glassTint, dark = palette() === 'night';
     root.style.setProperty('--lg-tint', `rgba(255,255,255,${(dark ? v * .65 : v).toFixed(3)})`);
