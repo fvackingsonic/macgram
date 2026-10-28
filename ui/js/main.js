@@ -1,5 +1,6 @@
 import { html, render, useEffect, useState } from './lib.js';
 import { S, useStore, applyPrefs, selectChat, changed } from './store.js';
+import { MusicVideoHost } from './components/music.js';
 import { startTd } from './td.js';
 import { Auth } from './components/auth.js';
 import { Sidebar } from './components/sidebar.js';
@@ -78,6 +79,7 @@ function App() {
     <${ContextMenu}/>
     <${Modal}/>
     <${Hud}/>
+    ${ready && html`<${MusicVideoHost}/>`}
   </div>`;
 }
 

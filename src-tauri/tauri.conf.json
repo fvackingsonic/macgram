@@ -24,7 +24,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data: blob: https://*.mzstatic.com https://*.scdn.co https://*.spotifycdn.com https://*.dzcdn.net; media-src 'self' asset: http://asset.localhost blob:; font-src 'self' data: asset: http://asset.localhost; connect-src 'self' ipc: http://ipc.localhost https://api.github.com https://api.spotify.com https://accounts.spotify.com asset: http://asset.localhost",
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data: blob: https://*.mzstatic.com https://*.scdn.co https://*.spotifycdn.com https://*.dzcdn.net https://i.ytimg.com; frame-src https://www.youtube-nocookie.com https://www.youtube.com; media-src 'self' asset: http://asset.localhost blob: https://*.dzcdn.net; font-src 'self' data: asset: http://asset.localhost; connect-src 'self' ipc: http://ipc.localhost https://api.github.com https://api.spotify.com https://accounts.spotify.com asset: http://asset.localhost",
       "assetProtocol": {
         "enable": true,
         "scope": {
