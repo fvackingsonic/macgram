@@ -149,7 +149,7 @@ async function bakeWall(url, fit, extraBlur) {
   const c = document.createElement('canvas'); c.width = Math.round(W * k); c.height = Math.round(H * k);
   const g = c.getContext('2d');
   g.fillStyle = fit === 'cover' ? '#000' : marginColor(); g.fillRect(0, 0, c.width, c.height);
-  g.filter = `blur(${(extraBlur ? 14 : 9) * k}px) saturate(1.3) brightness(1.08)`;
+  g.filter = `blur(${(extraBlur ? 8 : 3) * k}px) saturate(1.25) brightness(1.04)`;
   g.drawImage(bmp, dx * k - 2, dy * k - 2, dw * k + 4, dh * k + 4);
   bakedLum = avgLum(c);
   const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', .88));
@@ -203,7 +203,7 @@ async function bakeScene({ fill, fallback, plainColor, pattern, patColor, patOpa
   }
   const out = document.createElement('canvas'); out.width = c.width; out.height = c.height;
   const og = out.getContext('2d');
-  og.filter = `blur(${9 * k}px) saturate(1.3) brightness(1.08)`;
+  og.filter = `blur(${3 * k}px) saturate(1.25) brightness(1.04)`;
   og.drawImage(c, 0, 0);
   bakedLum = avgLum(out);
   const blob = await new Promise(r => out.toBlob(r, 'image/jpeg', .9));

@@ -1671,8 +1671,8 @@ html.wall-baked:not(.lite) .top-bars .glass, html.wall-baked:not(.lite) .scroll-
 
 /* Матовое стекло как на референсе iOS 26 (панель вкладок поверх фото): фон под стеклом заметно
    размыт и высветлен молочной дымкой, сверху лёгкий блик, по краю линза и светлый ободок. */
-:root { --lg-sheen: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,0) 42%, rgba(255,255,255,0) 72%, rgba(255,255,255,.07)); --lg-tint: rgba(255,255,255,.2); }
-:root[data-palette="night"] { --lg-tint: rgba(255,255,255,.13); }
+:root { --lg-sheen: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,0) 40%, rgba(255,255,255,0) 75%, rgba(255,255,255,.04)); --lg-tint: rgba(255,255,255,.05); }
+:root[data-palette="night"] { --lg-tint: rgba(255,255,255,.03); }
 /* тёмный фон под стеклом — светлый текст, как адаптивное стекло iOS */
 html.wall-baked.glass-dark { --lg-text: #fff; --lg-meta: rgba(255,255,255,.66); --lg-glow-text: rgba(0,0,0,.45); }
 html.wall-baked.glass-dark .chat-header.glass .title, html.wall-baked.glass-dark .chat-header.glass .status:not(.online):not(.typing),
