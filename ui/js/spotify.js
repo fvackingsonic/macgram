@@ -252,4 +252,11 @@ export function moreLiked(v) {
     v.total = r.total; v.next = r.next; v.loading = false; changed();
   }).catch(() => { v.tracks ||= []; v.loading = false; changed(); });
 }
-export function openInSpotify(uri) { invoke('spotify_open', { uri }).catch(e => showHud(String(e?.message || e))); }
+export function openInSpotify(uri) {
+  // обычные веб-ссылки (кабинет разработчика Spotify и т. п.) — просто в браузере
+  if (/^https:\/\//.test(uri)) {
+    (T ? T.core.invoke('plugin:opener|open_url', { url: uri }) : Promise.resolve(window.open(uri, '_blank', 'noopener'))).catch(e => showHud(String(e?.message || e)));
+    return;
+  }
+  invoke('spotify_open', { uri }).catch(e => showHud(String(e?.message || e)));
+}
