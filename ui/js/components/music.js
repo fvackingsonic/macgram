@@ -364,23 +364,26 @@ const MineView = () => html`<div class="mu-view">${(MU.mine?.tracks || []).map((
 // поэтому стекло (backdrop-filter) под ней всё время честно показывает то, что под ним.
 function useOpenFrom(ref) {
   useLayoutEffect(() => {
-    const el = ref.current; if (!el || !MU.open || MU.closing) return;
+    const el = ref.current; if (!el || !MU.open) return;
+    // откуда «капает» плеер: ближайшая видимая кнопка с нотой (центр и размер — в координатах панели)
     const chips = [...document.querySelectorAll('.music-btn, .music-cap')].filter(c => c.offsetWidth && !c.closest('.nav-layer.out'));
-    const p = el.getBoundingClientRect();
-    const c = chips.sort((a, b) => Math.abs(a.getBoundingClientRect().right - p.right) - Math.abs(b.getBoundingClientRect().right - p.right))[0];
-    if (c) {
+    const p = { width: el.offsetWidth, height: el.offsetHeight };
+    const pr = el.getBoundingClientRect();
+    const c = chips.sort((a, b) => Math.abs(a.getBoundingClientRect().right - pr.right) - Math.abs(b.getBoundingClientRect().right - pr.right))[0];
+    if (c && p.width && p.height) {
       const r = c.getBoundingClientRect();
-      el.style.setProperty('--o-t', `${Math.round(r.top - p.top)}px`);
-      el.style.setProperty('--o-r', `${Math.round(p.right - r.right)}px`);
-      el.style.setProperty('--o-b', `${Math.round(p.bottom - r.bottom)}px`);
-      el.style.setProperty('--o-l', `${Math.round(r.left - p.left)}px`);
-      el.style.setProperty('--o-rad', `${Math.round(r.height / 2)}px`);
+      // рамка панели здесь ещё без анимации (эффект — до отрисовки, «opening» ставится ниже)
+      el.style.setProperty('--o-x', `${Math.round(r.left + r.width / 2 - pr.left)}px`);
+      el.style.setProperty('--o-y', `${Math.round(r.top + r.height / 2 - pr.top)}px`);
+      el.style.setProperty('--o-sx', (r.width / p.width).toFixed(4));
+      el.style.setProperty('--o-sy', (r.height / p.height).toFixed(4));
     }
+    if (MU.closing) return;
     el.classList.add('opening');
     const done = e => { if (e.target === el && e.animationName === 'mp-open') el.classList.remove('opening'); };
     el.addEventListener('animationend', done);
     return () => el.removeEventListener('animationend', done);
-  }, [!!MU.open]);
+  }, [!!MU.open, !!MU.closing]);
 }
 
 export function MusicPanel() {

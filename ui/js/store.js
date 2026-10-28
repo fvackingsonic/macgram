@@ -187,6 +187,8 @@ export function applyPrefs() {
   root.classList.toggle('lg-panels', S.prefs.glass !== false);
   // стекло можно оставить только у сообщений или только у панелей (Оформление → Жидкое стекло)
   root.classList.toggle('no-glass-panels', S.prefs.glassPanels === false);
+  // линза у краёв пузырей (фон у края затягивается под стекло) — можно выключить, если тормозит
+  root.classList.toggle('no-lg-lens', S.prefs.glassLens === false);
   if (typeof S.prefs.glassTint === 'number') {
     const v = S.prefs.glassTint, dark = palette() === 'night';
     root.style.setProperty('--lg-tint', `rgba(255,255,255,${(dark ? v * .65 : v).toFixed(3)})`);

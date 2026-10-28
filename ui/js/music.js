@@ -386,7 +386,7 @@ export function togglePanel(force, view) {
     MU.open = true; MU.closing = false;
     if (view) { MU.stack = []; MU.view = view; }
     loadCharts(); loadMine();
-  } else if (MU.open) { MU.closing = true; setTimeout(() => { if (MU.closing) { MU.open = false; MU.closing = false; changed(); } }, 200); }
+  } else if (MU.open) { MU.closing = true; setTimeout(() => { if (MU.closing) { MU.open = false; MU.closing = false; changed(); } }, 290); }
   changed();
 }
 export function go(view) { MU.stack.push(MU.view); MU.view = view; changed(); }

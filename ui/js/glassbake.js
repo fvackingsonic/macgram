@@ -14,7 +14,10 @@ const ROWS = '.msg-row, .service, .unread-sep, .thread-start, .loader-top, .main
 // Линза Liquid Glass как в iOS 26: стекло — скруглённая «плита», край изогнут на всю толщину.
 //  p — панели и кнопки (берём фон и сообщения снаружи края — их затягивает под стекло),
 //  m — плеер с нотой поверх всего (размытие того, что под ним; край увеличивает то, что внутри).
-const LENS = { p: { bezel: 34, max: 24, pad: PAD, out: true }, m: { bezel: 26, max: 16, pad: 0, out: false } };
+// b — пузыри: фаска поуже, фон у края затягивается из-за кромки (запас PADB вокруг пузыря)
+const PADB = 16;
+// mix — доля мягкого (квадратичного) профиля: изгиб начинается раньше, а не только у самой кромки
+const LENS = { b: { bezel: 26, max: 15, pad: PADB, out: true, mix: .75 }, p: { bezel: 34, max: 24, pad: PAD, out: true, mix: .4 }, m: { bezel: 26, max: 16, pad: 0, out: false, mix: .3 } };
 
 let raf = 0, defs = null, nLens = 0;
 const lensCache = new Map();
@@ -22,7 +25,7 @@ const lensCache = new Map();
 // Карта смещения под точный размер и радиус. Профиль — как у скруглённого края стекла (четверть
 // окружности): у середины почти без смещения, к краю — всё сильнее. Красный канал — по горизонтали,
 // зелёный — по вертикали (128 — без смещения).
-function lensMap(W, H, w, h, r, bezel, max, S, pad, out) {
+function lensMap(W, H, w, h, r, bezel, max, S, pad, out, mix) {
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d'), img = g.createImageData(W, H), d = img.data;
   new Uint32Array(d.buffer).fill(0xff808080);
@@ -38,7 +41,7 @@ function lensMap(W, H, w, h, r, bezel, max, S, pad, out) {
     else { dist = qy - r; nx = 0; ny = 1; }
     if (!(dist < 0 && dist > -bezel)) return;
     const t = 1 + dist / bezel; // 0 — внутренний край фаски, 1 — кромка
-    const m = max * (1 - Math.sqrt(Math.max(0, 1 - t * t)));
+    const m = max * (mix * t * t + (1 - mix) * (1 - Math.sqrt(Math.max(0, 1 - t * t))));
     d[i] = Math.round(127.5 + sgn * nx * Math.sign(px) * m / S * 255);
     d[i + 1] = Math.round(127.5 + sgn * ny * Math.sign(py) * m / S * 255);
   };
@@ -81,7 +84,7 @@ function lensFor(el, kind, w0, h0) {
     budget--;
     defs = defs?.isConnected ? defs : document.getElementById('lg-defs');
     if (!defs) return;
-    if (lensCache.size > 320) {
+    if (lensCache.size > 900) {
       for (const f of defs.querySelectorAll('filter[id^="lg-m"]')) f.remove();
       for (const x of lensCache.values()) if (x.url) URL.revokeObjectURL(x.url);
       lensCache.clear();
@@ -91,7 +94,7 @@ function lensFor(el, kind, w0, h0) {
     const bezel = Math.max(4, Math.min(P.bezel, Math.min(w, h) / 2)), max = Math.min(P.max, bezel * .72, P.pad || 1e9), S = Math.ceil(max * 2 + 2);
     e = { id: `lg-m${++nLens}`, ready: false, url: '' };
     lensCache.set(key, e);
-    lensMap(W, H, w, h, r, bezel, max, S, P.pad, P.out).toBlob(b => {
+    lensMap(W, H, w, h, r, bezel, max, S, P.pad, P.out, P.mix).toBlob(b => {
       if (!b || lensCache.get(key) !== e) return;
       e.url = URL.createObjectURL(b);
       const f = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
@@ -188,6 +191,71 @@ function rowsIn(sc, top, bottom, R) {
   }
   return out;
 }
+// ── слои, которые въезжают анимацией: открытие чата (.chat), профиль/ветка поверх чата и возврат (.nav-layer) ──
+// Пузыри и панели едут вместе со слоем, а обои за окном стоят на месте. Чтобы копия обоев внутри стекла
+// не «приклеивалась» к пузырю, ей ставится обратная анимация (свойство translate) с тем же временем и
+// плавностью — её считает видеокарта синхронно со слоем, без кода на каждом кадре.
+const LAYERS = '.chat, .nav-layer';
+let probe = null;
+// transform кадра (в т. ч. в процентах от размера слоя) → сдвиг в пикселях
+function shiftOf(t, w, h) {
+  if (!t || t === 'none') return [0, 0];
+  if (!probe?.isConnected) {
+    probe = document.createElement('i');
+    probe.style.cssText = 'position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;contain:strict';
+    document.body.appendChild(probe);
+  }
+  probe.style.width = `${w}px`; probe.style.height = `${h}px`; probe.style.transform = t;
+  const m = new DOMMatrixReadOnly(getComputedStyle(probe).transform);
+  return [m.m41, m.m42];
+}
+// цепочка слоёв над лентой: [слой, текущий сдвиг, его анимации со сдвигом]
+function layersOf(el, cache) {
+  const top = el.closest(LAYERS);
+  if (!top) return null;
+  let v = cache.get(top);
+  if (v) return v;
+  v = { dx: 0, dy: 0, anims: [] };
+  for (let l = top; l; l = l.parentElement?.closest(LAYERS)) {
+    const t = getComputedStyle(l).transform;
+    if (t && t !== 'none') { const m = new DOMMatrixReadOnly(t); v.dx += m.m41; v.dy += m.m42; }
+    for (const a of l.getAnimations()) {
+      if (a.playState === 'finished' || a.playState === 'idle') continue;
+      const kf = a.effect?.getKeyframes?.();
+      if (!kf?.some(k => k.transform != null)) continue;
+      v.anims.push([l, a, kf]);
+    }
+  }
+  cache.set(top, v);
+  return v;
+}
+// обратная анимация копии обоев на время анимации слоя
+function counter(target, anims) {
+  if (!anims.length) return;
+  const map = target.__lgCtr || (target.__lgCtr = new Map());
+  for (const [l, a, kf] of anims) {
+    if (map.has(a)) continue;
+    const w = l.offsetWidth, h = l.offsetHeight;
+    const frames = kf.map(k => {
+      const [x, y] = shiftOf(k.transform, w, h);
+      return { offset: k.computedOffset, easing: k.easing || 'linear', translate: `${-x}px ${-y}px` };
+    });
+    if (frames[0].offset !== 0) frames.unshift({ offset: 0, translate: '0px 0px' });
+    if (frames.at(-1).offset !== 1) frames.push({ offset: 1, translate: '0px 0px' });
+    const tm = a.effect.getTiming();
+    let inv;
+    try { inv = target.animate(frames, { duration: tm.duration, delay: tm.delay, endDelay: tm.endDelay, easing: tm.easing, fill: tm.fill, iterations: tm.iterations, direction: tm.direction }); }
+    catch { continue; }
+    map.set(a, inv);
+    const sync = () => { if (a.startTime != null) { inv.playbackRate = a.playbackRate; inv.startTime = a.startTime; } else inv.currentTime = a.currentTime; };
+    sync();
+    if (a.pending) a.ready.then(sync, () => {});
+    const stop = () => { inv.cancel(); map.delete(a); };
+    a.addEventListener('cancel', stop, { once: true });
+    a.finished.then(() => { if (tm.fill !== 'forwards' && tm.fill !== 'both') stop(); }, () => {});
+  }
+}
+
 const live = new Set();
 // Прокрутку ленты стекло повторяет само, без кода на каждом кадре: копия обоев в пузыре и копии
 // сообщений под панелями двигаются CSS-анимацией, привязанной к прокрутке (scroll-timeline) — её
@@ -226,13 +294,15 @@ function update() {
 
   // 1) чтение: где пузыри и панели, какие строки ленты под панелями
   const bubbles = [];
+  const lay = new Map();
+  const lens = !root.classList.contains('no-lg-lens');
   if (root.classList.contains('glass-bubbles')) {
     for (const sc of document.querySelectorAll('.messages')) {
       const sr = R(sc);
       if (!sr.height) continue;
       // с запасом: пузырь готов заранее, ещё до того, как прокрутка его покажет
       const top = Math.max(sr.top, 0) - 450, bottom = Math.min(sr.bottom, H) + 450;
-      const st = ST(sc)[0];
+      const st = ST(sc)[0], L = layersOf(sc, lay);
       for (const [row] of rowsIn(sc, top, bottom, R)) {
         if (!row.classList.contains('msg-row')) continue;
         if (!row.__lgB || row.__lgBV !== row.__lgV) { row.__lgB = [...row.querySelectorAll(BUB)]; row.__lgBV = row.__lgV; }
@@ -240,7 +310,7 @@ function update() {
           if (el.parentElement?.classList.contains('with-comments')) continue;
           const r = R(el);
           if (r.bottom < top || r.top > bottom || !r.width) continue;
-          bubbles.push([el, r, st]);
+          bubbles.push([el, r, st, L, lens && r.bottom > sr.top - 60 && r.top < sr.bottom + 60]);
         }
       }
     }
@@ -276,7 +346,7 @@ function update() {
       if (!seps) seps = sc.__lgSeps = [...sc.querySelectorAll('.date-sep')];
       for (const s of seps) { const rr = R(s); if (rr.height && rr.bottom >= top && rr.top <= bottom) rows.push([s, rr]); }
     }
-    panels.push([p, r, rows, lw, lh, st, sc]);
+    panels.push([p, r, rows, lw, lh, st, sc, layersOf(p, lay)]);
   }
 
   // 2) запись (только то, что изменилось)
@@ -284,34 +354,41 @@ function update() {
     const chat = sc.parentElement, kk = scrolls.get(sc)[1];
     if (chat && !near(chat.__lgK, kk)) { chat.__lgK = kk; chat.style.setProperty('--lg-k', `${kk}px`); }
   }
-  for (const [el, r, st] of bubbles) {
+  for (const [el, r, st, L, vis] of bubbles) {
     setTone(el, toneAt(o, r));
     let bg = el.__lgBg;
     if (!bg || bg.parentNode !== el) {
+      // .lg-lens — чуть больше пузыря (запас PADB), чтобы линза у края брала фон снаружи и «затягивала»
+      // его под стекло, как толстое скруглённое стекло в iOS; .lg-bg обрезает по форме пузыря.
       bg = document.createElement('i');
       bg.className = 'lg-bg';
       bg.setAttribute('aria-hidden', 'true');
-      bg.appendChild(document.createElement('i')).className = 'lg-img';
+      bg.innerHTML = '<i class="lg-lens"><i class="lg-img"></i></i>';
       el.appendChild(bg);
       el.__lgBg = bg; el.__lgX = el.__lgY = null;
     }
-    // сдвиг копии обоев при scrollTop = 0; дальше её ведёт прокрутка
-    const x = o.left - r.left, y = o.top - r.top - st;
+    // сдвиг копии обоев при scrollTop = 0; дальше её ведёт прокрутка. Место — без сдвига въезжающего слоя.
+    const x = o.left - r.left + PADB + (L ? L.dx : 0), y = o.top - r.top - st + PADB + (L ? L.dy : 0);
+    const img = bg.firstChild.firstChild;
+    if (L) counter(img, L.anims);
     if (!near(el.__lgX, x) || !near(el.__lgY, y)) {
       el.__lgX = x; el.__lgY = y;
-      bg.firstChild.style.cssText = `--x:${Math.round(x)}px;--y:${Math.round(y)}px`;
+      img.style.cssText = `--x:${Math.round(x)}px;--y:${Math.round(y)}px`;
     }
+    // линза — только у пузырей на экране (и чуть за краем): у каждой своя отрисовка на видеокарте
+    if (vis) lensFor(el, 'b', r.width, r.height);
+    else if (el.__lensKey) { el.style.removeProperty('--lens'); el.__lensKey = ''; }
   }
   // плеер с нотой: настоящее стекло поверх всего (backdrop-filter) с той же линзой по краю
   const mp = document.querySelector('.music-panel');
   if (mp && !noPanels && !mp.classList.contains('out')) lensFor(mp, 'm', mp.offsetWidth, mp.offsetHeight);
   for (const p of live) if (!seen.has(p)) dropMirror(p);
   live.clear();
-  for (const [p, r, rows, lw, lh, st, sc] of panels) {
+  for (const [p, r, rows, lw, lh, st, sc, L] of panels) {
     live.add(p);
     lensFor(p, 'p', lw, lh);
     setTone(p, toneAt(o, r));
-    const v = `${Math.round(o.left - r.left + PAD)}px ${Math.round(o.top - r.top + PAD)}px`;
+    const v = `${Math.round(o.left - r.left + PAD + (L ? L.dx : 0))}px ${Math.round(o.top - r.top + PAD + (L ? L.dy : 0))}px`;
     if (p.__bp !== v) { p.__bp = v; p.style.setProperty('--bp', v); }
     let m = p.__lgMirror, f = p.__lgFeed;
     if (!m || m.parentNode !== p || !f || f.parentNode !== p) {
@@ -337,6 +414,7 @@ function update() {
       p.__lgMirror = m; p.__lgFeed = f; p.__lgClones = new Map();
       p.__lgInv?.(); // кнопку сейчас тянут — сразу поставить обратный сдвиг новым слоям
     }
+    if (L) counter(m.firstChild, L.anims);
     const fin = f.firstChild.firstChild;
     const clones = p.__lgClones, want = new Set(rows.map(x => x[0]));
     for (const [row, cl] of clones) if (!want.has(row) || !row.isConnected) { cl.remove(); clones.delete(row); }
@@ -396,3 +474,7 @@ const outsideChat = e => e.target?.closest?.('.sidebar, .lg-feed');
 document.addEventListener('transitionend', e => outsideChat(e) || glassUpdate(), true);
 document.addEventListener('animationend', e => outsideChat(e) || glassUpdate(), true);
 document.addEventListener('load', glassUpdate, true);
+// слой начал въезжать — сразу поставить копиям обоев обратную анимацию
+const layerStart = e => { const t = e.target; if (t?.matches?.(LAYERS)) glassUpdate(); };
+document.addEventListener('animationstart', layerStart, true);
+document.addEventListener('transitionrun', layerStart, true);
