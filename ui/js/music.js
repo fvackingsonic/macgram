@@ -1,14 +1,14 @@
-// Музыка macgram (кнопка с нотой): каталог — открытый Deezer (поиск, исполнители, альбомы, чарты),
-// звук — официальный встроенный плеер YouTube: видео играет вместо обложки на странице трека, а когда
-// страница закрыта — в маленьком окошке (YouTube требует, чтобы плеер был виден, не меньше 200×200).
-// Если полной версии на YouTube нет — играет 30-секундный отрывок Deezer.
-import { S, changed, tick, showHud, setPref } from './store.js';
+// Музыка macgram (кнопка с нотой): каталог — открытый Deezer (поиск, исполнители, альбомы, чарты,
+// обложки), звук — полный трек из ваших чатов и каналов Telegram (без видео). Если трека в Telegram
+// нет — играет 30-секундный отрывок Deezer.
+import { S, changed, tick, setPref, download, fileUrl, fileOf } from './store.js';
+import { send } from './td.js';
 
 const T = window.__TAURI__;
 export const MU = S.mu = {
   open: false, closing: false, stack: [], view: { kind: 'home' }, q: '', search: null, charts: null,
-  queue: [], qi: -1, cur: null, mode: '', yt: '', state: '', pos: 0, dur: 0, at: 0, err: '',
-  vol: S.prefs.musicVol ?? 80, repeat: 0, shuffle: false, mini: true, ready: false,
+  queue: [], qi: -1, cur: null, mode: '', state: '', pos: 0, dur: 0, at: 0, err: '', from: 0, fromMsg: 0,
+  vol: S.prefs.musicVol ?? 80, repeat: 0, shuffle: false, mine: null, loadNote: '', loadPct: 0,
 };
 
 // ── каталог Deezer (через Rust: catalog_get dz/…, без ключей) ──
@@ -91,115 +91,81 @@ function remember(t) {
   try { localStorage.setItem(HK, JSON.stringify(MU.hist)); } catch {}
 }
 
-// ── YouTube: какой ролик играть ──
-// Сначала song.link (точная ссылка по треку Deezer), если её нет — поиск YouTube «исполнитель — название»
-// и выбор лучшего ролика: совпадает название, длительность близка, предпочтение «Official Audio»/канал артиста.
-const YK = 'mg.music.yt2';
-const ytIds = (() => { try { return JSON.parse(localStorage.getItem(YK) || '{}'); } catch { return {}; } })();
-const norm = s => (s || '').toLowerCase().replace(/ё/g, 'е').replace(/\\u0026/g, '&').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
-const secs = l => (l || '').split(':').reduce((a, x) => a * 60 + (Number(x) || 0), 0);
-function pick(list, t) {
-  const tt = norm(t.title).replace(/ (feat|ft|with|prod)\b.*$/, ''), ta = norm(t.artist?.name);
-  let best = null, bestScore = -1e9;
-  for (const v of list || []) {
-    const title = norm(v.title), ch = norm(v.channel);
-    let sc = 0;
-    if (tt && title.includes(tt)) sc += 40; else continue;
-    if (ta && (title.includes(ta) || ch.includes(ta))) sc += 25;
-    if (/official audio|audio|topic/.test(`${title} ${ch}`)) sc += 8;
-    if (/official (music )?video|клип/.test(title)) sc += 4;
-    if (/live|концерт|cover|кавер|remix|ремикс|sped up|slowed|nightcore|karaoke|караоке|instrumental|reverb|8d/.test(title) && !/live|remix|cover|instrumental/.test(norm(`${t.title} ${t.version}`))) sc -= 30;
-    const d = secs(v.len);
-    if (d && t.dur) sc -= Math.min(30, Math.abs(d - t.dur) / 4);
-    if (sc > bestScore) { bestScore = sc; best = v; }
-  }
-  return best?.id || '';
+// ── где играть: Telegram (полный трек из ваших чатов и каналов, без видео) ──
+const norm = s => (s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+const BAD = /\b(live|remix|sped|slowed|reverb|nightcore|karaoke|instrumental|cover|8d|акустик|ремикс|кавер)\b/;
+const audioOf = m => (m?.content?.['@type'] === 'messageAudio' ? m.content.audio : null);
+async function searchTg(query, limit = 50) {
+  const r = await send({ '@type': 'searchMessages', chat_list: null, query, offset: '', limit, filter: { '@type': 'searchMessagesFilterAudio' }, chat_type_filter: null, min_date: 0, max_date: 0 });
+  return (r.messages || []).filter(audioOf);
 }
-async function ytFor(t) {
-  const c = ytIds[t.id];
-  if (c && typeof c === 'string') return c;
-  if (c && c.none && Date.now() - c.at < 86400000) return '';
-  let id = '';
-  try {
-    const r = await get(`sl/links?url=${encodeURIComponent(`https://www.deezer.com/track/${t.id}`)}&userCountry=UA`);
-    const L = r?.linksByPlatform || {};
-    const url = L.youtube?.url || L.youtubeMusic?.url || '';
-    id = (url.match(/[?&]v=([\w-]{11})/) || url.match(/youtu\.be\/([\w-]{11})/) || [])[1] || '';
-  } catch {}
-  if (!id) {
-    try {
-      const q = `${t.artist?.name || ''} ${t.title}${t.version ? ` ${t.version}` : ''}`.trim();
-      const list = T ? await T.core.invoke('yt_search', { query: q }) : window.__mockYt ? window.__mockYt(q) : [];
-      id = pick(list, t);
-    } catch { return ''; } // сеть — не запоминаем, попробуем в следующий раз
+function score(m, t) {
+  const a = audioOf(m);
+  const title = norm(a.title || a.file_name), perf = norm(`${a.performer} ${a.file_name}`);
+  const tt = norm(t.title).replace(/ (feat|ft|with|prod)\b.*$/, ''), ta = norm(t.artist?.name);
+  if (!tt || !title.includes(tt)) return -1;
+  let sc = 40;
+  if (ta && perf.includes(ta)) sc += 30; else if (ta && title.includes(ta)) sc += 20;
+  if (BAD.test(`${title} ${norm(a.file_name)}`) && !BAD.test(norm(`${t.title} ${t.version}`))) sc -= 35;
+  if (a.duration && t.dur) sc -= Math.min(30, Math.abs(a.duration - t.dur) / 3);
+  return sc;
+}
+const tgFound = new Map();
+async function findTg(t) {
+  if (t.tg) return t.tg;
+  if (tgFound.has(t.id)) return tgFound.get(t.id);
+  let best = null, bs = 45;
+  for (const q of [`${t.artist?.name || ''} ${t.title}`.trim(), t.title]) {
+    let list = [];
+    try { list = await searchTg(q); } catch { continue; }
+    for (const m of list) { const sc = score(m, t); if (sc > bs) { bs = sc; best = m; } }
+    if (best && bs >= 70) break;
   }
-  ytIds[t.id] = id || { none: true, at: Date.now() };
-  try { localStorage.setItem(YK, JSON.stringify(ytIds)); } catch {}
-  return id;
+  tgFound.set(t.id, best);
+  return best;
+}
+// трек из Telegram в вид каталога (для списка «Музыка из ваших каналов»)
+export function tgTrack(m) {
+  const a = audioOf(m);
+  return { id: `tg${m.chat_id}_${m.id}`, title: a.title || (a.file_name || 'Без названия').replace(/\.[a-z0-9]+$/i, ''), version: '', dur: a.duration || 0,
+    artist: a.performer ? { name: a.performer } : null, album: { title: '', img: '', small: '', tgThumb: a.album_cover_thumbnail?.file || a.external_album_covers?.[0]?.file || null },
+    tg: m, chat: m.chat_id };
+}
+export function loadMine() {
+  if (MU.mine) return;
+  MU.mine = { loading: true };
+  searchTg('', 60).then(list => {
+    const seen = new Set();
+    MU.mine = { tracks: list.map(tgTrack).filter(t => { const k = norm(`${t.artist?.name} ${t.title}`); return !seen.has(k) && seen.add(k); }) };
+    changed();
+  }).catch(() => { MU.mine = { tracks: [] }; changed(); });
 }
 
 // ── воспроизведение ──
-const audio = new Audio(); // 30-секундные отрывки Deezer
+const audio = new Audio();
 audio.preload = 'auto';
-let frame = null;          // iframe YouTube (создаёт MusicVideoHost и регистрирует здесь)
-let pendingYt = '', listenT = 0, watchdog = 0;
-export function attachFrame(f) {
-  frame = f;
-  if (!f) return;
-  f.addEventListener('load', () => {
-    // протокол встроенного плеера YouTube: подписываемся на события, пока он не ответит
-    clearInterval(listenT);
-    let n = 0;
-    listenT = setInterval(() => { if (MU.ready || ++n > 40) { clearInterval(listenT); return; } msg({ event: 'listening', id: 1, channel: 'widget' }); }, 250);
-  });
-}
-const msg = o => { try { frame?.contentWindow?.postMessage(JSON.stringify(o), '*'); } catch {} };
-const cmd = (func, args = []) => msg({ event: 'command', func, args, id: 1, channel: 'widget' });
-window.addEventListener('message', e => {
-  if (!frame || e.source !== frame.contentWindow || !/^https:\/\/www\.youtube(-nocookie)?\.com$/.test(e.origin)) return;
-  let d; try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; }
-  if (!d?.event) return;
-  if (d.event === 'onReady' || d.event === 'initialDelivery') {
-    if (!MU.ready) {
-      MU.ready = true; cmd('addEventListener', ['onStateChange']); cmd('addEventListener', ['onError']); cmd('setVolume', [MU.vol]);
-      // пока плеер грузился, выбрали другой трек
-      if (MU.mode === 'yt' && MU.yt && frame.__vid !== MU.yt) { frame.__vid = MU.yt; cmd('loadVideoById', [MU.yt, 0]); }
-    }
-  }
-  const info = d.info;
-  if (d.event === 'infoDelivery' && info && typeof info === 'object') {
-    if (typeof info.currentTime === 'number') { MU.pos = info.currentTime; MU.at = performance.now(); }
-    if (typeof info.duration === 'number' && info.duration > 0) MU.dur = info.duration;
-    if (typeof info.playerState === 'number') state(info.playerState);
-    tick();
-  }
-  if (d.event === 'onStateChange') state(typeof info === 'number' ? info : info?.playerState);
-  if (d.event === 'onError') { clearTimeout(watchdog); toPreview('YouTube не даёт включить это видео здесь'); }
-});
-function state(s) {
-  if (MU.mode !== 'yt') return;
-  const was = MU.state;
-  if (s === 1) { MU.state = 'playing'; clearTimeout(watchdog); MU.err = ''; }
-  else if (s === 2) MU.state = 'paused';
-  else if (s === 3) MU.state = MU.state === 'paused' ? 'paused' : 'loading';
-  else if (s === 0) { MU.state = 'ended'; ended(); }
-  if (was !== MU.state) changed();
-}
+let waitT = 0;
+audio.addEventListener('timeupdate', () => { MU.pos = audio.currentTime; MU.at = performance.now(); tick(); });
+audio.addEventListener('loadedmetadata', () => { if (isFinite(audio.duration)) { MU.dur = audio.duration; changed(); } });
+audio.addEventListener('play', () => { MU.state = 'playing'; window.dispatchEvent(new CustomEvent('mg-play', { detail: 'music' })); changed(); });
+audio.addEventListener('pause', () => { if (MU.state !== 'ended' && MU.state !== 'loading') { MU.state = 'paused'; changed(); } });
+audio.addEventListener('ended', () => { MU.state = 'ended'; ended(); });
+audio.addEventListener('error', () => { if (MU.cur && MU.mode === 'tg' && MU.cur.preview) toPreview('Файл не открылся'); });
+// заиграло голосовое или музыка в чате — плеер с нотой на паузу
+window.addEventListener('mg-play', e => { if (e.detail !== 'music' && !audio.paused) audio.pause(); });
 
-audio.addEventListener('timeupdate', () => { if (MU.mode === 'preview') { MU.pos = audio.currentTime; MU.at = performance.now(); tick(); } });
-audio.addEventListener('loadedmetadata', () => { if (MU.mode === 'preview' && isFinite(audio.duration)) { MU.dur = audio.duration; changed(); } });
-audio.addEventListener('play', () => { if (MU.mode === 'preview') { MU.state = 'playing'; changed(); } });
-audio.addEventListener('pause', () => { if (MU.mode === 'preview' && MU.state !== 'ended') { MU.state = 'paused'; changed(); } });
-audio.addEventListener('ended', () => { if (MU.mode === 'preview') { MU.state = 'ended'; ended(); } });
-
+function startAudio(src) {
+  audio.src = src; audio.volume = MU.vol / 100;
+  audio.play().catch(() => { MU.state = 'paused'; changed(); });
+}
 function toPreview(why) {
   const t = MU.cur;
   if (!t) return;
-  cmd('stopVideo');
-  if (!t.preview) { MU.mode = ''; MU.state = 'paused'; MU.err = why || 'Не нашлось на YouTube'; changed(); return; }
-  MU.mode = 'preview'; MU.yt = ''; MU.err = why ? `${why} — играет отрывок 30 с` : 'Полной версии на YouTube нет — играет отрывок 30 с';
+  clearInterval(waitT);
+  if (!t.preview) { MU.mode = ''; MU.state = 'paused'; MU.err = why || 'Этого трека нет в ваших чатах и каналах Telegram'; audio.pause(); changed(); return; }
+  MU.mode = 'preview'; MU.err = `${why || 'Полной версии нет в ваших чатах и каналах'} — играет отрывок 30 с`;
   MU.pos = 0; MU.dur = 30; MU.state = 'loading';
-  audio.src = t.preview; audio.volume = MU.vol / 100; audio.play().catch(() => {});
+  startAudio(t.preview);
   changed();
 }
 
@@ -209,26 +175,35 @@ export async function play(t, list) {
   if (list) { MU.queue = list; MU.qi = Math.max(0, list.findIndex(x => x.id === t.id)); }
   else { const i = MU.queue.findIndex(x => x.id === t.id); if (i >= 0) MU.qi = i; else { MU.queue = [t]; MU.qi = 0; } }
   const n = ++playSeq;
+  clearInterval(waitT);
   audio.pause();
-  MU.cur = t; MU.pos = 0; MU.dur = t.dur || 0; MU.at = performance.now(); MU.state = 'loading'; MU.err = ''; MU.mini = true;
-  remember(t);
+  MU.cur = t; MU.pos = 0; MU.dur = t.dur || 0; MU.at = performance.now(); MU.state = 'loading'; MU.err = ''; MU.mode = ''; MU.loadNote = 'Ищу трек в ваших каналах…';
+  if (!String(t.id).startsWith('tg')) remember(t);
   if (MU.open && MU.view.kind !== 'track') go({ kind: 'track' });
   changed();
-  const id = await ytFor(t);
+  let m = null;
+  try { m = await findTg(t); } catch {}
   if (n !== playSeq) return;
-  if (!id) { toPreview(); return; }
-  MU.mode = 'yt'; MU.yt = id;
-  clearTimeout(watchdog);
-  // встроенный плеер не ответил — не ждём вечно, включаем отрывок
-  watchdog = setTimeout(() => { if (n === playSeq && MU.mode === 'yt' && MU.state !== 'playing' && MU.state !== 'paused') toPreview('YouTube не отвечает'); }, 12000);
-  if (frame && MU.ready) { frame.__vid = id; cmd('loadVideoById', [id, 0]); cmd('setVolume', [MU.vol]); }
-  pendingYt = id;
-  changed(); // MusicVideoHost создаст iframe с этим роликом
+  if (!m) { toPreview(); return; }
+  // обложка: если у трека нет своей — берём из Telegram
+  if (!t.album?.img && !t.album?.tgThumb) { const a = audioOf(m); t.album = { ...(t.album || {}), tgThumb: a.album_cover_thumbnail?.file || a.external_album_covers?.[0]?.file || null }; }
+  MU.mode = 'tg'; MU.from = m.chat_id; MU.fromMsg = m.id; MU.loadNote = 'Загружаю из Telegram…';
+  const file = audioOf(m).audio;
+  download(file, 32);
+  changed();
+  const ready = () => {
+    if (n !== playSeq) { clearInterval(waitT); return; }
+    const url = fileUrl(file);
+    if (!url) { const f = fileOf(file); MU.loadPct = f?.size ? Math.round((f.local?.downloaded_size || 0) / f.size * 100) : 0; tick(); return; }
+    clearInterval(waitT); MU.loadNote = '';
+    startAudio(url);
+  };
+  waitT = setInterval(ready, 250);
+  ready();
 }
-export const pendingVideo = () => pendingYt;
 
 function ended() {
-  if (MU.repeat === 2) { seek(0); resume(); return; }
+  if (MU.repeat === 2) { seek(0); audio.play().catch(() => {}); return; }
   const nx = neighbor(1);
   if (nx) play(nx); else { MU.state = 'paused'; MU.pos = 0; changed(); }
 }
@@ -241,25 +216,18 @@ export function neighbor(dir) {
 }
 export const next = () => { const t = neighbor(1); if (t) play(t); };
 export function prev() { if (position() > 3) { seek(0); return; } const t = neighbor(-1); if (t) play(t); else seek(0); }
-function resume() { if (MU.mode === 'yt') cmd('playVideo'); else if (MU.mode === 'preview') audio.play().catch(() => {}); }
 export function toggle() {
   if (!MU.cur) return;
-  const playing = MU.state === 'playing' || MU.state === 'loading';
-  if (MU.mode === 'yt') { cmd(playing ? 'pauseVideo' : 'playVideo'); MU.state = playing ? 'paused' : 'playing'; MU.pos = position(); MU.at = performance.now(); MU.mini = true; }
-  else if (MU.mode === 'preview') { if (playing) audio.pause(); else { if (MU.state === 'ended') audio.currentTime = 0; audio.play().catch(() => {}); } }
-  else play(MU.cur);
-  changed();
+  if (MU.state === 'loading') return;
+  if (!MU.mode) { play(MU.cur); return; }
+  if (audio.paused) { if (MU.state === 'ended') audio.currentTime = 0; audio.play().catch(() => {}); } else audio.pause();
 }
-export function pause() { if (MU.mode === 'yt') cmd('pauseVideo'); else audio.pause(); if (MU.state === 'playing' || MU.state === 'loading') MU.state = 'paused'; changed(); }
-export function seek(sec) {
-  MU.pos = sec; MU.at = performance.now();
-  if (MU.mode === 'yt') cmd('seekTo', [sec, true]); else if (MU.mode === 'preview') audio.currentTime = sec;
-  tick();
-}
+export function pause() { audio.pause(); }
+export function seek(sec) { MU.pos = sec; MU.at = performance.now(); if (MU.mode) audio.currentTime = sec; tick(); }
 let volT = 0;
 export function setVolume(v) {
   MU.vol = Math.round(Math.max(0, Math.min(100, v)));
-  if (MU.mode === 'yt') cmd('setVolume', [MU.vol]); audio.volume = MU.vol / 100;
+  audio.volume = MU.vol / 100;
   clearTimeout(volT); volT = setTimeout(() => setPref('musicVol', MU.vol), 400);
   changed();
 }
@@ -267,14 +235,12 @@ export const setRepeat = r => { MU.repeat = r; changed(); };
 export const setShuffle = on => { MU.shuffle = on; changed(); };
 // «Закрыть трек»: остановить и вернуть ноту
 export function stop() {
-  playSeq++; clearTimeout(watchdog);
-  cmd('stopVideo'); audio.pause(); audio.removeAttribute('src');
-  MU.cur = null; MU.mode = ''; MU.yt = ''; MU.state = ''; MU.err = '';
+  playSeq++; clearInterval(waitT);
+  audio.pause(); audio.removeAttribute('src');
+  MU.cur = null; MU.mode = ''; MU.state = ''; MU.err = '';
   if (MU.view.kind === 'track') back();
   changed();
 }
-// Мини-окошко скрыли — YouTube нельзя играть невидимым, поэтому пауза.
-export function hideMini() { MU.mini = false; if (MU.mode === 'yt') pause(); else changed(); }
 export const playing = () => MU.state === 'playing' || MU.state === 'loading';
 export function position() {
   const p = MU.state === 'playing' ? MU.pos + (performance.now() - MU.at) / 1000 : MU.pos;
@@ -288,15 +254,10 @@ export function togglePanel(force, view) {
   if (open) {
     MU.open = true; MU.closing = false;
     if (view) { MU.stack = []; MU.view = view; }
-    loadCharts();
+    loadCharts(); loadMine();
   } else if (MU.open) { MU.closing = true; setTimeout(() => { if (MU.closing) { MU.open = false; MU.closing = false; changed(); } }, 200); }
   changed();
 }
 export function go(view) { MU.stack.push(MU.view); MU.view = view; changed(); }
 export function back() { MU.view = MU.stack.pop() || { kind: 'home' }; changed(); }
 export function home() { MU.stack = []; MU.view = { kind: 'home' }; MU.q = ''; MU.search = null; changed(); }
-export function openOnYouTube() {
-  const t = MU.cur; if (!t) return;
-  const url = MU.yt ? `https://www.youtube.com/watch?v=${MU.yt}` : `https://www.youtube.com/results?search_query=${encodeURIComponent(`${t.artist?.name || ''} ${t.title}`)}`;
-  (T ? T.core.invoke('plugin:opener|open_url', { url }) : Promise.resolve(window.open(url, '_blank', 'noopener'))).catch(e => showHud(String(e?.message || e)));
-}

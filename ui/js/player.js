@@ -168,7 +168,10 @@ document.addEventListener('play', e => {
 }, true);
 audio.addEventListener('play', () => {
   document.querySelectorAll('audio, video').forEach(m => { if (!m.muted && !m.paused && m !== S.player?.el) m.pause(); });
+  window.dispatchEvent(new CustomEvent('mg-play', { detail: 'chat' })); // плеер с нотой — на паузу
 });
+// заиграл плеер с нотой — музыка из чата на паузу
+window.addEventListener('mg-play', e => { if (e.detail === 'music') { if (!audio.paused) audio.pause(); if (S.player?.el && !S.player.el.paused) S.player.el.pause(); } });
 // Кружок, включённый со звуком, тоже ставит плеер на паузу (событие volumechange).
 document.addEventListener('volumechange', e => {
   const t = e.target;

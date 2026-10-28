@@ -1807,16 +1807,18 @@ html.lite .music-panel { background: var(--bg); backdrop-filter: none; -webkit-b
 .mu-nowcard .mu-cover { box-shadow: 0 4px 12px rgba(0,0,0,.25); }
 .mu-now-bg { position: absolute; inset: -30px; z-index: -1; background: center/cover; filter: blur(26px) saturate(1.6); opacity: .42; }
 
-/* страница трека */
-.mu-vslot { position: relative; flex: none; margin: 0 12px 4px; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; background: #000;
-  box-shadow: 0 14px 34px rgba(0,0,0,.32); animation: art-in .5s var(--spring); }
-@keyframes art-in { from { transform: scale(.9); opacity: 0; } }
-.mu-vslot-bg { position: absolute; inset: -30px; background: center/cover; filter: blur(26px) saturate(1.5) brightness(.8); }
-.mu-vslot-art { position: absolute; top: 10%; bottom: 10%; left: 50%; height: 80%; aspect-ratio: 1; transform: translateX(-50%) scale(.94); box-shadow: 0 10px 26px rgba(0,0,0,.4);
-  transition: transform .5s var(--spring); }
-.mu-vslot-art.playing { transform: translateX(-50%); }
-.mu-vslot-load { position: absolute; inset: 0; display: grid; place-items: center; }
-.mu-vslot-load .mu-load i { background: #fff; }
+/* страница трека: большая обложка */
+.mu-cslot { flex: none; display: flex; justify-content: center; padding: 2px 12px 6px; }
+.mu-cslot-art { position: relative; width: min(100%, 260px); transform: scale(.92); transition: transform .55s var(--spring); animation: art-in .5s var(--spring); }
+.music-panel.wide .mu-cslot-art { width: min(100%, 330px); }
+.mu-cslot-art.playing { transform: none; }
+@keyframes art-in { from { transform: scale(.85); opacity: 0; } }
+.mu-cover.fill { width: 100%; aspect-ratio: 1; box-shadow: 0 16px 38px rgba(0,0,0,.36); }
+.mu-cover.fill svg { width: 30%; height: 30%; }
+.mu-cslot-load { position: absolute; inset: 0; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  background: rgba(0,0,0,.42); color: #fff; font-size: 12px; text-align: center; padding: 0 12px; }
+.mu-cslot-load .mu-load { padding: 8px; }
+.mu-cslot-load .mu-load i { background: #fff; }
 .mu-track { padding: 6px 4px 0; }
 .mu-track-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 4px 4px 0; }
 .mu-track-info > b { font-size: 19px; font-weight: 700; line-height: 1.22; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -1861,27 +1863,7 @@ html.lite .music-panel { background: var(--bg); backdrop-filter: none; -webkit-b
   border-bottom: 2px solid color-mix(in srgb, var(--text) 25%, transparent); border-bottom-left-radius: 5px; transition: border-color .15s; }
 .mu-grip:hover::after { border-color: var(--accent); }
 
-/* видео YouTube: поверх места на странице трека или мини-окошко (видео + полоса управления под ним) */
-.mv-host { position: fixed; left: 0; top: 0; z-index: 46; width: 356px; border-radius: 16px; overflow: hidden; opacity: 0; pointer-events: none; visibility: hidden;
-  transition: transform .5s var(--spring), width .5s var(--spring), opacity .25s, visibility 0s .25s; }
-.mv-host.on { opacity: 1; pointer-events: auto; visibility: visible; transition: transform .5s var(--spring), width .5s var(--spring), opacity .25s; }
-.mv-host.dragging { transition: none; }
-.mv-video { height: var(--vh, 200px); background: #000; transition: height .5s var(--spring); }
-.mv-host.dragging .mv-video { transition: none; }
-.mv-video iframe { width: 100%; height: 100%; border: 0; display: block; }
-.mv-bar { display: none; height: 46px; align-items: center; gap: 2px; padding: 0 6px 0 12px; cursor: grab; color: var(--text);
-  background: var(--menu-bg); backdrop-filter: blur(24px) saturate(1.6); -webkit-backdrop-filter: blur(24px) saturate(1.6); }
-.mv-host.mini { box-shadow: 0 18px 44px rgba(0,0,0,.4), 0 0 0 .5px var(--glass-edge); }
-.mv-host.mini .mv-bar { display: flex; }
-.mv-host.dragging .mv-bar { cursor: grabbing; }
-.mv-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.22; }
-.mv-txt b { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mv-txt small { font-size: 11px; opacity: .65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mv-btn { width: 32px; height: 32px; border-radius: 50%; flex: none; display: grid; place-items: center; color: inherit; transition: background .15s, transform .25s var(--spring); }
-.mv-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 10%, transparent); }
-.mv-btn:active:not(:disabled) { transform: scale(.85); }
-.mv-btn:disabled { opacity: .3; }
-@media (prefers-reduced-motion: reduce) { .music-panel, .mu-body, .mu-row, .music-cap, .mu-vslot, .mv-host { animation: none !important; transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { .music-panel, .mu-body, .mu-row, .music-cap, .mu-cslot-art { animation: none !important; transition: none !important; } }
 
 /* ── плеер и кнопка с нотой: стекло как у пузырей (с фоном-картинкой) ──
    под элементом — размытая копия обоев ровно с этого места (--wbx/--wby ставит components/music.js),
@@ -1906,5 +1888,3 @@ html.wall-baked:not(.lite) .mu-glass .mu-play { background: var(--lg-text); colo
 html.wall-baked:not(.lite) .mu-glass .mu-search { background: color-mix(in srgb, var(--lg-text) 10%, transparent); }
 html.wall-baked:not(.lite) .mu-glass .mu-hero, html.wall-baked:not(.lite) .mu-glass .mu-nowcard { background: color-mix(in srgb, var(--lg-text) 7%, transparent); }
 html.wall-baked:not(.lite) .mu-glass[data-lg="d"] .mu-link:not(.sub), html.wall-baked:not(.lite) .mu-glass[data-lg="d"] .mu-row.cur b, html.wall-baked:not(.lite) .mu-glass[data-lg="d"] .mu-back { filter: brightness(1.45) saturate(.85); }
-html.wall-baked:not(.lite) .mv-bar.mu-glass { border-radius: 0 0 16px 16px; }
-html.wall-baked:not(.lite) .mv-bar.mu-glass::after { border-radius: 0 0 16px 16px; }
