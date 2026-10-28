@@ -1,12 +1,13 @@
 // «Запечённое» стекло: под каждым стеклянным пузырём рисуется размытая копия фона, сдвинутая так,
 // чтобы совпасть с обоями позади. Сдвиг считаем сами (на кадр, только для видимых пузырей) —
 // background-attachment: fixed в WebView2 срабатывал не во всех местах ленты.
-const SEL = '.msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo), .msg-row .bubble.media.with-caption, .msg-row .with-comments';
+const SEL = '.msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo), .msg-row .bubble.media.with-caption, .msg-row .with-comments, '
+  + '.chat-top .glass, .composer-wrap .glass, .top-bars .glass, .scroll-down.glass';
 let raf = 0;
 function update() {
   raf = 0;
   const root = document.documentElement;
-  if (!root.classList.contains('wall-baked') || !root.classList.contains('glass-bubbles')) return;
+  if (!root.classList.contains('wall-baked')) return;
   const wall = document.querySelector('.window > .wallpaper');
   if (!wall) return;
   const o = wall.getBoundingClientRect();
