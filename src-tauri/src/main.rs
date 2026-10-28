@@ -278,6 +278,7 @@ fn main() {
             desktop::set_badge,
             catalog::catalog_get,
             catalog::yt_search,
+            catalog::image_data,
             media::spotify_now,
             media::spotify_ctl,
             media::spotify_volume,

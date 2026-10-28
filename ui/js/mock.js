@@ -90,6 +90,8 @@ export function createMock(dispatch) {
     duration: dur, title, performer, file_name: `${performer} - ${title}.mp3`, mime_type: 'audio/mpeg', album_cover_minithumbnail: null,
     album_cover_thumbnail: { format: { '@type': 'thumbnailFormatJpeg' }, width: 90, height: 90, file: { id: 960 + (id % 5), size: 1, local: { can_be_downloaded: true } } },
     external_album_covers: [], audio: { id: 950, size: 1, local: { can_be_downloaded: true } } } } });
+  // «публичный» музыкальный канал, на который вы не подписаны (для поиска трека по каналам)
+  hist[-900] = [song(-900, 901, 'Playboi Carti', 'CRUSH (sped up)', 120, 9 * H), song(-900, 902, 'Playboi Carti', 'CRUSH', 174, 8 * H), song(-900, 903, 'Tyla', 'IS IT LOVE', 190, 7 * H)];
   hist[-200].push(song(-200, 410, 'Daft Punk', 'Instant Crush', 337, 3 * H), song(-200, 411, 'The Weeknd', 'Blinding Lights', 200, 2.5 * H),
     song(-200, 412, 'Daft Punk', 'Get Lucky', 369, 2 * H), song(-200, 413, 'Arctic Monkeys', 'Do I Wanna Know?', 272, 1.5 * H), song(-200, 414, 'Daft Punk', 'One More Time', 320, H));
   // Проверка скорости: ?mock=ready&long=400 — длинная лента в канале и в группе; &wall=1 — фото-фон (window.__mockFiles[900]).
@@ -286,8 +288,12 @@ export function createMock(dispatch) {
           return reply({ '@type': 'chats', chat_ids: chats.filter(c => c.title.toLowerCase().includes(lq)).map(c => c.id) });
         }
         case 'getUserFullInfo': return reply({ '@type': 'userFullInfo', bio: { '@type': 'formattedText', text: 'Дизайнер. Люблю кофе и горы ☕️', entities: [] } }, 150);
+        case 'searchPublicChats': return reply({ '@type': 'chats', total_count: 1, chat_ids: q.query ? [-900] : [] }, 200);
+        case 'getPublicPostSearchLimits': return reply({ '@type': 'publicPostSearchLimits', daily_free_query_count: 0, remaining_free_query_count: 0, next_free_query_in: 3600, star_count: 10, is_current_query_free: false });
+        case 'getMessage': { const m = (hist[q.chat_id] || []).find(x => x.id === q.message_id); return m ? reply(m) : err(404, 'Not Found'); }
         case 'searchChatMessages': {
           const all = (hist[q.chat_id] || []).slice().reverse();
+          if (q.filter?.['@type'] === 'searchMessagesFilterAudio') { const w = (q.query || '').toLowerCase(); const r = all.filter(m => m.content['@type'] === 'messageAudio' && `${m.content.audio.performer} ${m.content.audio.title}`.toLowerCase().includes(w)); return reply({ '@type': 'foundChatMessages', messages: r, total_count: r.length }, 150); }
           if (q.filter?.['@type'] === 'searchMessagesFilterPinned') return reply({ '@type': 'foundChatMessages', messages: all.filter(m => m.is_pinned), total_count: all.filter(m => m.is_pinned).length }, 100);
           if (q.query) { const r = all.filter(m => (m.content.text?.text || '').toLowerCase().includes(q.query.toLowerCase())); return reply({ '@type': 'foundChatMessages', messages: r, total_count: r.length }, 100); }
           return reply({ '@type': 'foundChatMessages', messages: [], total_count: 0 }, 150);
@@ -304,7 +310,7 @@ export function createMock(dispatch) {
         case 'searchMessages': {
           if (q.filter?.['@type'] !== 'searchMessagesFilterAudio') return reply({ '@type': 'foundMessages', total_count: 0, messages: [], next_offset: '' });
           const words = (q.query || '').toLowerCase().split(/\s+/).filter(Boolean);
-          const all = Object.values(hist).flat().filter(m => m.content['@type'] === 'messageAudio')
+          const all = Object.entries(hist).filter(([k]) => k !== '-900').map(([, v]) => v).flat().filter(m => m.content['@type'] === 'messageAudio')
             .filter(m => words.every(w => `${m.content.audio.performer} ${m.content.audio.title}`.toLowerCase().includes(w))).sort((a, b) => b.date - a.date);
           return reply({ '@type': 'foundMessages', total_count: all.length, messages: all.slice(0, q.limit), next_offset: '' }, 180);
         }

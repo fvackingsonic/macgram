@@ -112,3 +112,28 @@ fn grab(block: &str, pat: &str) -> String {
     }
     res
 }
+
+/// Обложка из каталога как data:URL — чтобы плеер мог сверить её с обложкой трека в Telegram.
+/// Только картинки Deezer и iTunes, не больше 2 МБ.
+#[tauri::command]
+pub async fn image_data(url: String) -> Result<String, String> {
+    let host = url.strip_prefix("https://").and_then(|r| r.split('/').next()).unwrap_or("");
+    if url.len() > 500 || !(host.ends_with(".dzcdn.net") || host.ends_with(".mzstatic.com")) {
+        return Err("недопустимый адрес".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
+        use base64::Engine;
+        use std::io::Read;
+        let resp = ureq::get(&url)
+            .set("User-Agent", "macgram")
+            .timeout(std::time::Duration::from_secs(10))
+            .call()
+            .map_err(|e| e.to_string())?;
+        let mut buf = Vec::new();
+        resp.into_reader().take(2 * 1024 * 1024).read_to_end(&mut buf).map_err(|e| e.to_string())?;
+        let mime = if buf.starts_with(&[0x89, b'P', b'N', b'G']) { "image/png" } else { "image/jpeg" };
+        Ok(format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(&buf)))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}

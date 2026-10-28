@@ -93,12 +93,14 @@ function remember(t) {
 
 // ── где играть: Telegram (полный трек из ваших чатов и каналов, без видео) ──
 const norm = s => (s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
-const BAD = /\b(live|remix|sped|slowed|reverb|nightcore|karaoke|instrumental|cover|8d|акустик|ремикс|кавер)\b/;
+const BAD = /(^|\s)(live|remix|sped|slowed|reverb|nightcore|karaoke|instrumental|cover|8d|acapella|bass boosted|акустик\S*|ремикс|кавер|минус)(\s|$)/;
 const audioOf = m => (m?.content?.['@type'] === 'messageAudio' ? m.content.audio : null);
 async function searchTg(query, limit = 50) {
   const r = await send({ '@type': 'searchMessages', chat_list: null, query, offset: '', limit, filter: { '@type': 'searchMessagesFilterAudio' }, chat_type_filter: null, min_date: 0, max_date: 0 });
   return (r.messages || []).filter(audioOf);
 }
+// Оценка кандидата: название обязательно; исполнитель, длительность (точно до пары секунд), без
+// ремиксов/live/sped up, качество файла (битрейт), альбом в подписи/имени файла.
 function score(m, t) {
   const a = audioOf(m);
   const title = norm(a.title || a.file_name), perf = norm(`${a.performer} ${a.file_name}`);
@@ -107,21 +109,107 @@ function score(m, t) {
   let sc = 40;
   if (ta && perf.includes(ta)) sc += 30; else if (ta && title.includes(ta)) sc += 20;
   if (BAD.test(`${title} ${norm(a.file_name)}`) && !BAD.test(norm(`${t.title} ${t.version}`))) sc -= 35;
-  if (a.duration && t.dur) sc -= Math.min(30, Math.abs(a.duration - t.dur) / 3);
+  if (a.duration && t.dur) { const d = Math.abs(a.duration - t.dur); sc += d <= 2 ? 12 : d <= 5 ? 4 : -Math.min(35, d / 2); }
+  const kbps = a.audio?.size && a.duration ? a.audio.size * 8 / a.duration / 1000 : 0;
+  if (kbps >= 250) sc += 4; else if (kbps && kbps < 120) sc -= 6;
+  const al = norm(t.album?.title);
+  if (al && al.length > 2 && norm(`${m.content.caption?.text || ''} ${a.file_name}`).includes(al)) sc += 5;
   return sc;
 }
+
+// ── сверка обложки: «отпечаток» картинки 8×8 (dHash), сравниваем число отличающихся битов ──
+const hashCache = new Map();
+function loadImg(src) {
+  return new Promise((ok, no) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = no; i.src = src; setTimeout(no, 8000); });
+}
+async function dhash(src) {
+  if (!src) return null;
+  if (hashCache.has(src)) return hashCache.get(src);
+  const p = (async () => {
+    let img;
+    try { img = await loadImg(src); } catch { return null; }
+    const c = document.createElement('canvas'); c.width = 9; c.height = 8;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(img, 0, 0, 9, 8);
+    let d; try { d = g.getImageData(0, 0, 9, 8).data; } catch { return null; } // картинку не дали прочитать — не сверяем
+    const L = i => d[i * 4] * .299 + d[i * 4 + 1] * .587 + d[i * 4 + 2] * .114, bits = [];
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) bits.push(L(y * 9 + x) > L(y * 9 + x + 1) ? 1 : 0);
+    return bits;
+  })();
+  hashCache.set(src, p);
+  return p;
+}
+const dist = (a, b) => a.reduce((n, v, i) => n + (v !== b[i]), 0);
+// обложка каталога (через Rust, чтобы картинку можно было прочитать) и мини-обложка из Telegram
+async function catalogCoverHash(t) {
+  const u = t.album?.small || t.album?.img;
+  if (!u) return null;
+  if (!T) return dhash(u);
+  try { return await dhash(await T.core.invoke('image_data', { url: u })); } catch { return null; }
+}
+const tgCoverHash = m => { const mt = audioOf(m)?.album_cover_minithumbnail; return mt?.data ? dhash(`data:image/jpeg;base64,${mt.data}`) : Promise.resolve(null); };
+
+// ── поиск в Telegram: ваши чаты → публичные каналы ──
+async function chatAudios(chatId, query) {
+  const r = await send({ '@type': 'searchChatMessages', chat_id: chatId, query, from_message_id: 0, offset: 0, limit: 30, filter: { '@type': 'searchMessagesFilterAudio' } });
+  return (r.messages || []).filter(audioOf);
+}
+async function publicCandidates(t) {
+  const out = [], q = `${t.artist?.name || ''} ${t.title}`.trim();
+  // 1) глобальный поиск по постам публичных каналов — только если сегодня он ещё бесплатный (звёзды не тратим)
+  try {
+    const lim = await send({ '@type': 'getPublicPostSearchLimits', query: q });
+    if (lim?.is_current_query_free) {
+      MU.loadNote = 'Ищу по всем каналам Telegram…'; changed();
+      const r = await send({ '@type': 'searchPublicPosts', query: q, offset: '', limit: 50, star_count: 0 });
+      out.push(...(r.messages || []).filter(audioOf));
+    }
+  } catch {}
+  // 2) публичные каналы, похожие на исполнителя и на музыкальные, — ищем трек внутри них (вступать не нужно)
+  MU.loadNote = 'Ищу в музыкальных каналах…'; changed();
+  const ids = new Set();
+  for (const pq of [t.artist?.name, `${t.artist?.name} music`, `${t.artist?.name} музыка`].filter(Boolean)) {
+    try { const r = await send({ '@type': 'searchPublicChats', query: pq }); (r.chat_ids || []).slice(0, 5).forEach(id => ids.add(id)); } catch {}
+    if (ids.size >= 10) break;
+  }
+  const lists = await Promise.allSettled([...ids].slice(0, 10).map(id => chatAudios(id, t.title)));
+  for (const l of lists) if (l.status === 'fulfilled') out.push(...l.value);
+  return out;
+}
+const FK = 'mg.music.found';
+const found = (() => { try { return JSON.parse(localStorage.getItem(FK) || '{}'); } catch { return {}; } })();
 const tgFound = new Map();
 async function findTg(t) {
   if (t.tg) return t.tg;
   if (tgFound.has(t.id)) return tgFound.get(t.id);
-  let best = null, bs = 45;
+  // уже находили раньше — берём то же сообщение
+  const f = found[t.id];
+  if (f) { try { const m = await send({ '@type': 'getMessage', chat_id: f.c, message_id: f.m }); if (audioOf(m)) { tgFound.set(t.id, m); return m; } } catch {} }
+  const cands = [];
   for (const q of [`${t.artist?.name || ''} ${t.title}`.trim(), t.title]) {
-    let list = [];
-    try { list = await searchTg(q); } catch { continue; }
-    for (const m of list) { const sc = score(m, t); if (sc > bs) { bs = sc; best = m; } }
-    if (best && bs >= 70) break;
+    try { cands.push(...await searchTg(q)); } catch {}
+    if (cands.some(m => score(m, t) >= 80)) break;
   }
+  let pub = false;
+  if (!cands.some(m => score(m, t) >= 70)) { pub = true; cands.push(...await publicCandidates(t)); }
+  // лучшие по названию/исполнителю/длительности — сверяем обложку
+  const seen = new Set();
+  const top = cands.map(m => ({ m, sc: score(m, t) })).filter(x => x.sc >= 45 && !seen.has(`${x.m.chat_id}_${x.m.id}`) && seen.add(`${x.m.chat_id}_${x.m.id}`))
+    .sort((a, b) => b.sc - a.sc).slice(0, 8);
+  if (top.length) {
+    MU.loadNote = 'Сверяю обложку и длительность…'; changed();
+    const ref = await catalogCoverHash(t);
+    if (ref) for (const x of top) {
+      const h = await tgCoverHash(x.m);
+      if (!h) continue;
+      const d = dist(ref, h);
+      x.sc += d <= 10 ? 18 : d <= 18 ? 6 : -12; // та же обложка — почти наверняка тот же релиз
+    }
+    top.sort((a, b) => b.sc - a.sc);
+  }
+  const best = top[0] && top[0].sc >= (pub ? 60 : 50) ? top[0].m : null;
   tgFound.set(t.id, best);
+  if (best) { found[t.id] = { c: best.chat_id, m: best.id }; try { localStorage.setItem(FK, JSON.stringify(found)); } catch {} }
   return best;
 }
 // трек из Telegram в вид каталога (для списка «Музыка из ваших каналов»)
@@ -163,7 +251,7 @@ function toPreview(why) {
   if (!t) return;
   clearInterval(waitT);
   if (!t.preview) { MU.mode = ''; MU.state = 'paused'; MU.err = why || 'Этого трека нет в ваших чатах и каналах Telegram'; audio.pause(); changed(); return; }
-  MU.mode = 'preview'; MU.err = `${why || 'Полной версии нет в ваших чатах и каналах'} — играет отрывок 30 с`;
+  MU.mode = 'preview'; MU.err = `${why || 'Полная версия не нашлась ни в ваших чатах, ни в каналах Telegram'} — играет отрывок 30 с`;
   MU.pos = 0; MU.dur = 30; MU.state = 'loading';
   startAudio(t.preview);
   changed();
@@ -177,7 +265,7 @@ export async function play(t, list) {
   const n = ++playSeq;
   clearInterval(waitT);
   audio.pause();
-  MU.cur = t; MU.pos = 0; MU.dur = t.dur || 0; MU.at = performance.now(); MU.state = 'loading'; MU.err = ''; MU.mode = ''; MU.loadNote = 'Ищу трек в ваших каналах…';
+  MU.cur = t; MU.pos = 0; MU.dur = t.dur || 0; MU.at = performance.now(); MU.state = 'loading'; MU.err = ''; MU.mode = ''; MU.loadNote = 'Ищу в ваших чатах и каналах…';
   if (!String(t.id).startsWith('tg')) remember(t);
   if (MU.open && MU.view.kind !== 'track') go({ kind: 'track' });
   changed();
