@@ -30,12 +30,20 @@ jobs:
         with:
           workspaces: src-tauri
 
+      - name: Кэш TDLib и шрифта
+        uses: actions/cache@v4
+        with:
+          path: |
+            .tmp/tdlib/node_modules
+            .tmp/font
+          key: deps-tdlib-inter-${{ runner.os }}-v1
+
       - name: Скачать TDLib (официальная библиотека Telegram)
         shell: bash
         run: |
           mkdir -p .tmp/tdlib && cd .tmp/tdlib
           npm init -y > /dev/null
-          npm install --no-audit --no-fund prebuilt-tdlib@latest
+          [ -d node_modules/prebuilt-tdlib ] || npm install --no-audit --no-fund prebuilt-tdlib@latest
           node -e "
             const fs = require('fs'), path = require('path');
             const p = require('prebuilt-tdlib').getTdjson();
@@ -51,8 +59,7 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p .tmp/font && cd .tmp/font
-          npm pack --silent @fontsource-variable/inter@5 > name.txt
-          tar xzf "$(cat name.txt)"
+          [ -d package ] || { npm pack --silent @fontsource-variable/inter@5 > name.txt && tar xzf "$(cat name.txt)"; }
           mkdir -p ../../ui/fonts
           cp package/files/inter-latin-wght-normal.woff2 package/files/inter-cyrillic-wght-normal.woff2 package/files/inter-latin-ext-wght-normal.woff2 package/files/inter-cyrillic-ext-wght-normal.woff2 ../../ui/fonts/
           cp package/LICENSE ../../ui/fonts/LICENSE-Inter.txt || true
@@ -93,12 +100,6 @@ jobs:
           ./src-tauri/target/release/mactele.exe --selftest selftest.txt || true
           head -c 300 selftest.txt | tr '\n' ' ' | sed 's/^/::notice title=Selftest::/'; echo
           grep -q '^OK' selftest.txt
-
-      - name: Сохранить установщик
-        uses: actions/upload-artifact@v4
-        with:
-          name: MacTele-setup
-          path: src-tauri/target/release/bundle/nsis/*.exe
 
       - name: Опубликовать «Последнюю сборку»
         shell: bash

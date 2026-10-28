@@ -25,8 +25,9 @@ sha2 = "0.10"
 keyring = { version = "3", features = ["windows-native"] }
 
 [profile.release]
-codegen-units = 1
-lto = true
+# «тонкая» оптимизация связей: сборка заметно быстрее, программа почти такая же быстрая
+codegen-units = 16
+lto = "thin"
 opt-level = "s"
 panic = "abort"
 strip = true
