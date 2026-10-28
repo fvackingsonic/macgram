@@ -1564,7 +1564,6 @@ html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row :is(.bubble:n
   background: linear-gradient(var(--lg-tint), var(--lg-tint)), var(--wall-blur) no-repeat !important;
   background-size: auto, var(--wall-w, 100vw) var(--wall-h, 100vh) !important;
   background-position: 0 0, var(--bp, -99999px 0) !important;
-  filter: var(--lens, none);
 }
 html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out :is(.bubble:not(.media):not(.sticker):not(.round):not(.jumbo), .bubble.media.with-caption)::after {
   background: linear-gradient(var(--lg-out), var(--lg-out)), var(--wall-blur) no-repeat !important;
@@ -1596,10 +1595,16 @@ html.wall-baked .selection-bar.glass, html.wall-baked .rkb.glass, html.wall-bake
   filter: blur(var(--lg-pblur)) saturate(1.2) var(--lens, );
 }
 .lg-mirror::after { content: ""; position: absolute; inset: 0; z-index: 9; background: var(--lg-tint); }
-.lg-mirror > * { position: absolute !important; left: 0 !important; top: 0 !important; margin: 0 !important; animation: none !important; transition: none !important; pointer-events: none !important; content-visibility: visible !important; }
-.lg-mirror * { animation: none !important; transition: none !important; }
-.lg-mirror .bubble::after, .lg-mirror .bubble::before, .lg-mirror .with-comments::after, .lg-mirror .with-comments::before { display: none !important; }
-html.glass-bubbles .lg-mirror .msg-row :is(.bubble:not(.media):not(.sticker):not(.round):not(.jumbo), .bubble.media.with-caption, .with-comments) { background: rgba(255,255,255,.28) !important; box-shadow: none !important; }
+/* копии сообщений под панелью — отдельный слой поверх «стекла»: при прокрутке он только сдвигается
+   (каждая копия — свой слой), размытие считает видеокарта; линза — только у неподвижного слоя обоев */
+.lg-feed {
+  position: absolute; inset: -14px; z-index: -1; pointer-events: none; overflow: hidden;
+  clip-path: inset(14px round var(--lg-r, 22px)); filter: blur(var(--lg-pblur)) saturate(1.2); will-change: transform;
+}
+.lg-feed > * { position: absolute !important; left: 0 !important; top: 0 !important; margin: 0 !important; pointer-events: none !important; content-visibility: visible !important; will-change: transform; }
+.lg-feed * { animation: none !important; transition: none !important; }
+.lg-feed .bubble::after, .lg-feed .bubble::before, .lg-feed .with-comments::after, .lg-feed .with-comments::before { display: none !important; }
+html.glass-bubbles .lg-feed .msg-row :is(.bubble:not(.media):not(.sticker):not(.round):not(.jumbo), .bubble.media.with-caption, .with-comments) { background: rgba(255,255,255,.28) !important; box-shadow: none !important; }
 /* кромка-блик у панелей */
 html.wall-baked:not(.lite) :is(.chat-top, .composer-wrap, .top-bars) .glass:not(.send-btn.ready)::after, html.wall-baked:not(.lite) .scroll-down.glass::after {
   content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 3;

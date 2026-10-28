@@ -46,11 +46,10 @@ function lensMap(W, H, w, h, r, bezel, max, S) {
 }
 
 let budget = 0;
-function lensFor(el, kind, w, h) {
-  // размеры округляем (у широких — до 4px), чтобы карт было немного; ошибка у края — не больше 1–2px
+function radiusFor(el, w, h) {
   const q = w > 120 ? 4 : 2;
   w = Math.round(w / q) * q; h = Math.round(h / 2) * 2;
-  if (!w || !h) return;
+  if (!w || !h) return null;
   if (el.__lgSz !== `${w}x${h}`) {
     el.__lgSz = `${w}x${h}`;
     const cs = getComputedStyle(el);
@@ -60,6 +59,12 @@ function lensFor(el, kind, w, h) {
     el.style.setProperty('--lg-rr', rr.map(x => `${x}px`).join(' '));
     el.style.setProperty('--lg-r', `${el.__lgR}px`);
   }
+  return [w, h];
+}
+function lensFor(el, kind, w0, h0) {
+  const sz = radiusFor(el, w0, h0);
+  if (!sz) return;
+  const [w, h] = sz;
   const r = el.__lgR, W = w + PAD * 2, H = h + PAD * 2;
   const key = `${kind}${W}x${H}r${r}`;
   if (el.__lensKey === key) return;
@@ -116,6 +121,7 @@ function cloneRow(row) {
 }
 function dropMirror(p) {
   if (p.__lgMirror) { p.__lgMirror.remove(); p.__lgMirror = null; p.__lgClones = null; }
+  if (p.__lgFeed) { p.__lgFeed.remove(); p.__lgFeed = null; }
 }
 function scrollerOf(p) {
   if (p.__lgSc?.isConnected) return p.__lgSc;
@@ -193,7 +199,7 @@ function update() {
 
   // 2) запись
   for (const [el, r] of bubbles) {
-    lensFor(el, 'b', r.width, r.height);
+    radiusFor(el, r.width, r.height);
     setTone(el, toneAt(o, r));
     const v = `${Math.round(o.left - r.left + PAD)}px ${Math.round(o.top - r.top + PAD)}px`;
     if (el.__bp !== v) { el.__bp = v; el.style.setProperty('--bp', v); }
@@ -206,20 +212,24 @@ function update() {
     setTone(p, toneAt(o, r));
     const v = `${Math.round(o.left - r.left + PAD)}px ${Math.round(o.top - r.top + PAD)}px`;
     if (p.__bp !== v) { p.__bp = v; p.style.setProperty('--bp', v); }
-    let m = p.__lgMirror;
-    if (!m || m.parentNode !== p) {
+    let m = p.__lgMirror, f = p.__lgFeed;
+    if (!m || m.parentNode !== p || !f || f.parentNode !== p) {
+      dropMirror(p);
       m = document.createElement('div');
       m.className = 'lg-mirror';
       m.setAttribute('aria-hidden', 'true');
+      f = document.createElement('div');
+      f.className = 'lg-feed';
+      f.setAttribute('aria-hidden', 'true');
       // текст копий — как в ленте, а не как в панели
       const sc = scrollerOf(p);
       if (sc) {
         const cs = getComputedStyle(sc);
         for (const k of ['font-family', 'font-size', 'font-weight', 'line-height', 'letter-spacing', 'color', 'text-align', 'white-space'])
-          m.style.setProperty(k, cs.getPropertyValue(k));
+          f.style.setProperty(k, cs.getPropertyValue(k));
       }
-      p.appendChild(m);
-      p.__lgMirror = m; p.__lgClones = new Map();
+      p.append(m, f);
+      p.__lgMirror = m; p.__lgFeed = f; p.__lgClones = new Map();
     }
     const clones = p.__lgClones, want = new Set(rows.map(x => x[0]));
     for (const [row, cl] of clones) if (!want.has(row) || !row.isConnected) { cl.remove(); clones.delete(row); }
@@ -228,7 +238,7 @@ function update() {
       let cl = clones.get(row);
       if (!cl || cl.__v !== row.__lgV) {
         const n = cloneRow(row);
-        if (cl) cl.replaceWith(n); else m.appendChild(n);
+        if (cl) cl.replaceWith(n); else f.appendChild(n);
         cl = n; cl.__v = row.__lgV; clones.set(row, cl);
       }
       const k = `${rr.left - mx},${rr.top - my},${rr.width},${rr.height}`;
@@ -249,8 +259,8 @@ new MutationObserver(recs => {
   let any = false;
   for (const rec of recs) {
     const t = rec.target.nodeType === 1 ? rec.target : rec.target.parentElement;
-    if (!t || t.closest('.lg-mirror')) continue;
-    if (rec.type === 'childList' && [...rec.addedNodes, ...rec.removedNodes].every(n => n.nodeType === 1 && n.classList.contains('lg-mirror'))) continue;
+    if (!t || t.closest('.lg-mirror, .lg-feed')) continue;
+    if (rec.type === 'childList' && [...rec.addedNodes, ...rec.removedNodes].every(n => n.nodeType === 1 && (n.classList.contains('lg-mirror') || n.classList.contains('lg-feed')))) continue;
     any = true;
     const sc = t.closest('.messages');
     if (sc) {
