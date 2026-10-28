@@ -1557,8 +1557,9 @@ html.glass-bubbles:not(.lite) .msg-row .bubble .doc-sub, html.glass-bubbles:not(
 html:not(.lite) .chat-top .glass, html:not(.lite) .composer-wrap .glass, html:not(.lite) .top-bars .glass, html:not(.lite) .scroll-down.glass,
 html:not(.lite) .ps-top .glass, html:not(.lite) .sp-back, html:not(.lite) .sp-more, html:not(.lite) .ps-sub-head .glass {
   background: var(--lg-tint) !important;
-  backdrop-filter: url(#lg-lens) blur(3px) saturate(1.5) brightness(1.06) !important;
-  -webkit-backdrop-filter: url(#lg-lens) blur(3px) saturate(1.5) brightness(1.06) !important;
+  /* без SVG-линзы: на панелях поверх ленты она давала «размазанные» полосы и пропадала */
+  backdrop-filter: blur(10px) saturate(1.7) brightness(1.08) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(1.7) brightness(1.08) !important;
   box-shadow: 0 6px 20px rgba(0,0,0,.14), inset 0 0 0 1px var(--lg-rim-line), inset 0 0 8px var(--lg-in-glow), inset 1.5px 1.5px 0 -.3px var(--lg-rim), inset -1px -1px 0 -.3px var(--lg-rim2) !important;
 }
 /* пост с комментариями: стекло только у общей обёртки, внутренний пузырь прозрачный */
@@ -1601,3 +1602,6 @@ html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comment
 .ap-glass .ap-glass-top { display: flex; align-items: center; }
 .ap-glass .ap-glass-top .lbl { flex: 1; }
 .ap-glass input { width: 100%; accent-color: var(--accent); }
+
+/* панели поверх ленты — отдельный слой, чтобы размытие не сбрасывалось при прокрутке */
+.chat-top .glass, .composer-wrap .glass, .top-bars .glass, .scroll-down.glass { will-change: backdrop-filter; }
