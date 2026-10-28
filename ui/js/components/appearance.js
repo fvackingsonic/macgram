@@ -88,7 +88,7 @@ export function Appearance() {
     <div class="group">
       <div class="item"><span class="lbl">Тёмный режим</span><${Switch} on=${dark} onChange=${v => pickTheme(v ? (S.prefs.nightTheme === 'black' ? 'black' : 'night') : (['classic', 'day'].includes(S.prefs.dayTheme) ? S.prefs.dayTheme : 'classic'))}/></div>
       <div class="item"><span class="lbl">Пузыри сообщений</span><${Switch} on=${S.prefs.bubbles !== false} onChange=${v => setPref('bubbles', v)}/></div>
-      ${S.prefs.bubbles !== false && html`<div class="item"><span class="lbl">Стеклянные пузыри<small>Как Liquid Glass в iOS 26 — стандартный вид macgram</small></span><${Switch} on=${S.prefs.glassBubbles !== false} onChange=${v => setPref('glassBubbles', v)}/></div>`}
+      ${S.prefs.bubbles !== false && html`<div class="item"><span class="lbl">Стеклянные пузыри<small>Как Liquid Glass в iOS 26 — стандартный вид macgram${S.glassBake ? ` · стекло: ${S.glassBake === 'ok' ? 'работает' : S.glassBake}` : ''}</small></span><${Switch} on=${S.prefs.glassBubbles !== false} onChange=${v => setPref('glassBubbles', v)}/></div>`}
       <div class="item ap-glass">
         <div class="ap-glass-top"><span class="lbl">Прозрачность стекла</span>${typeof S.prefs.glassTint === 'number' && html`<button class="sel-btn" onClick=${() => setPref('glassTint', undefined)}>Стандарт</button>`}</div>
         <input type="range" min="0" max="45" step="1" value=${Math.round(45 - (S.prefs.glassTint ?? .14) * 100)} onInput=${e => setPref('glassTint', (45 - Number(e.target.value)) / 100)}/>

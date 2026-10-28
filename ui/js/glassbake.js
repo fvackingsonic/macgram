@@ -42,11 +42,11 @@ function update() {
   root.style.setProperty('--wall-h', `${o.height}px`);
   const H = innerHeight;
   // Линза для панелей: свой SVG-фильтр под точный размер каждой панели (равномерно по осям, как в iOS).
-  for (const el of document.querySelectorAll(PANELS)) lensFor(el, 44);
+  for (const el of document.querySelectorAll(PANELS)) lensFor(el, 48);
   for (const el of document.querySelectorAll(SEL)) {
     const r = el.getBoundingClientRect();
     if (r.bottom < -50 || r.top > H + 50 || !r.width) continue;
-    if (!el.matches(PANELS)) lensFor(el, 30);
+    if (!el.matches(PANELS)) lensFor(el, 36);
     const v = `${Math.round(o.left - r.left + PAD)}px ${Math.round(o.top - r.top + PAD)}px`;
     if (el.__bp !== v) { el.__bp = v; el.style.setProperty('--bp', v); }
   }

@@ -149,7 +149,7 @@ async function bakeWall(url, fit, extraBlur) {
   const c = document.createElement('canvas'); c.width = Math.round(W * k); c.height = Math.round(H * k);
   const g = c.getContext('2d');
   g.fillStyle = fit === 'cover' ? '#000' : marginColor(); g.fillRect(0, 0, c.width, c.height);
-  g.filter = `blur(${(extraBlur ? 12 : 2.5) * k}px) saturate(1.5) brightness(1.06)`;
+  g.filter = `blur(${(extraBlur ? 12 : 1.6) * k}px) saturate(1.6) brightness(1.1)`;
   g.drawImage(bmp, dx * k - 2, dy * k - 2, dw * k + 4, dh * k + 4);
   const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', .88));
   return blob ? URL.createObjectURL(blob) : '';
@@ -206,9 +206,9 @@ export function Wallpaper({ main }) {
   const bakeKey = main && !liveUrl && isPhoto && photoUrl ? `${photoUrl}|${fit}|${!!type.is_blurred}|${S.wallTint?.h ?? ''}` : '';
   useEffect(() => {
     if (!main) return;
-    if (!bakeKey) { setBaked(''); return; }
+    if (!bakeKey) { setBaked(''); S.glassBake = liveUrl ? 'живой фон' : isPhoto ? 'фон ещё грузится' : 'не фон-картинка'; return; }
     let alive = true, t = 0;
-    const run = () => bakeWall(photoUrl, fit, type.is_blurred).then(u => { if (alive) setBaked(u); else if (u) URL.revokeObjectURL(u); }).catch(() => alive && setBaked(''));
+    const run = () => bakeWall(photoUrl, fit, type.is_blurred).then(u => { if (alive) { setBaked(u); S.glassBake = u ? 'ok' : 'пустой результат'; } else if (u) URL.revokeObjectURL(u); }).catch(e => { if (alive) { setBaked(''); S.glassBake = String(e?.message || e); } });
     run();
     const onResize = () => { clearTimeout(t); t = setTimeout(run, 250); };
     window.addEventListener('resize', onResize);

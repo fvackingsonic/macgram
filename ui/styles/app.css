@@ -1510,11 +1510,11 @@ html.glass-bubbles .msg-row.last .bubble, html.no-bubbles .msg-row.last .bubble 
 
 /* ── «жидкое стекло» как в iOS 26 / macOS 26 (по референсам): почти без заливки, фон под стеклом
    виден, слегка размыт и ПРЕЛОМЛЯЕТСЯ линзой по краям (SVG-фильтр #lg-lens), тонкий яркий кант. ── */
-:root { --lg-rim: rgba(255,255,255,1); --lg-rim2: rgba(255,255,255,.8); --lg-rim-line: rgba(255,255,255,.45); --lg-in-glow: rgba(255,255,255,.55);
-  --lg-tint: rgba(255,255,255,.14); --lg-out: color-mix(in srgb, var(--out-bg) 22%, transparent); --lg-hi: rgba(255,255,255,.75); --lg-lo: rgba(255,255,255,.22);
+:root { --lg-rim: rgba(255,255,255,1); --lg-rim2: rgba(255,255,255,.85); --lg-rim-line: rgba(255,255,255,.5); --lg-in-glow: rgba(255,255,255,.55);
+  --lg-tint: rgba(255,255,255,.16); --lg-out: color-mix(in srgb, var(--out-bg) 22%, transparent); --lg-hi: rgba(255,255,255,.75); --lg-lo: rgba(255,255,255,.22);
   --lg-edge: rgba(255,255,255,.3); --lg-text: #0b0b0c; --lg-shadow: 0 8px 24px rgba(0,0,0,.16); --lg-meta: rgba(0,0,0,.5); }
-:root[data-palette="night"] { --lg-rim: rgba(255,255,255,.75); --lg-rim2: rgba(255,255,255,.45); --lg-rim-line: rgba(255,255,255,.18); --lg-in-glow: rgba(255,255,255,.14);
-  --lg-tint: rgba(16,18,24,.28); --lg-out: color-mix(in srgb, var(--out-bg) 28%, transparent); --lg-hi: rgba(255,255,255,.45);
+:root[data-palette="night"] { --lg-rim: rgba(255,255,255,.9); --lg-rim2: rgba(255,255,255,.55); --lg-rim-line: rgba(255,255,255,.26); --lg-in-glow: rgba(255,255,255,.2);
+  --lg-tint: rgba(255,255,255,.07); --lg-out: color-mix(in srgb, var(--out-bg) 28%, transparent); --lg-hi: rgba(255,255,255,.45);
   --lg-lo: rgba(255,255,255,.1); --lg-edge: rgba(255,255,255,.16); --lg-text: #fff; --lg-shadow: 0 8px 24px rgba(0,0,0,.4); --lg-meta: rgba(255,255,255,.6); }
 /* ── Liquid Glass точно по референсам iOS 26: фон под стеклом почти чёткий (лёгкое размытие),
    по краям сильно преломляется линзой (#lg-lens), тонкий яркий белый кант, едва заметная заливка ── */
@@ -1656,3 +1656,15 @@ html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .bubble.m
   background-position: 0 0, var(--bp, -99999px 0) !important;
 }
 html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble:not(.z1):not(.z2):not(.z3):not(.z4):not(.z5):not(.z6)::after { display: none !important; }
+
+/* Кант и тень как у стекла iOS 26 на референсах: светлый ободок (ярче сверху и снизу), лёгкое
+   свечение по краю внутрь и мягкая тень снаружи — одинаково у сообщений и у панелей. */
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble.media.with-caption,
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments,
+html.wall-baked:not(.lite) .chat-top .glass, html.wall-baked:not(.lite) .composer-wrap .glass,
+html.wall-baked:not(.lite) .top-bars .glass, html.wall-baked:not(.lite) .scroll-down.glass {
+  box-shadow: 0 6px 18px rgba(0,0,0,.22), 0 1px 3px rgba(0,0,0,.12),
+    inset 0 0 0 1px var(--lg-rim-line), inset 0 1.5px 0 -.3px var(--lg-rim), inset 0 -1.5px 0 -.3px var(--lg-rim2),
+    inset 0 0 14px var(--lg-in-glow) !important;
+}
