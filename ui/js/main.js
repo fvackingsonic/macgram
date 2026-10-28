@@ -12,6 +12,7 @@ import './effects.js';
 import './memory.js';
 import './scrollbar.js';
 import './smoothscroll.js';
+import './glassbake.js';
 import './updates.js';
 import { SendDialog, DropOverlay } from './components/attach.js';
 import { ForwardDialog } from './components/forward.js';

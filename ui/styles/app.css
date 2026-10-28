@@ -1584,12 +1584,17 @@ html.glass-bubbles .messages { will-change: auto; }
 html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
 html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .bubble.media.with-caption,
 html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments {
-  background: linear-gradient(var(--lg-tint), var(--lg-tint)), var(--wall-blur) 0 0 / 100vw 100vh no-repeat fixed !important;
+  /* положение копии фона под пузырём выставляет glassbake.js (--bp) — fixed-фон в WebView2 работал не везде */
+  background: linear-gradient(var(--lg-tint), var(--lg-tint)), var(--wall-blur) no-repeat !important;
+  background-size: auto, var(--wall-w, 100vw) var(--wall-h, 100vh) !important;
+  background-position: 0 0, var(--bp, -99999px 0) !important;
   backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
 }
 html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .bubble:not(.media):not(.sticker):not(.round):not(.jumbo),
 html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .bubble.media.with-caption {
-  background: linear-gradient(var(--lg-out), var(--lg-out)), var(--wall-blur) 0 0 / 100vw 100vh no-repeat fixed !important;
+  background: linear-gradient(var(--lg-out), var(--lg-out)), var(--wall-blur) no-repeat !important;
+  background-size: auto, var(--wall-w, 100vw) var(--wall-h, 100vh) !important;
+  background-position: 0 0, var(--bp, -99999px 0) !important;
 }
 html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble:not(.z1):not(.z2):not(.z3):not(.z4):not(.z5) { background: transparent !important; }
 .ap-glass { flex-direction: column; align-items: stretch; height: auto; gap: 4px; padding-top: 8px; padding-bottom: 8px; }
