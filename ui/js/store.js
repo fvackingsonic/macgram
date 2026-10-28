@@ -187,7 +187,7 @@ export function applyPrefs() {
   root.classList.toggle('lg-panels', S.prefs.glass !== false);
   if (typeof S.prefs.glassTint === 'number') {
     const v = S.prefs.glassTint, dark = palette() === 'night';
-    root.style.setProperty('--lg-tint', `rgba(255,255,255,${(dark ? v * .5 : v).toFixed(3)})`);
+    root.style.setProperty('--lg-tint', `rgba(255,255,255,${(dark ? v * .65 : v).toFixed(3)})`);
   } else root.style.removeProperty('--lg-tint');
   const icon = S.prefs.appIcon || 'blue';
   if (icon !== appliedIcon && (appliedIcon || icon !== 'blue')) window.__TAURI__?.core.invoke('set_app_icon', { name: icon }).catch(() => {});

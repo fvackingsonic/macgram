@@ -149,8 +149,9 @@ async function bakeWall(url, fit, extraBlur) {
   const c = document.createElement('canvas'); c.width = Math.round(W * k); c.height = Math.round(H * k);
   const g = c.getContext('2d');
   g.fillStyle = fit === 'cover' ? '#000' : marginColor(); g.fillRect(0, 0, c.width, c.height);
-  g.filter = `blur(${(extraBlur ? 12 : 1.6) * k}px) saturate(1.15) brightness(1.06)`;
+  g.filter = `blur(${(extraBlur ? 14 : 9) * k}px) saturate(1.3) brightness(1.08)`;
   g.drawImage(bmp, dx * k - 2, dy * k - 2, dw * k + 4, dh * k + 4);
+  bakedLum = avgLum(c);
   const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', .88));
   return blob ? URL.createObjectURL(blob) : '';
 }
@@ -202,13 +203,26 @@ async function bakeScene({ fill, fallback, plainColor, pattern, patColor, patOpa
   }
   const out = document.createElement('canvas'); out.width = c.width; out.height = c.height;
   const og = out.getContext('2d');
-  og.filter = `blur(${1.6 * k}px) saturate(1.15) brightness(1.06)`;
+  og.filter = `blur(${9 * k}px) saturate(1.3) brightness(1.08)`;
   og.drawImage(c, 0, 0);
+  bakedLum = avgLum(out);
   const blob = await new Promise(r => out.toBlob(r, 'image/jpeg', .9));
   return blob ? URL.createObjectURL(blob) : '';
 }
 
+// Средняя яркость фона — как в iOS, на тёмном фоне текст в стекле белый, на светлом — тёмный.
+let bakedLum = 1;
+function avgLum(c) {
+  try {
+    const t = document.createElement('canvas'); t.width = t.height = 16;
+    const g = t.getContext('2d'); g.drawImage(c, 0, 0, 16, 16);
+    const d = g.getImageData(0, 0, 16, 16).data; let sum = 0;
+    for (let i = 0; i < d.length; i += 4) sum += (.2126 * d[i] + .7152 * d[i + 1] + .0722 * d[i + 2]) / 255;
+    return sum / (d.length / 4);
+  } catch { return 1; }
+}
 function setBaked(u) {
+  document.documentElement.classList.toggle('glass-dark', !!u && bakedLum < .42);
   const root = document.documentElement;
   if (bakedUrl) URL.revokeObjectURL(bakedUrl);
   bakedUrl = u;
