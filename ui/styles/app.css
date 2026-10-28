@@ -1566,11 +1566,20 @@ html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row :is(.bubble:n
 }
 .lg-bg { display: none; }
 html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .lg-bg {
-  display: block; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit; contain: strict;
-  background-image: linear-gradient(var(--lg-tint), var(--lg-tint)), var(--wall-blur);
-  background-repeat: no-repeat; background-size: auto, var(--wall-w, 100vw) var(--wall-h, 100vh); background-position: 0 0, -99999px 0;
+  display: block; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit; overflow: hidden; contain: strict;
 }
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .lg-bg { background-image: linear-gradient(var(--lg-out), var(--lg-out)), var(--wall-blur); }
+/* сама копия обоев — во весь размер окна, сдвинута так, чтобы совпасть с фоном; при прокрутке её
+   двигает анимация, привязанная к ленте (lg-tl) — без перерисовки пузыря */
+.lg-img {
+  position: absolute; left: 0; top: 0; width: var(--wall-w, 100vw); height: var(--wall-h, 100vh); pointer-events: none;
+  background: linear-gradient(var(--lg-tint), var(--lg-tint)), var(--wall-blur) 0 0 / 100% 100% no-repeat;
+  transform: translate(var(--x, -99999px), var(--y, 0px)); will-change: transform;
+}
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .lg-img { background-image: linear-gradient(var(--lg-out), var(--lg-out)), var(--wall-blur); }
+.chat { timeline-scope: --lg-sc; }
+.chat > .messages { scroll-timeline: --lg-sc block; }
+html.lg-tl .lg-img { animation: lg-follow 1s linear both; animation-timeline: --lg-sc; }
+@keyframes lg-follow { from { transform: translate(var(--x, -99999px), var(--y, 0px)); } to { transform: translate(var(--x, -99999px), calc(var(--y, 0px) + var(--lg-k, 0px))); } }
 html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble > .lg-bg, .lg-feed .lg-bg { display: none !important; }
 
 /* ── панели поверх ленты: шапка, кнопки, закреп, поле ввода ── */
@@ -1593,9 +1602,16 @@ html.wall-baked .selection-bar.glass, html.wall-baked .rkb.glass, html.wall-bake
 .lg-mirror {
   position: absolute; inset: -14px; z-index: -1; pointer-events: none; overflow: hidden; border-radius: 0;
   clip-path: inset(14px round var(--lg-r, 22px));
-  background: var(--wall-blur) no-repeat; background-size: var(--wall-w, 100vw) var(--wall-h, 100vh); background-position: var(--bp, -99999px 0);
   filter: blur(var(--lg-pblur)) saturate(1.2) var(--lens, );
 }
+/* то, что видно сквозь панель: рамка (.lg-mirror/.lg-feed) двигается вместе с кнопкой, а слой внутри
+   получает обратное преобразование — фон и сообщения стоят на месте, когда кнопку тянут или она растёт */
+.lg-mi, .lg-finv { position: absolute; inset: 0; }
+.lg-mi { background: var(--wall-blur) no-repeat; background-size: var(--wall-w, 100vw) var(--wall-h, 100vh); background-position: var(--bp, -99999px 0); }
+.glass.circle > .lg-mirror > .lg-mi, .glass.circle > .lg-feed > .lg-finv, .chat-header.glass > .lg-mirror > .lg-mi, .chat-header.glass > .lg-feed > .lg-finv { transition: transform .25s var(--spring); }
+.glass.circle:hover > .lg-mirror > .lg-mi, .glass.circle:hover > .lg-feed > .lg-finv { transform: scale(calc(1 / 1.06)); }
+.glass.circle:active > .lg-mirror > .lg-mi, .glass.circle:active > .lg-feed > .lg-finv { transform: scale(calc(1 / 1.12)); }
+.chat-header.glass:active > .lg-mirror > .lg-mi, .chat-header.glass:active > .lg-feed > .lg-finv { transform: scale(calc(1 / 1.01)); }
 .lg-mirror::after { content: ""; position: absolute; inset: 0; z-index: 9; background: var(--lg-tint); }
 /* копии сообщений под панелью — отдельный слой поверх «стекла»: при прокрутке он только сдвигается
    (каждая копия — свой слой), размытие считает видеокарта; линза — только у неподвижного слоя обоев */
@@ -1603,8 +1619,11 @@ html.wall-baked .selection-bar.glass, html.wall-baked .rkb.glass, html.wall-bake
   position: absolute; inset: -14px; z-index: -1; pointer-events: none; overflow: hidden;
   clip-path: inset(14px round var(--lg-r, 22px)); filter: blur(var(--lg-pblur)) saturate(1.2); will-change: transform;
 }
-.lg-feed > * { position: absolute !important; left: 0 !important; top: 0 !important; margin: 0 !important; pointer-events: none !important; content-visibility: visible !important; will-change: transform; }
-.lg-feed * { animation: none !important; transition: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; will-change: auto !important; }
+.lg-fin { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; will-change: transform; }
+html.lg-tl .lg-fin { animation: lg-feedf 1s linear both; animation-timeline: --lg-sc; }
+@keyframes lg-feedf { from { transform: translateY(0); } to { transform: translateY(calc(-1 * var(--lg-k, 0px))); } }
+.lg-fin > * { position: absolute !important; left: 0 !important; top: 0 !important; margin: 0 !important; pointer-events: none !important; content-visibility: visible !important; }
+.lg-fin * { animation: none !important; transition: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; will-change: auto !important; }
 .lg-feed .bubble::after, .lg-feed .bubble::before, .lg-feed .with-comments::after, .lg-feed .with-comments::before { display: none !important; }
 html.glass-bubbles .lg-feed .msg-row :is(.bubble:not(.media):not(.sticker):not(.round):not(.jumbo), .bubble.media.with-caption, .with-comments) { background: rgba(255,255,255,.28) !important; box-shadow: none !important; }
 /* кромка-блик у панелей */

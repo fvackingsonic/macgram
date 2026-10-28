@@ -28,11 +28,24 @@ function run(el) {
     const dist = Math.hypot(st.x, st.y);
     const stretch = Math.min(small ? .16 : .04, dist / (small ? 70 : 400));
     const ang = Math.atan2(st.y, st.x) * 180 / Math.PI;
-    el.style.transform = dist < .05 && Math.abs(st.s - 1) < .001 ? ''
-      : `translate(${st.x.toFixed(2)}px, ${st.y.toFixed(2)}px) rotate(${ang}deg) scale(${(st.s * (1 + stretch)).toFixed(4)}, ${(st.s * (1 - stretch * .55)).toFixed(4)}) rotate(${-ang}deg)`;
+    const idle = dist < .05 && Math.abs(st.s - 1) < .001;
+    const sx = st.s * (1 + stretch), sy = st.s * (1 - stretch * .55);
+    el.style.transform = idle ? ''
+      : `translate(${st.x.toFixed(2)}px, ${st.y.toFixed(2)}px) rotate(${ang}deg) scale(${sx.toFixed(4)}, ${sy.toFixed(4)}) rotate(${-ang}deg)`;
+    // Стекло движется, а то, что видно сквозь него (фон и сообщения), стоит на месте, как в iOS:
+    // внутренним слоям — обратное преобразование.
+    el.__lgT = idle ? null : [st.x, st.y];
+    el.__lgInvT = idle ? '' : `rotate(${ang}deg) scale(${(1 / sx).toFixed(5)}, ${(1 / sy).toFixed(5)}) rotate(${-ang}deg) translate(${(-st.x).toFixed(2)}px, ${(-st.y).toFixed(2)}px)`;
+    el.__lgInv();
     const still = Math.abs(st.vx) + Math.abs(st.vy) + Math.abs(st.vs) < .01 && Math.abs(st.tx - st.x) + Math.abs(st.ty - st.y) < .05 && Math.abs(st.ts - st.s) < .001;
-    if (still && !(drag && drag.el === el)) { st.raf = 0; el.style.transform = ''; el.style.willChange = ''; el.style.transition = ''; springs.delete(el); return; }
+    if (still && !(drag && drag.el === el)) { st.raf = 0; el.style.transform = ''; el.style.willChange = ''; el.style.transition = ''; el.__lgT = null; el.__lgInvT = ''; el.__lgInv(); springs.delete(el); return; }
     st.raf = requestAnimationFrame(step);
+  };
+  el.__lgInv ||= () => {
+    for (const c of el.querySelectorAll(':scope > .lg-mirror > .lg-mi, :scope > .lg-feed > .lg-finv')) {
+      c.style.transform = el.__lgInvT || '';
+      c.style.transition = el.__lgInvT ? 'none' : '';
+    }
   };
   el.style.willChange = 'transform';
   el.style.transition = 'none';

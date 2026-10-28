@@ -161,6 +161,14 @@ function rowsIn(sc, top, bottom, R) {
   return out;
 }
 const live = new Set();
+// Прокрутку ленты стекло повторяет само, без кода на каждом кадре: копия обоев в пузыре и копии
+// сообщений под панелями двигаются CSS-анимацией, привязанной к прокрутке (scroll-timeline) — её
+// считает видеокарта, синхронно с лентой. Код только расставляет постоянные сдвиги, когда что-то
+// появляется или меняется. Прогресс 0 — scrollTop 0, прогресс 1 — край прокрутки (у ленты
+// column-reverse scrollTop отрицательный), поэтому положение = значение при scrollTop 0 + scrollTop.
+const TL = typeof CSS !== 'undefined' && CSS.supports?.('animation-timeline: --lg-sc');
+if (TL) document.documentElement.classList.add('lg-tl');
+const near = (a, b) => a != null && Math.abs(a - b) < .5;
 function update() {
   raf = 0; budget = 2;
   const root = document.documentElement;
@@ -175,15 +183,27 @@ function update() {
   const H = innerHeight;
   const rect = new Map();
   const R = el => { let r = rect.get(el); if (!r) { r = el.getBoundingClientRect(); rect.set(el, r); } return r; };
+  const scrolls = new Map(); // лента -> [scrollTop, размах прокрутки со знаком]
+  const ST = sc => {
+    let v = scrolls.get(sc);
+    if (!v) {
+      const max = sc.scrollHeight - sc.clientHeight;
+      const rev = sc.__lgRev ?? (sc.__lgRev = getComputedStyle(sc).flexDirection === 'column-reverse');
+      v = [TL ? sc.scrollTop : 0, rev ? -max : max];
+      scrolls.set(sc, v);
+    }
+    return v;
+  };
 
   // 1) чтение: где пузыри и панели, какие строки ленты под панелями
-  // только пузыри в видимой части ленты: строки ищем двоичным поиском (их могут быть тысячи)
   const bubbles = [];
   if (root.classList.contains('glass-bubbles')) {
     for (const sc of document.querySelectorAll('.messages')) {
       const sr = R(sc);
       if (!sr.height) continue;
-      const top = Math.max(sr.top, 0) - 50, bottom = Math.min(sr.bottom, H) + 50;
+      // с запасом: пузырь готов заранее, ещё до того, как прокрутка его покажет
+      const top = Math.max(sr.top, 0) - 450, bottom = Math.min(sr.bottom, H) + 450;
+      const st = ST(sc)[0];
       for (const [row] of rowsIn(sc, top, bottom, R)) {
         if (!row.classList.contains('msg-row')) continue;
         if (!row.__lgB || row.__lgBV !== row.__lgV) { row.__lgB = [...row.querySelectorAll(BUB)]; row.__lgBV = row.__lgV; }
@@ -191,7 +211,7 @@ function update() {
           if (el.parentElement?.classList.contains('with-comments')) continue;
           const r = R(el);
           if (r.bottom < top || r.top > bottom || !r.width) continue;
-          bubbles.push([el, r]);
+          bubbles.push([el, r, st]);
         }
       }
     }
@@ -201,44 +221,58 @@ function update() {
   for (const p of document.querySelectorAll(PANELS)) {
     if (p.classList.contains('send-btn') && p.classList.contains('ready')) continue;
     // копии сообщений под панелью (там есть свои .glass — кнопка «Поделиться» у постов) — не панели.
-    // Раньше они считались панелями: копии внутри копий плодились без конца, и всё тормозило.
     if (p.closest('.lg-feed, .lg-mirror')) continue;
-    const r = R(p);
-    if (!r.width) continue;
+    const rb = R(p);
+    if (!rb.width) continue;
     seen.add(p);
+    // Кнопку можно тянуть и увеличивать (effects.js, :hover) — считаем по её месту без сдвига и
+    // увеличения: центр рамки минус сдвиг пальцем, размеры — без transform. Всё под стеклом стоит на
+    // месте, а внутренние слои получают обратное преобразование (effects.js и CSS).
+    const lw = p.offsetWidth || rb.width, lh = p.offsetHeight || rb.height, t = p.__lgT;
+    const cx = (rb.left + rb.right) / 2 - (t ? t[0] : 0), cy = (rb.top + rb.bottom) / 2 - (t ? t[1] : 0);
+    const r = { left: cx - lw / 2, top: cy - lh / 2, right: cx + lw / 2, bottom: cy + lh / 2, width: lw, height: lh };
     const sc = scrollerOf(p);
     const rows = [];
+    let st = 0;
     if (sc) {
-      const top = r.top - PAD - 12, bottom = r.bottom + PAD + 12;
+      st = ST(sc)[0];
+      const top = r.top - PAD - 320, bottom = r.bottom + PAD + 320;
       for (const x of rowsIn(sc, top, bottom, R)) if (x[1].right > r.left - PAD && x[1].left < r.right + PAD) rows.push(x);
       let seps = sc.__lgSeps;
       if (!seps) seps = sc.__lgSeps = [...sc.querySelectorAll('.date-sep')];
       for (const s of seps) { const rr = R(s); if (rr.height && rr.bottom >= top && rr.top <= bottom) rows.push([s, rr]); }
     }
-    panels.push([p, r, rows]);
+    panels.push([p, r, rows, lw, lh, st, sc]);
   }
 
-  // 2) запись
-  for (const [el, r] of bubbles) {
+  // 2) запись (только то, что изменилось)
+  for (const sc of scrolls.keys()) {
+    const chat = sc.parentElement, kk = scrolls.get(sc)[1];
+    if (chat && !near(chat.__lgK, kk)) { chat.__lgK = kk; chat.style.setProperty('--lg-k', `${kk}px`); }
+  }
+  for (const [el, r, st] of bubbles) {
     setTone(el, toneAt(o, r));
-    // копия обоев — в отдельном пустом элементе внутри пузыря: менять его фон при прокрутке дёшево
-    // (браузер пересчитывает только его, а не весь текст и реакции пузыря)
     let bg = el.__lgBg;
     if (!bg || bg.parentNode !== el) {
       bg = document.createElement('i');
       bg.className = 'lg-bg';
       bg.setAttribute('aria-hidden', 'true');
+      bg.appendChild(document.createElement('i')).className = 'lg-img';
       el.appendChild(bg);
-      el.__lgBg = bg; el.__bp = '';
+      el.__lgBg = bg; el.__lgX = el.__lgY = null;
     }
-    const v = `0 0, ${Math.round(o.left - r.left)}px ${Math.round(o.top - r.top)}px`;
-    if (el.__bp !== v) { el.__bp = v; bg.style.backgroundPosition = v; }
+    // сдвиг копии обоев при scrollTop = 0; дальше её ведёт прокрутка
+    const x = o.left - r.left, y = o.top - r.top - st;
+    if (!near(el.__lgX, x) || !near(el.__lgY, y)) {
+      el.__lgX = x; el.__lgY = y;
+      bg.firstChild.style.cssText = `--x:${Math.round(x)}px;--y:${Math.round(y)}px`;
+    }
   }
   for (const p of live) if (!seen.has(p)) dropMirror(p);
   live.clear();
-  for (const [p, r, rows] of panels) {
+  for (const [p, r, rows, lw, lh, st, sc] of panels) {
     live.add(p);
-    lensFor(p, 'p', r.width, r.height);
+    lensFor(p, 'p', lw, lh);
     setTone(p, toneAt(o, r));
     const v = `${Math.round(o.left - r.left + PAD)}px ${Math.round(o.top - r.top + PAD)}px`;
     if (p.__bp !== v) { p.__bp = v; p.style.setProperty('--bp', v); }
@@ -248,33 +282,41 @@ function update() {
       m = document.createElement('div');
       m.className = 'lg-mirror';
       m.setAttribute('aria-hidden', 'true');
+      m.appendChild(document.createElement('div')).className = 'lg-mi';
       f = document.createElement('div');
       f.className = 'lg-feed';
       f.setAttribute('aria-hidden', 'true');
+      const inv = f.appendChild(document.createElement('div'));
+      inv.className = 'lg-finv';
+      const fin = inv.appendChild(document.createElement('div'));
+      fin.className = 'lg-fin';
       // текст копий — как в ленте, а не как в панели
-      const sc = scrollerOf(p);
       if (sc) {
         const cs = getComputedStyle(sc);
-        for (const k of ['font-family', 'font-size', 'font-weight', 'line-height', 'letter-spacing', 'color', 'text-align', 'white-space'])
-          f.style.setProperty(k, cs.getPropertyValue(k));
+        for (const key of ['font-family', 'font-size', 'font-weight', 'line-height', 'letter-spacing', 'color', 'text-align', 'white-space'])
+          fin.style.setProperty(key, cs.getPropertyValue(key));
       }
       p.append(m, f);
       p.__lgMirror = m; p.__lgFeed = f; p.__lgClones = new Map();
+      p.__lgInv?.(); // кнопку сейчас тянут — сразу поставить обратный сдвиг новым слоям
     }
+    const fin = f.firstChild.firstChild;
     const clones = p.__lgClones, want = new Set(rows.map(x => x[0]));
     for (const [row, cl] of clones) if (!want.has(row) || !row.isConnected) { cl.remove(); clones.delete(row); }
+    // место копии — при scrollTop = 0 (дальше слой с копиями двигает прокрутка)
     const mx = r.left - PAD, my = r.top - PAD;
     for (const [row, rr] of rows) {
       let cl = clones.get(row);
       if (!cl || cl.__v !== row.__lgV) {
         const n = cloneRow(row);
-        if (cl) cl.replaceWith(n); else f.appendChild(n);
-        cl = n; cl.__v = row.__lgV; clones.set(row, cl);
+        if (cl) cl.replaceWith(n); else fin.appendChild(n);
+        cl = n; cl.__v = row.__lgV; cl.__k = ''; clones.set(row, cl);
       }
-      const k = `${rr.left - mx},${rr.top - my},${rr.width},${rr.height}`;
-      if (cl.__k !== k) {
-        cl.__k = k;
-        cl.style.transform = `translate(${rr.left - mx}px,${rr.top - my}px)`;
+      const kx = Math.round((rr.left - mx) * 2) / 2, ky = Math.round((rr.top - my + st) * 2) / 2;
+      const key = `${kx},${ky},${rr.width},${rr.height}`;
+      if (cl.__k !== key) {
+        cl.__k = key;
+        cl.style.transform = `translate(${kx}px,${ky}px)`;
         cl.style.width = `${rr.width}px`; cl.style.height = `${rr.height}px`;
       }
     }
@@ -283,7 +325,16 @@ function update() {
 
 export function glassUpdate() { if (!raf) raf = requestAnimationFrame(update); }
 // прокрутка списка чатов, настроек и т. п. стекло ленты не двигает
-document.addEventListener('scroll', e => { const t = e.target; if (t === document || !t.closest || !t.closest('.sidebar')) glassUpdate(); }, { capture: true, passive: true });
+// Со scroll-timeline при прокрутке код нужен только чтобы заранее подготовить новые пузыри и копии
+// (с запасом в несколько сотен пикселей), поэтому не каждый кадр, а раз в 60 мс и в конце прокрутки.
+let scrollT = 0;
+const onScroll = () => {
+  if (!TL) return glassUpdate();
+  if (scrollT) return;
+  scrollT = setTimeout(() => { scrollT = 0; glassUpdate(); }, 60);
+};
+document.addEventListener('scroll', e => { const t = e.target; if (t === document || !t.closest || !t.closest('.sidebar')) onScroll(); }, { capture: true, passive: true });
+document.addEventListener('scrollend', e => { const t = e.target; if (t === document || !t.closest || !t.closest('.sidebar')) glassUpdate(); }, { capture: true, passive: true });
 window.addEventListener('resize', glassUpdate);
 // Изменения в ленте: строку под панелью копируем заново; свои копии (внутри .lg-mirror) не считаем.
 new MutationObserver(recs => {
