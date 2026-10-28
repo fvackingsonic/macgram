@@ -2,11 +2,13 @@
 // историей, исполнителями и альбомами (каталог Deezer) и музыкой из ваших каналов; треки играют
 // полностью из Telegram, без видео; страница трека — большая обложка.
 import { html, useEffect, useLayoutEffect, useRef, useState } from '../lib.js';
-import { S, changed, useTick, setPref, useFile, download, fileUrl, selectChat, jumpTo } from '../store.js';
+import { S, changed, useTick, setPref, useFile, download, fileUrl, selectChat, jumpTo, openMenu, openModal, closeModal } from '../store.js';
+import { Icon } from '../icons.js';
 import { duration } from '../format.js';
 import {
   MU, setQuery, openArtist, openAlbum, loadCharts, loadMine, play, next, prev, toggle, seek, setVolume, setRepeat, setShuffle, stop,
   playing, position, neighbor, togglePanel, go, back, home,
+  isFav, toggleFav, newList, addToList, removeFromList, renameList, deleteList, listById,
 } from '../music.js';
 
 const SV = (s, body, fill) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill=${fill ? 'currentColor' : 'none'} stroke=${fill ? 'none' : 'currentColor'} stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
@@ -23,6 +25,11 @@ const IC = {
   volLo: (s = 15) => SV(s, html`<path d="M5 9.5v5h3.5l4.5 3.8V5.7L8.5 9.5z"/>`),
   volHi: (s = 15) => SV(s, html`<path d="M4 9.5v5h3.5l4.5 3.8V5.7L7.5 9.5z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>`),
   expand: (s = 15) => SV(s, html`<path d="M14 4.5h5.5V10M10 19.5H4.5V14M19.5 4.5 13.5 10.5M4.5 19.5l6-6"/>`),
+  heart: (s = 18) => SV(s, html`<path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/>`, true),
+  heartO: (s = 18) => SV(s, html`<path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/>`),
+  plus: (s = 18) => SV(s, html`<path d="M12 5v14M5 12h14"/>`),
+  addList: (s = 18) => SV(s, html`<path d="M4 6.5h11M4 11.5h11M4 16.5h7M17.5 14v6M14.5 17h6"/>`),
+  more: (s = 16) => SV(s, html`<circle cx="5.5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18.5" cy="12" r="1.4"/>`, true),
   chat: (s = 14) => SV(s, html`<path d="M5 18.5 4 21l3.2-1.3A8.5 8.5 0 1 0 5 18.5z"/>`),
   yt: (s = 14) => SV(s, html`<rect x="3" y="6" width="18" height="12" rx="3.5"/><path d="M10.5 9.6v4.8l4-2.4z" fill="currentColor"/>`),
 };
@@ -102,13 +109,39 @@ export function MusicChip() {
   </div>`;
 }
 
-function TrackRow({ t, list, i, num }) {
+// окно с полем ввода (название плейлиста)
+function askName(title, initial, ok) {
+  let val = initial || '';
+  openModal({
+    title,
+    body: html`<input class="mu-ask" value=${val} placeholder="Название плейлиста" maxlength="64" ref=${el => el && !el.__f && (el.__f = 1, setTimeout(() => { el.focus(); el.select(); }, 30))} onInput=${e => { val = e.target.value; }}/>`,
+    buttons: [{ label: 'Готово', action: () => { closeModal(); if (val.trim()) ok(val.trim()); } }, { label: 'Отмена', kind: 'second', action: closeModal }],
+  });
+}
+// меню трека: избранное, плейлисты, исполнитель, альбом
+export function trackMenu(e, t, listId) {
+  e.preventDefault(); e.stopPropagation();
+  const fav = isFav(t);
+  openMenu(e.clientX, e.clientY, [
+    { label: fav ? 'Убрать из избранного' : 'В избранное', icon: fav ? IC.heart(16) : IC.heartO(16), action: () => toggleFav(t) },
+    ...MU.lib.lists.filter(l => l.id !== listId).slice(0, 8).map(l => ({ label: `В «${l.name}»`, icon: IC.addList(16), action: () => addToList(l.id, t) })),
+    { label: 'Новый плейлист…', icon: IC.plus(16), action: () => askName('Новый плейлист', '', name => newList(name, t)) },
+    '-',
+    ...(t.artist?.name ? [{ label: t.artist.name, icon: Icon.menu('menu_open_profile'), action: () => openArtist(t.artist) }] : []),
+    ...(t.album?.id && !String(t.id).startsWith('tg') ? [{ label: `Альбом «${t.album.title}»`, icon: Icon.menu('menu_shared_media'), action: () => openAlbum(t.album) }] : []),
+    ...(listId ? ['-', { label: 'Убрать из плейлиста', icon: Icon.menu('menu_delete'), action: () => removeFromList(listId, t) }] : []),
+  ]);
+}
+
+function TrackRow({ t, list, i, num, listId }) {
   const cur = MU.cur?.id === t.id;
-  return html`<div class=${`mu-row ${cur ? 'cur' : ''}`} style=${i != null && i < 16 ? `animation-delay:${i * 14}ms` : ''} onClick=${() => (cur ? go({ kind: 'track' }) : play(t, list))}>
+  return html`<div class=${`mu-row ${cur ? 'cur' : ''}`} style=${i != null && i < 16 ? `animation-delay:${i * 14}ms` : ''} onClick=${() => (cur ? go({ kind: 'track' }) : play(t, list))} onContextMenu=${e => trackMenu(e, t, listId)}>
     ${num != null ? html`<span class="mu-num">${cur ? html`<${Eq} on=${playing()}/>` : num}</span>`
       : html`<span class="mu-row-art"><${AlbumCover} al=${t.album} size=${40} round=${7}/>${cur && html`<${Eq} on=${playing()}/>`}</span>`}
     <span class="mu-row-txt"><b>${t.title}${t.version ? html` <i class="mu-ver">${t.version}</i>` : ''}</b><small>${t.explicit ? html`<i class="mu-e">E</i>` : ''}${t.artist?.name || ''}</small></span>
+    ${isFav(t) && html`<span class="mu-row-fav">${IC.heart(12)}</span>`}
     <span class="mu-row-dur">${t.dur ? duration(t.dur) : ''}</span>
+    <button class="mu-row-more" title="Ещё" onClick=${e => trackMenu(e, t, listId)}>${IC.more(16)}</button>
   </div>`;
 }
 const Sec = ({ title, children, action }) => html`<div class="mu-sec"><div class="mu-sec-h"><span>${title}</span>${action}</div>${children}</div>`;
@@ -169,6 +202,10 @@ function TrackView() {
   const q = MU.queue, rest = q.slice(MU.qi + 1, MU.qi + 31);
   return html`<div class="mu-view mu-track">
     <div class="mu-track-info">
+      <div class="mu-track-acts">
+        <button class=${`mu-ic ${isFav(t) ? 'fav' : ''}`} title=${isFav(t) ? 'Убрать из избранного' : 'В избранное'} onClick=${() => toggleFav(t)}>${isFav(t) ? IC.heart(20) : IC.heartO(20)}</button>
+        <button class="mu-ic" title="Добавить в плейлист" onClick=${e => trackMenu(e, t)}>${IC.addList(20)}</button>
+      </div>
       <b title=${t.title}>${t.title}${t.version ? html` <i class="mu-ver">${t.version}</i>` : ''}</b>
       <div class="mu-track-sub">
         ${t.artist && html`<button class="mu-link" onClick=${() => openArtist(t.artist)}>${t.artist.name}</button>`}
@@ -199,11 +236,59 @@ function NowCard() {
   </div>`;
 }
 
+// мозаика обложек плейлиста
+function Mosaic({ tracks, size = 96, round = 12 }) {
+  const cs = tracks.map(x => x.album).filter(a => a?.img || a?.small || a?.tgThumb).slice(0, 4);
+  if (cs.length < 4) return html`<${AlbumCover} al=${cs[0]} size=${size} round=${round}/>`;
+  return html`<span class="mu-mosaic" style=${size ? `width:${size}px;height:${size}px;border-radius:${round}px` : `border-radius:${round}px`}>${cs.map((a, i) => html`<${AlbumCover} key=${i} al=${a} size=${0} round=${0}/>`)}</span>`;
+}
+// «Медиатека»: избранное, плейлисты и кнопка «Новый»
+function LibRow() {
+  const { fav, lists } = MU.lib;
+  return html`<${Sec} title="Медиатека"><div class="mu-albums">
+    <button class="mu-album" onClick=${() => go({ kind: 'fav' })}><span class="mu-favtile">${IC.heart(34)}</span><b>Избранное</b><small>${fav.length} тр.</small></button>
+    ${lists.map(l => html`<button class="mu-album" key=${l.id} onClick=${() => go({ kind: 'list', id: l.id })}><${Mosaic} tracks=${l.tracks} size=${0} round=${10}/><b>${l.name}</b><small>${l.tracks.length} тр.</small></button>`)}
+    <button class="mu-album" onClick=${() => askName('Новый плейлист', '', name => go({ kind: 'list', id: newList(name).id }))}><span class="mu-newtile">${IC.plus(30)}</span><b>Новый плейлист</b><small> </small></button>
+  </div></${Sec}>`;
+}
+function FavView() {
+  const list = MU.lib.fav;
+  return html`<div class="mu-view">
+    <div class="mu-hero"><span class="mu-favtile big">${IC.heart(40)}</span><div class="mu-hero-txt"><b>Избранное</b><small>${list.length} тр.</small>
+      ${list.length > 0 && html`<div class="mu-hero-btns"><button class="mu-pill" onClick=${() => play(list[0], list)}>${IC.play(13)} Слушать</button>
+        <button class="mu-pill ghost" onClick=${() => { setShuffle(true); play(list[Math.floor(Math.random() * list.length)], list); }}>${IC.shuffle(14)}</button></div>`}</div></div>
+    ${list.length ? list.map((t, i) => html`<${TrackRow} key=${t.id} t=${t} list=${list} i=${i}/>`) : html`<${Empty} text="Нажмите ♥ на странице трека или «…» у любого трека — он появится здесь."/>`}
+  </div>`;
+}
+function ListView({ v }) {
+  const l = listById(v.id);
+  if (!l) return html`<${Empty} text="Плейлист удалён"/>`;
+  const more = e => openMenu(e.clientX, e.clientY, [
+    { label: 'Переименовать', icon: Icon.menu('menu_edit'), action: () => askName('Переименовать плейлист', l.name, name => renameList(l.id, name)) },
+    { label: 'Удалить плейлист', icon: Icon.menu('menu_delete'), action: () => openModal({ title: `Удалить «${l.name}»?`, text: 'Треки останутся в каталоге и в Telegram, удалится только этот список.',
+      buttons: [{ label: 'Удалить', kind: 'danger', action: () => { closeModal(); deleteList(l.id); } }, { label: 'Отмена', kind: 'second', action: closeModal }] }) },
+  ]);
+  return html`<div class="mu-view">
+    <div class="mu-hero">
+      <${Mosaic} tracks=${l.tracks} size=${96} round=${12}/>
+      <div class="mu-hero-txt"><b>${l.name}</b><small>Плейлист · ${l.tracks.length} тр.</small>
+        <div class="mu-hero-btns">
+          ${l.tracks.length > 0 && html`<button class="mu-pill" onClick=${() => play(l.tracks[0], l.tracks)}>${IC.play(13)} Слушать</button>
+            <button class="mu-pill ghost" title="Перемешать" onClick=${() => { setShuffle(true); play(l.tracks[Math.floor(Math.random() * l.tracks.length)], l.tracks); }}>${IC.shuffle(14)}</button>`}
+          <button class="mu-pill ghost" title="Ещё" onClick=${more}>${IC.more(14)}</button>
+        </div></div>
+    </div>
+    ${l.tracks.length ? l.tracks.map((t, i) => html`<${TrackRow} key=${t.id} t=${t} list=${l.tracks} i=${i} listId=${l.id}/>`)
+      : html`<${Empty} text="Пока пусто. Найдите трек и нажмите «…» → «В плейлист»."/>`}
+  </div>`;
+}
+
 function HomeView() {
   useEffect(() => { loadCharts(); loadMine(); }, []);
   const ch = MU.charts, hist = MU.hist;
   return html`<div class="mu-view">
     <${NowCard}/>
+    <${LibRow}/>
     ${hist.length > 0 && html`<${Sec} title="Недавно играло">${hist.slice(0, 6).map((t, i) => html`<${TrackRow} key=${t.id} t=${t} list=${hist} i=${i}/>`)}</${Sec}>`}
     ${MU.mine?.tracks?.length > 0 && html`<${Sec} title="Музыка из ваших каналов" action=${MU.mine.tracks.length > 6 ? html`<button class="mu-mini" onClick=${() => go({ kind: 'mine' })}>Все</button>` : ''}>
       ${MU.mine.tracks.slice(0, 6).map((t, i) => html`<${TrackRow} key=${t.id} t=${t} list=${MU.mine.tracks} i=${i}/>`)}</${Sec}>`}
@@ -257,7 +342,7 @@ function AlbumView({ v }) {
   </div>`;
 }
 
-const TITLES = { artist: 'Исполнитель', album: 'Альбом', track: 'Сейчас играет', mine: 'Из ваших каналов' };
+const TITLES = { artist: 'Исполнитель', album: 'Альбом', track: 'Сейчас играет', mine: 'Из ваших каналов', fav: 'Избранное', list: 'Плейлист' };
 const MineView = () => html`<div class="mu-view">${(MU.mine?.tracks || []).map((t, i) => html`<${TrackRow} key=${t.id} t=${t} list=${MU.mine.tracks} i=${i}/>`)}</div>`;
 
 // Панель: открывается из ноты, закрывается щелчком мимо или Esc; угол слева снизу — изменить размер.
@@ -268,7 +353,7 @@ export function MusicPanel() {
   const [size, setSize] = useState(null);
   useEffect(() => {
     if (!MU.open) return;
-    const off = e => { if (!ref.current?.contains(e.target) && !e.target.closest?.('.music-btn, .music-cap, .mv-host, .ctx')) togglePanel(false); };
+    const off = e => { if (!ref.current?.contains(e.target) && !e.target.closest?.('.music-btn, .music-cap, .mv-host, .ctx, .veil')) togglePanel(false); };
     const esc = e => { if (e.key === 'Escape' && !S.modal) { e.stopPropagation(); if (MU.stack.length) back(); else togglePanel(false); } };
     window.addEventListener('mousedown', off);
     window.addEventListener('keydown', esc, true);
@@ -297,7 +382,8 @@ export function MusicPanel() {
     ${v.kind === 'track' && MU.cur && html`<${CoverSlot}/>`}
     <div class="mu-body" key=${v.kind + (v.id || '')}>
       ${v.kind === 'search' ? html`<${SearchView}/>` : v.kind === 'artist' ? html`<${ArtistView} v=${v}/>` : v.kind === 'album' ? html`<${AlbumView} v=${v}/>`
-        : v.kind === 'track' ? html`<${TrackView}/>` : v.kind === 'mine' ? html`<${MineView}/>` : html`<${HomeView}/>`}
+        : v.kind === 'track' ? html`<${TrackView}/>` : v.kind === 'mine' ? html`<${MineView}/>` : v.kind === 'fav' ? html`<${FavView}/>`
+        : v.kind === 'list' ? html`<${ListView} v=${v}/>` : html`<${HomeView}/>`}
     </div>
     <i class="mu-grip" title="Изменить размер" onPointerDown=${grip}/>
   </div>`;

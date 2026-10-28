@@ -188,7 +188,8 @@ export function applyPrefs() {
   if (typeof S.prefs.glassTint === 'number') {
     const v = S.prefs.glassTint, dark = palette() === 'night';
     root.style.setProperty('--lg-tint', `rgba(255,255,255,${(dark ? v * .65 : v).toFixed(3)})`);
-  } else root.style.removeProperty('--lg-tint');
+    root.style.setProperty('--mu-va', Math.min(.92, .06 + v * 5).toFixed(3)); // плеер с нотой — та же прозрачность
+  } else { root.style.removeProperty('--lg-tint'); root.style.removeProperty('--mu-va'); }
   const icon = S.prefs.appIcon || 'blue';
   if (icon !== appliedIcon && (appliedIcon || icon !== 'blue')) window.__TAURI__?.core.invoke('set_app_icon', { name: icon }).catch(() => {});
   appliedIcon = icon;

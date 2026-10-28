@@ -1,7 +1,7 @@
 // Музыка macgram (кнопка с нотой): каталог — открытый Deezer (поиск, исполнители, альбомы, чарты,
 // обложки), звук — полный трек из ваших чатов и каналов Telegram (без видео). Если трека в Telegram
 // нет — играет 30-секундный отрывок Deezer.
-import { S, changed, tick, setPref, download, fileUrl, fileOf } from './store.js';
+import { S, changed, tick, setPref, download, fileUrl, fileOf, showHud } from './store.js';
 import { send } from './td.js';
 
 const T = window.__TAURI__;
@@ -182,6 +182,8 @@ const tgFound = new Map();
 async function findTg(t) {
   if (t.tg) return t.tg;
   if (tgFound.has(t.id)) return tgFound.get(t.id);
+  // трек из медиатеки, взятый из Telegram, — то же сообщение
+  if (t.src) { try { const m = await send({ '@type': 'getMessage', chat_id: t.src.c, message_id: t.src.m }); if (audioOf(m)) { tgFound.set(t.id, m); return m; } } catch {} }
   // уже находили раньше — берём то же сообщение
   const f = found[t.id];
   if (f) { try { const m = await send({ '@type': 'getMessage', chat_id: f.c, message_id: f.m }); if (audioOf(m)) { tgFound.set(t.id, m); return m; } } catch {} }
@@ -335,6 +337,45 @@ export function position() {
   return Math.max(0, Math.min(p, MU.dur || p));
 }
 setInterval(() => { if (MU.state === 'playing') tick(); }, 500);
+
+// ── медиатека: избранное и плейлисты (хранятся на этом компьютере) ──
+const LK = 'mg.music.lib';
+MU.lib = (() => { try { const v = JSON.parse(localStorage.getItem(LK) || 'null'); return v && Array.isArray(v.fav) ? v : null; } catch { return null; } })() || { fav: [], lists: [] };
+const saveLib = () => { try { localStorage.setItem(LK, JSON.stringify(MU.lib)); } catch {} changed(); };
+// в медиатеку кладём только нужное; трек из Telegram — ссылкой на сообщение
+const slimFile = f => (f ? { id: f.id, size: f.size, expected_size: f.expected_size, local: { can_be_downloaded: true } } : null);
+export const slim = t => ({ id: t.id, title: t.title, version: t.version || '', dur: t.dur || 0, explicit: !!t.explicit, preview: t.preview || '',
+  artist: t.artist ? { id: t.artist.id, name: t.artist.name, img: t.artist.img || '' } : null,
+  album: t.album ? { id: t.album.id, title: t.album.title || '', img: t.album.img || '', small: t.album.small || '', year: t.album.year || '', type: t.album.type || '', tgThumb: slimFile(t.album.tgThumb) } : null,
+  src: t.tg ? { c: t.tg.chat_id, m: t.tg.id } : t.src || null });
+export const isFav = t => !!t && MU.lib.fav.some(x => x.id === t.id);
+export function toggleFav(t) {
+  if (!t) return;
+  if (isFav(t)) { MU.lib.fav = MU.lib.fav.filter(x => x.id !== t.id); showHud('Убрано из избранного'); }
+  else { MU.lib.fav = [slim(t), ...MU.lib.fav]; showHud('Добавлено в избранное'); }
+  saveLib();
+}
+export const listById = id => MU.lib.lists.find(l => l.id === id);
+export function newList(name, t) {
+  const l = { id: `p${Date.now().toString(36)}`, name: (name || '').trim() || 'Новый плейлист', tracks: t ? [slim(t)] : [], at: Date.now() };
+  MU.lib.lists = [l, ...MU.lib.lists];
+  saveLib();
+  showHud(t ? `Добавлено в «${l.name}»` : `Плейлист «${l.name}» создан`);
+  return l;
+}
+export function addToList(id, t) {
+  const l = listById(id); if (!l || !t) return;
+  if (l.tracks.some(x => x.id === t.id)) { showHud(`Уже есть в «${l.name}»`); return; }
+  l.tracks = [...l.tracks, slim(t)];
+  saveLib(); showHud(`Добавлено в «${l.name}»`);
+}
+export function removeFromList(id, t) { const l = listById(id); if (!l) return; l.tracks = l.tracks.filter(x => x.id !== t.id); saveLib(); }
+export function renameList(id, name) { const l = listById(id); if (!l || !name.trim()) return; l.name = name.trim(); saveLib(); }
+export function deleteList(id) { MU.lib.lists = MU.lib.lists.filter(l => l.id !== id); saveLib(); if (MU.view.kind === 'list' && MU.view.id === id) back(); }
+export function moveInList(id, from, to) {
+  const l = listById(id); if (!l || from === to) return;
+  const a = [...l.tracks]; const [x] = a.splice(from, 1); a.splice(to, 0, x); l.tracks = a; saveLib();
+}
 
 // ── панель ──
 export function togglePanel(force, view) {
