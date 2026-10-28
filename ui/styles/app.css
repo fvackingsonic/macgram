@@ -1554,22 +1554,20 @@ html.glass-bubbles:not(.lite) .msg-row .bubble .doc-sub, html.glass-bubbles:not(
 html.glass-bubbles .messages .day, html.wall-baked .messages .day { content-visibility: visible; }
 html.glass-bubbles .messages { will-change: auto; }
 
-/* при фоне-картинке/узоре: под пузырём копия обоев ровно с этого места (--bp) и линза по краю (--lens) */
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row :is(.bubble:not(.media):not(.sticker):not(.round):not(.jumbo), .bubble.media.with-caption, .with-comments) { background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; isolation: isolate; }
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row :is(.bubble:not(.media):not(.sticker):not(.round):not(.jumbo), .bubble.media.with-caption, .with-comments)::after {
-  content: "" !important; display: block !important; position: absolute !important;
-  inset: -14px !important; left: -14px !important; right: -14px !important; top: -14px !important; bottom: -14px !important;
-  width: auto !important; height: auto !important; transform: none !important; -webkit-mask: none !important; mask: none !important;
-  clip-path: inset(14px round var(--lg-rr, 16px)); z-index: -1; pointer-events: none;
-  background: linear-gradient(var(--lg-tint), var(--lg-tint)), var(--wall-blur) no-repeat !important;
-  background-size: auto, var(--wall-w, 100vw) var(--wall-h, 100vh) !important;
-  background-position: 0 0, var(--bp, -99999px 0) !important;
+/* при фоне-картинке/узоре: под пузырём — копия обоев ровно с этого места (.lg-bg, ставит glassbake.js).
+   Это отдельный пустой элемент: при прокрутке меняется только его фон — браузер не пересчитывает
+   стили текста, ссылок и реакций пузыря на каждом кадре. */
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row :is(.bubble:not(.media):not(.sticker):not(.round):not(.jumbo), .bubble.media.with-caption, .with-comments) {
+  background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; isolation: isolate;
 }
-html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out :is(.bubble:not(.media):not(.sticker):not(.round):not(.jumbo), .bubble.media.with-caption)::after {
-  background: linear-gradient(var(--lg-out), var(--lg-out)), var(--wall-blur) no-repeat !important;
-  background-size: auto, var(--wall-w, 100vw) var(--wall-h, 100vh) !important;
-  background-position: 0 0, var(--bp, -99999px 0) !important;
+.lg-bg { display: none; }
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .lg-bg {
+  display: block; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit; contain: strict;
+  background-image: linear-gradient(var(--lg-tint), var(--lg-tint)), var(--wall-blur);
+  background-repeat: no-repeat; background-size: auto, var(--wall-w, 100vw) var(--wall-h, 100vh); background-position: 0 0, -99999px 0;
 }
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .lg-bg { background-image: linear-gradient(var(--lg-out), var(--lg-out)), var(--wall-blur); }
+html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .with-comments > .bubble > .lg-bg, .lg-feed .lg-bg { display: none !important; }
 
 /* ── панели поверх ленты: шапка, кнопки, закреп, поле ввода ── */
 /* без фона-картинки (живые обои) — обычное размытие */

@@ -146,6 +146,20 @@ function setTone(el, lum) {
   if (t !== el.__tone) { el.__tone = t; el.setAttribute('data-lg', t); }
 }
 
+const BUB = ['.bubble:not(.media):not(.sticker):not(.round):not(.jumbo)', '.bubble.media.with-caption', '.with-comments'].join(', ');
+// строки ленты (сверху вниз), пересекающие полосу [top, bottom] по высоте
+function rowsIn(sc, top, bottom, R) {
+  const list = sc.__lgRows || (sc.__lgRows = [...sc.querySelectorAll(ROWS)]);
+  let lo = 0, hi = list.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (R(list[mid]).bottom < top) lo = mid + 1; else hi = mid; }
+  const out = [];
+  for (let i = lo; i < list.length; i++) {
+    const rr = R(list[i]);
+    if (rr.top > bottom) break;
+    if (rr.height) out.push([list[i], rr]);
+  }
+  return out;
+}
 const live = new Set();
 function update() {
   raf = 0; budget = 2;
@@ -155,19 +169,31 @@ function update() {
   const wall = document.querySelector('.window > .wallpaper');
   if (!wall) return;
   const o = wall.getBoundingClientRect();
-  root.style.setProperty('--wall-w', `${o.width}px`);
-  root.style.setProperty('--wall-h', `${o.height}px`);
+  const ww = `${o.width}px`, wh = `${o.height}px`;
+  if (root.__lgW !== ww) { root.__lgW = ww; root.style.setProperty('--wall-w', ww); }
+  if (root.__lgH !== wh) { root.__lgH = wh; root.style.setProperty('--wall-h', wh); }
   const H = innerHeight;
   const rect = new Map();
   const R = el => { let r = rect.get(el); if (!r) { r = el.getBoundingClientRect(); rect.set(el, r); } return r; };
 
   // 1) чтение: где пузыри и панели, какие строки ленты под панелями
+  // только пузыри в видимой части ленты: строки ищем двоичным поиском (их могут быть тысячи)
   const bubbles = [];
   if (root.classList.contains('glass-bubbles')) {
-    for (const el of document.querySelectorAll(BUBBLES)) {
-      const r = R(el);
-      if (r.bottom < -50 || r.top > H + 50 || !r.width) continue;
-      bubbles.push([el, r]);
+    for (const sc of document.querySelectorAll('.messages')) {
+      const sr = R(sc);
+      if (!sr.height) continue;
+      const top = Math.max(sr.top, 0) - 50, bottom = Math.min(sr.bottom, H) + 50;
+      for (const [row] of rowsIn(sc, top, bottom, R)) {
+        if (!row.classList.contains('msg-row')) continue;
+        if (!row.__lgB || row.__lgBV !== row.__lgV) { row.__lgB = [...row.querySelectorAll(BUB)]; row.__lgBV = row.__lgV; }
+        for (const el of row.__lgB) {
+          if (el.parentElement?.classList.contains('with-comments')) continue;
+          const r = R(el);
+          if (r.bottom < top || r.top > bottom || !r.width) continue;
+          bubbles.push([el, r]);
+        }
+      }
     }
   }
   const panels = [];
@@ -181,15 +207,7 @@ function update() {
     const rows = [];
     if (sc) {
       const top = r.top - PAD - 12, bottom = r.bottom + PAD + 12;
-      let list = sc.__lgRows;
-      if (!list) list = sc.__lgRows = [...sc.querySelectorAll(ROWS)];
-      let lo = 0, hi = list.length;
-      while (lo < hi) { const mid = (lo + hi) >> 1; if (R(list[mid]).bottom < top) lo = mid + 1; else hi = mid; }
-      for (let i = lo; i < list.length; i++) {
-        const rr = R(list[i]);
-        if (rr.top > bottom) break;
-        if (rr.height && rr.right > r.left - PAD && rr.left < r.right + PAD) rows.push([list[i], rr]);
-      }
+      for (const x of rowsIn(sc, top, bottom, R)) if (x[1].right > r.left - PAD && x[1].left < r.right + PAD) rows.push(x);
       let seps = sc.__lgSeps;
       if (!seps) seps = sc.__lgSeps = [...sc.querySelectorAll('.date-sep')];
       for (const s of seps) { const rr = R(s); if (rr.height && rr.bottom >= top && rr.top <= bottom) rows.push([s, rr]); }
@@ -199,10 +217,19 @@ function update() {
 
   // 2) запись
   for (const [el, r] of bubbles) {
-    radiusFor(el, r.width, r.height);
     setTone(el, toneAt(o, r));
-    const v = `${Math.round(o.left - r.left + PAD)}px ${Math.round(o.top - r.top + PAD)}px`;
-    if (el.__bp !== v) { el.__bp = v; el.style.setProperty('--bp', v); }
+    // копия обоев — в отдельном пустом элементе внутри пузыря: менять его фон при прокрутке дёшево
+    // (браузер пересчитывает только его, а не весь текст и реакции пузыря)
+    let bg = el.__lgBg;
+    if (!bg || bg.parentNode !== el) {
+      bg = document.createElement('i');
+      bg.className = 'lg-bg';
+      bg.setAttribute('aria-hidden', 'true');
+      el.appendChild(bg);
+      el.__lgBg = bg; el.__bp = '';
+    }
+    const v = `0 0, ${Math.round(o.left - r.left)}px ${Math.round(o.top - r.top)}px`;
+    if (el.__bp !== v) { el.__bp = v; bg.style.backgroundPosition = v; }
   }
   for (const p of live) if (!seen.has(p)) dropMirror(p);
   live.clear();
@@ -260,7 +287,7 @@ new MutationObserver(recs => {
   for (const rec of recs) {
     const t = rec.target.nodeType === 1 ? rec.target : rec.target.parentElement;
     if (!t || t.closest('.lg-mirror, .lg-feed')) continue;
-    if (rec.type === 'childList' && [...rec.addedNodes, ...rec.removedNodes].every(n => n.nodeType === 1 && (n.classList.contains('lg-mirror') || n.classList.contains('lg-feed')))) continue;
+    if (rec.type === 'childList' && [...rec.addedNodes, ...rec.removedNodes].every(n => n.nodeType === 1 && (n.classList.contains('lg-mirror') || n.classList.contains('lg-feed') || n.classList.contains('lg-bg')))) continue;
     any = true;
     const sc = t.closest('.messages');
     if (sc) {

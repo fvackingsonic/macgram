@@ -141,7 +141,7 @@ function marginColor() {
 // того, что под пузырём, но без backdrop-filter, который в WebView2 «моргал» и пропадал при прокрутке.
 let bakedUrl = '';
 // Копия почти чёткая (как стекло iOS: фон под ним виден), в полном разрешении экрана.
-const bakeK = () => Math.min(2, Math.max(1, devicePixelRatio || 1));
+const bakeK = () => Math.min(1.5, Math.max(1, devicePixelRatio || 1));
 async function bakeWall(url, fit, extraBlur) {
   const W = innerWidth, H = innerHeight, k = bakeK();
   const bmp = await createImageBitmap(await (await fetch(url)).blob());
