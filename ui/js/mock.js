@@ -85,6 +85,17 @@ export function createMock(dispatch) {
     13: [msg(13, 601, 13, 'Скинул файлы в облако', now - 3 * D)],
     16: [msg(16, 701, 16, 'Сегодня +18°, без осадков ☀️', now - 6 * H)],
   };
+  // Проверка скорости: ?mock=ready&long=400 — длинная лента в канале и в группе; &wall=1 — фото-фон (window.__mockFiles[900]).
+  const qs = new URLSearchParams(location.search), longN = +qs.get('long') || 0;
+  if (longN) {
+    const words = 'стекло прокрутка сообщение канал обновление интерфейс macOS быстро красиво проверка лента пузырь фон'.split(' ');
+    const text = i => Array.from({ length: 4 + (i * 7) % 26 }, (_, k) => words[(i + k * 3) % words.length]).join(' ');
+    const base = hist[-200] || [], g = hist[-100] || [];
+    for (let i = 0; i < longN; i++) {
+      base.unshift(msg(-200, 7000 - i, -200, text(i), now - 6 * H - i * 1800, { interaction_info: { view_count: 100 + i, reply_info: i % 3 ? null : { reply_count: i % 7, recent_replier_ids: [], last_message_id: 0, last_read_inbox_message_id: 0 } } }));
+      g.unshift(msg(-100, 6000 - i, [11, 12, ME, 13][i % 4], text(i), now - 6 * H - i * 900));
+    }
+  }
 
   const order = (d, pinned = false) => ({ '@type': 'chatPosition', list: { '@type': 'chatListMain' }, order: String(d * 1000 + (pinned ? 9e12 : 0)), is_pinned: pinned });
   const chats = [
@@ -120,6 +131,7 @@ export function createMock(dispatch) {
   const setAuth = s => { auth = s; emit({ '@type': 'updateAuthorizationState', authorization_state: s }); };
 
   function populate() {
+    if (qs.get('wall')) emit({ '@type': 'updateSelectedBackground', for_dark_theme: false, background: { '@type': 'background', id: '900', type: { '@type': 'backgroundTypeWallpaper', is_blurred: false, is_moving: false }, document: { document: { id: 900, size: 1, local: { can_be_downloaded: true } } } } });
     emit({ '@type': 'updateOption', name: 'my_id', value: { '@type': 'optionValueInteger', value: String(ME) } });
     users.forEach(user => emit({ '@type': 'updateUser', user }));
     emit({ '@type': 'updateBasicGroup', basic_group: { id: 100, member_count: 4 } });

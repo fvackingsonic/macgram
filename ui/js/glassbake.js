@@ -200,6 +200,9 @@ function update() {
   const seen = new Set();
   for (const p of document.querySelectorAll(PANELS)) {
     if (p.classList.contains('send-btn') && p.classList.contains('ready')) continue;
+    // копии сообщений под панелью (там есть свои .glass — кнопка «Поделиться» у постов) — не панели.
+    // Раньше они считались панелями: копии внутри копий плодились без конца, и всё тормозило.
+    if (p.closest('.lg-feed, .lg-mirror')) continue;
     const r = R(p);
     if (!r.width) continue;
     seen.add(p);
@@ -279,14 +282,16 @@ function update() {
 }
 
 export function glassUpdate() { if (!raf) raf = requestAnimationFrame(update); }
-document.addEventListener('scroll', glassUpdate, { capture: true, passive: true });
+// прокрутка списка чатов, настроек и т. п. стекло ленты не двигает
+document.addEventListener('scroll', e => { const t = e.target; if (t === document || !t.closest || !t.closest('.sidebar')) glassUpdate(); }, { capture: true, passive: true });
 window.addEventListener('resize', glassUpdate);
 // Изменения в ленте: строку под панелью копируем заново; свои копии (внутри .lg-mirror) не считаем.
 new MutationObserver(recs => {
   let any = false;
   for (const rec of recs) {
     const t = rec.target.nodeType === 1 ? rec.target : rec.target.parentElement;
-    if (!t || t.closest('.lg-mirror, .lg-feed')) continue;
+    // список чатов слева и полосы прокрутки на стекло ленты не влияют — не пересчитываем из-за них
+    if (!t || t.closest('.lg-mirror, .lg-feed, .sidebar, .sb-track')) continue;
     if (rec.type === 'childList' && [...rec.addedNodes, ...rec.removedNodes].every(n => n.nodeType === 1 && (n.classList.contains('lg-mirror') || n.classList.contains('lg-feed') || n.classList.contains('lg-bg')))) continue;
     any = true;
     const sc = t.closest('.messages');
@@ -299,6 +304,7 @@ new MutationObserver(recs => {
   if (any) glassUpdate();
 }).observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'src'] });
 // переходы (профиль, ветка, анимация новых сообщений) — досчитываем ещё пару кадров
-document.addEventListener('transitionend', glassUpdate, true);
-document.addEventListener('animationend', glassUpdate, true);
+const outsideChat = e => e.target?.closest?.('.sidebar, .lg-feed');
+document.addEventListener('transitionend', e => outsideChat(e) || glassUpdate(), true);
+document.addEventListener('animationend', e => outsideChat(e) || glassUpdate(), true);
 document.addEventListener('load', glassUpdate, true);
