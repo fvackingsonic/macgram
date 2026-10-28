@@ -5,33 +5,44 @@
 // плюс копии сообщений, которые сейчас проходят под панелью. Зеркало размыто и преломляется линзой,
 // поэтому сквозь шапку видно ленту, как сквозь стекло в iOS. Всё это обычные слои с обычным filter —
 // ничего не пропадает и не моргает.
-// PAD — запас вокруг панели: линза у края берёт то, что снаружи, и «затягивает» под стекло (как в iOS 26).
+// PAD — запас вокруг панели (копии сообщений чуть за краем).
 const PAD = 28;
 const BUBBLES = ['.bubble:not(.media):not(.sticker):not(.round):not(.jumbo)', '.bubble.media.with-caption', '.with-comments']
   .map(s => `.messages .msg-row ${s}`).join(', ');
 const PANELS = '.chat-top .glass, .composer-wrap .glass, .top-bars .glass, .scroll-down.glass.show';
 const ROWS = '.msg-row, .service, .unread-sep, .thread-start, .loader-top, .main-empty';
-// Линза Liquid Glass как в iOS 26: стекло — скруглённая «плита», край изогнут на всю толщину.
-//  p — панели и кнопки (берём фон и сообщения снаружи края — их затягивает под стекло),
-//  m — плеер с нотой поверх всего (размытие того, что под ним; край увеличивает то, что внутри).
-// b — пузыри: фаска поуже, фон у края затягивается из-за кромки (запас PADB вокруг пузыря)
-const PADB = 16;
-// mix — доля мягкого (квадратичного) профиля: изгиб начинается раньше, а не только у самой кромки
-const LENS = { b: { bezel: 26, max: 15, pad: PADB, out: true, mix: .75 }, p: { bezel: 34, max: 24, pad: PAD, out: true, mix: .4 }, m: { bezel: 26, max: 16, pad: 0, out: false, mix: .3 } };
+// Линза Liquid Glass — по открытому коду Telegram для iOS (их собственное «жидкое стекло» без iOS 26:
+// GlassBackgroundComponent/LegacyGlassView + MeshTransform/GenerateMesh.swift). Край стекла — фаска шириной
+// min(12, радиус угла): свет в ней преломляется внутрь, поэтому у кромки видно то, что глубже под стеклом,
+// сжатое и как бы отражённое (сдвиг до 20 pt, у самой кромки ещё ×1.5). Сила по ширине фаски — линейно,
+// со сглаживанием кривой Безье (0.816, 0.205, 0.581, 0.873), как у них.
+//  p — панели и кнопки, m — плеер с нотой, b — пузыри (сдвиг чуть меньше: пузыри плоские и широкие).
+const PADB = 0;
+const LENS = { b: { band: 12, max: 16, pad: PADB }, p: { band: 12, max: 20, pad: PAD }, m: { band: 14, max: 20, pad: 0 } };
+const BEZ = [0.816137566137566, 0.20502645502645533, 0.5806878306878306, 0.873015873015873];
+// кривая Безье для «силы» сдвига (как bezierPoint в GenerateMesh.swift)
+function bez(x) {
+  const [x1, y1, x2, y2] = BEZ;
+  const A = (a1, a2) => 1 - 3 * a2 + 3 * a1, B = (a1, a2) => 3 * a2 - 6 * a1, C = a1 => 3 * a1;
+  const cb = (t, a1, a2) => ((A(a1, a2) * t + B(a1, a2)) * t + C(a1)) * t;
+  const sl = (t, a1, a2) => 3 * A(a1, a2) * t * t + 2 * B(a1, a2) * t + C(a1);
+  let t = x;
+  for (let i = 0; i < 4; i++) { const k = sl(t, x1, x2); if (!k) break; t -= (cb(t, x1, x2) - x) / k; }
+  const v = cb(t, y1, y2);
+  return v >= .997 ? 1 : v;
+}
 
 let raf = 0, defs = null, nLens = 0;
 const lensCache = new Map();
 
-// Карта смещения под точный размер и радиус. Профиль — как у скруглённого края стекла (четверть
-// окружности): у середины почти без смещения, к краю — всё сильнее. Красный канал — по горизонтали,
-// зелёный — по вертикали (128 — без смещения).
-function lensMap(W, H, w, h, r, bezel, max, S, pad, out, mix) {
+// Карта смещения под точный размер и радиус. Красный канал — по горизонтали, зелёный — по вертикали
+// (128 — без смещения). Значение — откуда брать картинку: у кромки — изнутри стекла.
+function lensMap(W, H, w, h, r, band, max, S) {
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d'), img = g.createImageData(W, H), d = img.data;
   new Uint32Array(d.buffer).fill(0xff808080);
   const cx = W / 2, cy = H / 2, hx = w / 2 - r, hy = h / 2 - r;
-  const band = Math.ceil(pad + Math.max(bezel, r) + 1);
-  const sgn = out ? 1 : -1;
+  const edge = Math.ceil((W - w) / 2 + Math.max(band, r) + 1);
   const px1 = (x, y) => {
     const i = (y * W + x) * 4;
     const px = x + .5 - cx, py = y + .5 - cy, qx = Math.abs(px) - hx, qy = Math.abs(py) - hy;
@@ -39,16 +50,18 @@ function lensMap(W, H, w, h, r, bezel, max, S, pad, out, mix) {
     if (qx > 0 && qy > 0) { const l = Math.hypot(qx, qy); dist = l - r; nx = qx / l; ny = qy / l; }
     else if (qx > qy) { dist = qx - r; nx = 1; ny = 0; }
     else { dist = qy - r; nx = 0; ny = 1; }
-    if (!(dist < 0 && dist > -bezel)) return;
-    const t = 1 + dist / bezel; // 0 — внутренний край фаски, 1 — кромка
-    const m = max * (mix * t * t + (1 - mix) * (1 - Math.sqrt(Math.max(0, 1 - t * t))));
-    d[i] = Math.round(127.5 + sgn * nx * Math.sign(px) * m / S * 255);
-    d[i + 1] = Math.round(127.5 + sgn * ny * Math.sign(py) * m / S * 255);
+    const e = -dist; // расстояние от кромки внутрь
+    if (!(e > 0 && e < band)) return;
+    const k = 1 + (e < 2 ? (t => t * t * (3 - 2 * t))((2 - e) / 2) * .5 : 0); // у самой кромки — сильнее
+    const m = bez(1 - e / band) * max * k;
+    // брать изнутри: к центру, т.е. против нормали
+    d[i] = Math.round(127.5 - nx * Math.sign(px) * m / S * 255);
+    d[i + 1] = Math.round(127.5 - ny * Math.sign(py) * m / S * 255);
   };
   for (let y = 0; y < H; y++) {
-    if (y < band || y >= H - band) { for (let x = 0; x < W; x++) px1(x, y); continue; }
-    for (let x = 0; x < Math.min(band, W); x++) px1(x, y);
-    for (let x = Math.max(band, W - band); x < W; x++) px1(x, y);
+    if (y < edge || y >= H - edge) { for (let x = 0; x < W; x++) px1(x, y); continue; }
+    for (let x = 0; x < Math.min(edge, W); x++) px1(x, y);
+    for (let x = Math.max(edge, W - edge); x < W; x++) px1(x, y);
   }
   g.putImageData(img, 0, 0);
   return c;
@@ -90,11 +103,11 @@ function lensFor(el, kind, w0, h0) {
       lensCache.clear();
       for (const x of document.querySelectorAll('[style*="--lens"]')) { x.style.removeProperty('--lens'); x.__lensKey = ''; }
     }
-    // фаска — на всю толщину у узких «пилюль» (как в iOS), у больших панелей — до P.bezel
-    const bezel = Math.max(4, Math.min(P.bezel, Math.min(w, h) / 2)), max = Math.min(P.max, bezel * .72, P.pad || 1e9), S = Math.ceil(max * 2 + 2);
+    // фаска — min(12, радиус угла), как у Telegram; сдвиг не дальше середины стекла
+    const band = Math.max(4, Math.min(P.band, r || P.band, Math.min(w, h) / 2)), max = Math.min(P.max, Math.min(w, h) * .4), S = Math.ceil(max * 1.5 * 2 + 2);
     e = { id: `lg-m${++nLens}`, ready: false, url: '' };
     lensCache.set(key, e);
-    lensMap(W, H, w, h, r, bezel, max, S, P.pad, P.out, P.mix).toBlob(b => {
+    lensMap(W, H, w, h, r, band, max, S).toBlob(b => {
       if (!b || lensCache.get(key) !== e) return;
       e.url = URL.createObjectURL(b);
       const f = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
@@ -358,8 +371,8 @@ function update() {
     setTone(el, toneAt(o, r));
     let bg = el.__lgBg;
     if (!bg || bg.parentNode !== el) {
-      // .lg-lens — чуть больше пузыря (запас PADB), чтобы линза у края брала фон снаружи и «затягивала»
-      // его под стекло, как толстое скруглённое стекло в iOS; .lg-bg обрезает по форме пузыря.
+      // .lg-lens — слой с линзой по краю (как фаска толстого стекла, см. LENS);
+      // .lg-bg обрезает по форме пузыря.
       bg = document.createElement('i');
       bg.className = 'lg-bg';
       bg.setAttribute('aria-hidden', 'true');

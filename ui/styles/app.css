@@ -1588,9 +1588,8 @@ html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .lg-bg {
   transform: translate(var(--x, -99999px), var(--y, 0px)); will-change: transform;
 }
 html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .lg-img { background-image: linear-gradient(var(--lg-out), var(--lg-out)), var(--wall-blur); }
-/* линза по краю пузыря (--lens ставит glassbake.js): слой чуть больше пузыря, у кромки фон снаружи
-   изгибается и «затягивается» под стекло, как в iOS 26 */
-.lg-lens { position: absolute; inset: -16px; pointer-events: none; filter: var(--lens, ); }
+/* линза по краю пузыря (--lens ставит glassbake.js): у кромки фон изгибается, как в фаске толстого стекла */
+.lg-lens { position: absolute; inset: 0; pointer-events: none; filter: var(--lens, ); }
 .chat { timeline-scope: --lg-sc; }
 .chat > .messages { scroll-timeline: --lg-sc block; }
 html.lg-tl .lg-img { animation: lg-follow 1s linear both; animation-timeline: --lg-sc; }

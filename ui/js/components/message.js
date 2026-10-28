@@ -350,8 +350,9 @@ function Upload({ msg }) {
 function Body({ msg, showName, chat }) {
   const c = msg.content;
   const t = c['@type'];
-  const via = msg.via_bot_user_id && S.users.get(msg.via_bot_user_id)?.usernames?.active_usernames?.[0];
-  const nameEl = (showName || via) && html`<div class="sender">${showName && html`<span class="peer-link" style=${`color:${nameColor(peerIndex(senderId(msg.sender_id)))}`} onClick=${e => openSender(e, msg.sender_id)}>${senderName(msg.sender_id) || chat.title}</span>`}<${ViaBot} msg=${msg}/></div>`;
+  // via_bot_user_id у обычных сообщений — 0: без !! Preact нарисовал бы «0» над текстом
+  const via = !!msg.via_bot_user_id && !!S.users.get(msg.via_bot_user_id)?.usernames?.active_usernames?.[0];
+  const nameEl = (showName || via) ? html`<div class="sender">${showName && html`<span class="peer-link" style=${`color:${nameColor(peerIndex(senderId(msg.sender_id)))}`} onClick=${e => openSender(e, msg.sender_id)}>${senderName(msg.sender_id) || chat.title}</span>`}<${ViaBot} msg=${msg}/></div>` : null;
   const fwd = msg.forward_info && html`<div class="sender fwd-from">Переслано от <span class="peer-link" onClick=${e => openForwardOrigin(e, msg.forward_info)}>${forwardName(msg.forward_info)}</span></div>`;
   const meta = html`<${Meta} msg=${msg} chat=${chat}/>`;
   switch (t) {
