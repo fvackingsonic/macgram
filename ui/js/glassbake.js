@@ -12,38 +12,42 @@ const BUBBLES = ['.bubble:not(.media):not(.sticker):not(.round):not(.jumbo)', '.
   .map(s => `.messages .msg-row ${s}`).join(', ');
 const PANELS = '.chat-top .glass, .composer-wrap .glass, .top-bars .glass, .scroll-down.glass.show';
 const ROWS = '.msg-row, .service, .unread-sep, .thread-start, .loader-top, .main-empty';
-// Линза Liquid Glass — по открытому коду Telegram для iOS (их собственное «жидкое стекло» без iOS 26:
-// GlassBackgroundComponent/LegacyGlassView + MeshTransform/GenerateMesh.swift). Край стекла — фаска шириной
-// min(12, радиус угла): свет в ней преломляется внутрь, поэтому у кромки видно то, что глубже под стеклом,
-// сжатое и как бы отражённое (сдвиг до 20 pt, у самой кромки ещё ×1.5). Сила по ширине фаски — линейно,
-// со сглаживанием кривой Безье (0.816, 0.205, 0.581, 0.873), как у них.
-//  p — панели и кнопки, m — плеер с нотой, b — пузыри (сдвиг чуть меньше: пузыри плоские и широкие).
+// Линза Liquid Glass — физически, как в разборе kube.io «Liquid Glass in the Browser» (и как у Telegram iOS):
+// край стекла — фаска шириной bezel с профилем «выпуклый сквиркл» y = ⁴√(1 − (1 − x)⁴) (плавный переход
+// в плоскую середину). Луч, падающий на скос, преломляется по закону Снелла (стекло n = 1.5) и проходит
+// толщу стекла — поэтому у кромки видно то, что глубже под стеклом, сжатое. Сдвиг считается один раз по
+// радиусу (128 точек) и раскладывается по нормали к краю. Синий канал карты — блик по кромке: яркость
+// зависит от угла между нормалью и светом (свет сверху слева, блик сверху-слева и снизу-справа).
+//  p — панели и кнопки, m — плеер с нотой, b — пузыри.
 const PADB = 0;
-const LENS = { b: { band: 12, max: 16, pad: PADB }, p: { band: 12, max: 20, pad: PAD }, m: { band: 14, max: 20, pad: 0 } };
-const BEZ = [0.816137566137566, 0.20502645502645533, 0.5806878306878306, 0.873015873015873];
-// кривая Безье для «силы» сдвига (как bezierPoint в GenerateMesh.swift)
-function bez(x) {
-  const [x1, y1, x2, y2] = BEZ;
-  const A = (a1, a2) => 1 - 3 * a2 + 3 * a1, B = (a1, a2) => 3 * a2 - 6 * a1, C = a1 => 3 * a1;
-  const cb = (t, a1, a2) => ((A(a1, a2) * t + B(a1, a2)) * t + C(a1)) * t;
-  const sl = (t, a1, a2) => 3 * A(a1, a2) * t * t + 2 * B(a1, a2) * t + C(a1);
-  let t = x;
-  for (let i = 0; i < 4; i++) { const k = sl(t, x1, x2); if (!k) break; t -= (cb(t, x1, x2) - x) / k; }
-  const v = cb(t, y1, y2);
-  return v >= .997 ? 1 : v;
+const LENS = { b: { bezel: 14, thick: 22, spec: .45, pad: PADB }, p: { bezel: 16, thick: 36, spec: .6, pad: PAD }, m: { bezel: 18, thick: 30, spec: .5, pad: 0 } };
+const IOR = 1.5, LIGHT = (() => { const a = -125 * Math.PI / 180; return [Math.cos(a), Math.sin(a)]; })();
+const squircle = x => Math.pow(Math.max(0, 1 - Math.pow(1 - x, 4)), .25);
+// по радиусу: сдвиг (px) и «крутизна» скоса (для блика) в N точках от кромки (0) до конца фаски (1)
+function lensProfile(bezel, thick, N = 128) {
+  const disp = new Float32Array(N), steep = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const x = (i + .5) / N, dx = 1e-3;
+    const fp = (squircle(Math.min(1, x + dx)) - squircle(Math.max(0, x - dx))) / (Math.min(1, x + dx) - Math.max(0, x - dx));
+    const th = Math.atan(thick * fp / bezel), tt = Math.asin(Math.sin(th) / IOR);
+    disp[i] = thick * squircle(x) * Math.tan(th - tt);
+    steep[i] = Math.sin(th);
+  }
+  return { disp, steep, max: Math.max(...disp) };
 }
 
 let raf = 0, defs = null, nLens = 0;
 const lensCache = new Map();
 
-// Карта смещения под точный размер и радиус. Красный канал — по горизонтали, зелёный — по вертикали
-// (128 — без смещения). Значение — откуда брать картинку: у кромки — изнутри стекла.
-function lensMap(W, H, w, h, r, band, max, S) {
+// Карта под точный размер и радиус. Красный — сдвиг по горизонтали, зелёный — по вертикали (128 — без
+// сдвига; значение — откуда брать картинку: у кромки — изнутри стекла), синий — сила блика.
+function lensMap(W, H, w, h, r, bezel, prof, S, spec) {
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d'), img = g.createImageData(W, H), d = img.data;
-  new Uint32Array(d.buffer).fill(0xff808080);
+  new Uint32Array(d.buffer).fill(0xff008080);
+  const N = prof.disp.length;
   const cx = W / 2, cy = H / 2, hx = w / 2 - r, hy = h / 2 - r;
-  const edge = Math.ceil((W - w) / 2 + Math.max(band, r) + 1);
+  const edge = Math.ceil((W - w) / 2 + Math.max(bezel, r) + 1);
   const px1 = (x, y) => {
     const i = (y * W + x) * 4;
     const px = x + .5 - cx, py = y + .5 - cy, qx = Math.abs(px) - hx, qy = Math.abs(py) - hy;
@@ -52,12 +56,15 @@ function lensMap(W, H, w, h, r, band, max, S) {
     else if (qx > qy) { dist = qx - r; nx = 1; ny = 0; }
     else { dist = qy - r; nx = 0; ny = 1; }
     const e = -dist; // расстояние от кромки внутрь
-    if (!(e > 0 && e < band)) return;
-    const k = 1 + (e < 2 ? (t => t * t * (3 - 2 * t))((2 - e) / 2) * .5 : 0); // у самой кромки — сильнее
-    const m = bez(1 - e / band) * max * k;
-    // брать изнутри: к центру, т.е. против нормали
-    d[i] = Math.round(127.5 - nx * Math.sign(px) * m / S * 255);
-    d[i + 1] = Math.round(127.5 - ny * Math.sign(py) * m / S * 255);
+    if (!(e > 0 && e < bezel)) return;
+    const k = Math.min(N - 1, Math.floor(e / bezel * N));
+    const m = prof.disp[k];
+    const ox = nx * Math.sign(px), oy = ny * Math.sign(py); // нормаль наружу
+    // брать изнутри: против нормали
+    d[i] = Math.round(127.5 - ox * m / S * 255);
+    d[i + 1] = Math.round(127.5 - oy * m / S * 255);
+    const a = Math.abs(ox * LIGHT[0] + oy * LIGHT[1]);
+    d[i + 2] = Math.round(Math.min(1, spec * a * a * Math.pow(prof.steep[k], 3)) * 255);
   };
   for (let y = 0; y < H; y++) {
     if (y < edge || y >= H - edge) { for (let x = 0; x < W; x++) px1(x, y); continue; }
@@ -90,7 +97,7 @@ function lensFor(el, kind, w0, h0) {
   const [w, h] = sz;
   const P = LENS[kind];
   const r = el.__lgR, W = w + P.pad * 2, H = h + P.pad * 2;
-  const key = `${kind}${W}x${H}r${r}`;
+  const key = `${kind}${W}x${H}r${r}v2`;
   if (el.__lensKey === key) return;
   // окно меняет размер — без линзы, карты построятся, когда размер устоится (старая карта до тех пор
   // не мешает: под ней нейтральный фон и запас по размеру)
@@ -107,11 +114,12 @@ function lensFor(el, kind, w0, h0) {
       lensCache.clear();
       for (const x of document.querySelectorAll('[style*="--lens"]')) { x.style.removeProperty('--lens'); x.__lensKey = ''; }
     }
-    // фаска — min(12, радиус угла), как у Telegram; сдвиг не дальше середины стекла
-    const band = Math.max(4, Math.min(P.band, r || P.band, Math.min(w, h) / 2)), max = Math.min(P.max, Math.min(w, h) * .4), S = Math.ceil(max * 1.5 * 2 + 2);
+    // фаска — не шире радиуса угла и половины стекла; толщина — пропорционально фаске
+    const bezel = Math.max(4, Math.min(P.bezel, r || P.bezel, Math.min(w, h) / 2));
+    const prof = lensProfile(bezel, P.thick * bezel / P.bezel), S = Math.ceil(prof.max * 2 + 2);
     e = { id: `lg-m${++nLens}`, ready: false, url: '' };
     lensCache.set(key, e);
-    lensMap(W, H, w, h, r, band, max, S).toBlob(b => {
+    lensMap(W, H, w, h, r, bezel, prof, S, P.spec).toBlob(b => {
       if (!b || lensCache.get(key) !== e) return;
       e.url = URL.createObjectURL(b);
       const f = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
@@ -119,9 +127,12 @@ function lensFor(el, kind, w0, h0) {
       // область фильтра с запасом и нейтральный серый под картой: если элемент на миг больше карты,
       // лишнее не обрезается и не сдвигается
       for (const [k, v] of [['x', 0], ['y', 0], ['width', W * 2 + 200], ['height', H * 2 + 200], ['filterUnits', 'userSpaceOnUse'], ['primitiveUnits', 'userSpaceOnUse'], ['color-interpolation-filters', 'sRGB']]) f.setAttribute(k, v);
-      f.innerHTML = `<feFlood flood-color="rgb(128,128,128)" result="n"/><feImage href="${e.url}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="none" result="i"/>`
+      f.innerHTML = `<feFlood flood-color="rgb(128,128,0)" result="n"/><feImage href="${e.url}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="none" result="i"/>`
         + `<feMerge result="map"><feMergeNode in="n"/><feMergeNode in="i"/></feMerge>`
-        + `<feDisplacementMap in="SourceGraphic" in2="map" scale="${S}" xChannelSelector="R" yChannelSelector="G"/>`;
+        + `<feDisplacementMap in="SourceGraphic" in2="map" scale="${S}" xChannelSelector="R" yChannelSelector="G" result="g"/>`
+        // блик: белый с прозрачностью из синего канала, поверх преломлённой картинки
+        + `<feColorMatrix in="i" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 1 0 0" result="s"/>`
+        + `<feComposite in="s" in2="g" operator="over"/>`;
       defs.appendChild(f);
       e.ready = true;
       glassUpdate();
@@ -406,7 +417,11 @@ function update() {
   }
   // плеер с нотой: настоящее стекло поверх всего (backdrop-filter) с той же линзой по краю
   const mp = document.querySelector('.music-panel');
-  if (mp && !noPanels && !mp.classList.contains('out')) lensFor(mp, 'm', mp.offsetWidth, mp.offsetHeight);
+  if (mp && !noPanels) {
+    // во время открытия/закрытия у панели круглые углы (капля) — линзу строим только по готовой форме
+    if (mp.classList.contains('opening') || mp.classList.contains('out')) { mp.__lgSz = ''; if (mp.__lensKey) { mp.style.removeProperty('--lens'); mp.__lensKey = ''; } }
+    else lensFor(mp, 'm', mp.offsetWidth, mp.offsetHeight);
+  }
   for (const p of live) if (!seen.has(p)) dropMirror(p);
   live.clear();
   for (const [p, r, rows, lw, lh, st, sc, L] of panels) {

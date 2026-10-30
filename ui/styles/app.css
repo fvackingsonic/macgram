@@ -1619,7 +1619,7 @@ html.wall-baked .selection-bar.glass { position: relative; }
 html.wall-baked:not(.lite):not(.lg-copy):not(.no-glass-panels) :is(.chat-top, .composer-wrap, .top-bars) .glass:not(.send-btn.ready):not(#lg-x),
 html.wall-baked:not(.lite):not(.lg-copy):not(.no-glass-panels) .scroll-down.glass:not(#lg-x) {
   background: var(--lg-tint) !important;
-  backdrop-filter: var(--lens, ) blur(var(--lg-pblur)) saturate(1.5) !important; -webkit-backdrop-filter: blur(var(--lg-pblur)) saturate(1.5) !important;
+  backdrop-filter: blur(var(--lg-pblur)) saturate(1.5) var(--lens, ) !important; -webkit-backdrop-filter: blur(var(--lg-pblur)) saturate(1.5) !important;
 }
 html.wall-baked:not(.lg-copy) .lg-mirror, html.wall-baked:not(.lg-copy) .lg-feed { display: none !important; }
 /* пузыри без «Матовых сообщений» — прозрачное стекло прямо над обоями: заливка и кромка, без копий-слоёв */
@@ -2019,7 +2019,7 @@ html.no-glass-panels:not(#lg-x) .readonly-bar.glass { color: var(--accent); }
 .music-panel { animation: none; transform: none; }
 html:not(.lite):not(.no-glass-panels) .music-panel.mu-glass:not(#lg-x) {
   background: transparent !important;
-  backdrop-filter: var(--lens, ) blur(16px) saturate(1.8) brightness(1.03) !important; -webkit-backdrop-filter: blur(16px) saturate(1.8) !important;
+  backdrop-filter: blur(16px) saturate(1.8) brightness(1.03) var(--lens, ) !important; -webkit-backdrop-filter: blur(16px) saturate(1.8) !important;
   box-shadow: 0 18px 50px rgba(0,0,0,.28), 0 2px 6px rgba(0,0,0,.12), inset 0 1.5px 1px -.5px rgba(255,255,255,.5), inset 0 -1.5px 1px -.5px rgba(0,0,0,.14), inset 0 0 22px rgba(255,255,255,.07) !important;
   --mu-veil: rgba(255,255,255,calc(var(--mu-va,.36) * 1.15)); color: var(--text);
 }
