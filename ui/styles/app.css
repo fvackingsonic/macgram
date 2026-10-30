@@ -1587,7 +1587,6 @@ html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row .lg-bg {
 html.wall-baked.glass-bubbles:not(.lite):not(.no-bubbles) .msg-row.out .lg-img { background-image: linear-gradient(var(--lg-out), var(--lg-out)), var(--wall-blur); }
 /* линза по краю пузыря (--lens ставит glassbake.js): у кромки фон изгибается, как в фаске толстого стекла */
 .lg-lens { position: absolute; inset: 0; pointer-events: none; filter: var(--lens, ); }
-.messages.lg-scrolling .lg-lens { filter: none; }
 .chat { timeline-scope: --lg-sc; }
 .chat > .messages { scroll-timeline: --lg-sc block; }
 html.lg-tl .lg-img { animation: lg-follow 1s linear both; animation-timeline: --lg-sc; }

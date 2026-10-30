@@ -39,40 +39,50 @@ function lensProfile(bezel, thick, N = 128) {
 let raf = 0, defs = null, nLens = 0;
 const lensCache = new Map();
 
-// Карта под точный размер и радиус. Красный — сдвиг по горизонтали, зелёный — по вертикали (128 — без
-// сдвига; значение — откуда брать картинку: у кромки — изнутри стекла), синий — сила блика.
-function lensMap(W, H, w, h, r, bezel, prof, S, spec) {
-  const c = document.createElement('canvas'); c.width = W; c.height = H;
-  const g = c.getContext('2d'), img = g.createImageData(W, H), d = img.data;
-  new Uint32Array(d.buffer).fill(0xff008080);
-  const N = prof.disp.length;
-  const cx = W / 2, cy = H / 2, hx = w / 2 - r, hy = h / 2 - r;
-  const edge = Math.ceil((W - w) / 2 + Math.max(bezel, r) + 1);
-  const px1 = (x, y) => {
-    const i = (y * W + x) * 4;
-    const px = x + .5 - cx, py = y + .5 - cy, qx = Math.abs(px) - hx, qy = Math.abs(py) - hy;
-    let dist, nx, ny;
-    if (qx > 0 && qy > 0) { const l = Math.hypot(qx, qy); dist = l - r; nx = qx / l; ny = qy / l; }
-    else if (qx > qy) { dist = qx - r; nx = 1; ny = 0; }
-    else { dist = qy - r; nx = 0; ny = 1; }
-    const e = -dist; // расстояние от кромки внутрь
-    if (!(e > 0 && e < bezel)) return;
-    const k = Math.min(N - 1, Math.floor(e / bezel * N));
-    const m = prof.disp[k];
-    const ox = nx * Math.sign(px), oy = ny * Math.sign(py); // нормаль наружу
-    // брать изнутри: против нормали
-    d[i] = Math.round(127.5 - ox * m / S * 255);
-    d[i + 1] = Math.round(127.5 - oy * m / S * 255);
-    const a = Math.abs(ox * LIGHT[0] + oy * LIGHT[1]);
-    d[i + 2] = Math.round(Math.min(1, spec * a * a * Math.pow(prof.steep[k], 3)) * 255);
+// Карта собирается из маленьких кусочков: полосы вдоль прямых краёв — картинка 1×фаска, растянутая по длине
+// края, и четыре угла r×r. Одна большая картинка во весь пузырь заставляла видеокарту заново гонять её на
+// каждом кадре прокрутки (вдвое медленнее); кусочки крошечные и общие для всех стёкол одного радиуса.
+// Красный — сдвиг по горизонтали, зелёный — по вертикали (128 — без сдвига; значение — откуда брать
+// картинку: у кромки — изнутри стекла), синий — сила блика.
+const pieceCache = new Map();
+function lensPx(d, i, ox, oy, e, bezel, prof, S, spec) {
+  const N = prof.disp.length, k = Math.min(N - 1, Math.floor(e / bezel * N)), m = prof.disp[k];
+  const a = Math.abs(ox * LIGHT[0] + oy * LIGHT[1]);
+  d[i] = Math.round(127.5 - ox * m / S * 255);
+  d[i + 1] = Math.round(127.5 - oy * m / S * 255);
+  d[i + 2] = Math.round(Math.min(1, spec * a * a * Math.pow(prof.steep[k], 3)) * 255);
+}
+function lensPieces(key, r, bezel, prof, S, spec) {
+  let p = pieceCache.get(key);
+  if (p) return p;
+  const img = (W, H, fn) => {
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d'), id = g.createImageData(W, H), d = id.data;
+    new Uint32Array(d.buffer).fill(0xff008080);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) fn(d, (y * W + x) * 4, x, y);
+    g.putImageData(id, 0, 0);
+    return c.toDataURL();
   };
-  for (let y = 0; y < H; y++) {
-    if (y < edge || y >= H - edge) { for (let x = 0; x < W; x++) px1(x, y); continue; }
-    for (let x = 0; x < Math.min(edge, W); x++) px1(x, y);
-    for (let x = Math.max(edge, W - edge); x < W; x++) px1(x, y);
+  const B = Math.max(1, Math.round(bezel));
+  p = {
+    t: img(1, B, (d, i, x, y) => lensPx(d, i, 0, -1, y + .5, bezel, prof, S, spec)),
+    b: img(1, B, (d, i, x, y) => lensPx(d, i, 0, 1, B - y - .5, bezel, prof, S, spec)),
+    l: img(B, 1, (d, i, x) => lensPx(d, i, -1, 0, x + .5, bezel, prof, S, spec)),
+    r: img(B, 1, (d, i, x) => lensPx(d, i, 1, 0, B - x - .5, bezel, prof, S, spec)),
+    B,
+  };
+  const R = Math.max(1, Math.round(r));
+  // углы: центр скругления — в углу картинки, обращённом внутрь стекла
+  for (const [name, cx, cy] of [['tl', R, R], ['tr', 0, R], ['br', 0, 0], ['bl', R, 0]]) {
+    p[name] = img(R, R, (d, i, x, y) => {
+      const px = x + .5 - cx, py = y + .5 - cy, l = Math.hypot(px, py), e = R - l;
+      if (e > 0 && e < bezel && l > 0) lensPx(d, i, px / l, py / l, e, bezel, prof, S, spec);
+    });
   }
-  g.putImageData(img, 0, 0);
-  return c;
+  p.R = R;
+  if (pieceCache.size > 200) pieceCache.clear();
+  pieceCache.set(key, p);
+  return p;
 }
 
 let budget = 0;
@@ -97,7 +107,7 @@ function lensFor(el, kind, w0, h0) {
   const [w, h] = sz;
   const P = LENS[kind];
   const r = el.__lgR, W = w + P.pad * 2, H = h + P.pad * 2;
-  const key = `${kind}${W}x${H}r${r}v2`;
+  const key = `${kind}${W}x${H}r${r}v4`;
   if (el.__lensKey === key) return;
   // окно меняет размер — без линзы, карты построятся, когда размер устоится (старая карта до тех пор
   // не мешает: под ней нейтральный фон и запас по размеру)
@@ -110,7 +120,6 @@ function lensFor(el, kind, w0, h0) {
     if (!defs) return;
     if (lensCache.size > 900) {
       for (const f of defs.querySelectorAll('filter[id^="lg-m"]')) f.remove();
-      for (const x of lensCache.values()) if (x.url) URL.revokeObjectURL(x.url);
       lensCache.clear();
       for (const x of document.querySelectorAll('[style*="--lens"]')) { x.style.removeProperty('--lens'); x.__lensKey = ''; }
     }
@@ -119,24 +128,25 @@ function lensFor(el, kind, w0, h0) {
     const prof = lensProfile(bezel, P.thick * bezel / P.bezel), S = Math.ceil(prof.max * 2 + 2);
     e = { id: `lg-m${++nLens}`, ready: false, url: '' };
     lensCache.set(key, e);
-    lensMap(W, H, w, h, r, bezel, prof, S, P.spec).toBlob(b => {
-      if (!b || lensCache.get(key) !== e) return;
-      e.url = URL.createObjectURL(b);
-      const f = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
-      f.id = e.id;
-      // область фильтра с запасом и нейтральный серый под картой: если элемент на миг больше карты,
-      // лишнее не обрезается и не сдвигается
-      for (const [k, v] of [['x', 0], ['y', 0], ['width', W * 2 + 200], ['height', H * 2 + 200], ['filterUnits', 'userSpaceOnUse'], ['primitiveUnits', 'userSpaceOnUse'], ['color-interpolation-filters', 'sRGB']]) f.setAttribute(k, v);
-      f.innerHTML = `<feFlood flood-color="rgb(128,128,0)" result="n"/><feImage href="${e.url}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="none" result="i"/>`
-        + `<feMerge result="map"><feMergeNode in="n"/><feMergeNode in="i"/></feMerge>`
-        + `<feDisplacementMap in="SourceGraphic" in2="map" scale="${S}" xChannelSelector="R" yChannelSelector="G" result="g"/>`
-        // блик: белый с прозрачностью из синего канала, поверх преломлённой картинки
-        + `<feColorMatrix in="i" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 1 0 0" result="s"/>`
-        + `<feComposite in="s" in2="g" operator="over"/>`;
-      defs.appendChild(f);
-      e.ready = true;
-      glassUpdate();
-    }, 'image/png');
+    const f = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
+    f.id = e.id;
+    for (const [k, v] of [['x', 0], ['y', 0], ['width', W + 8], ['height', H + 8], ['filterUnits', 'userSpaceOnUse'], ['primitiveUnits', 'userSpaceOnUse'], ['color-interpolation-filters', 'sRGB']]) f.setAttribute(k, v);
+    const rr = Math.min(r, w / 2, h / 2), pc = lensPieces(`${kind}|${bezel}|${Math.round(rr)}`, rr, bezel, prof, S, P.spec);
+    const x0 = P.pad, y0 = P.pad, R = pc.R, B = pc.B;
+    const im = (href, x, y, iw, ih) => iw > 0 && ih > 0 ? `<feImage href="${href}" x="${x}" y="${y}" width="${iw}" height="${ih}" preserveAspectRatio="none" result="p${n++}"/>` : '';
+    let n = 0, ims = '';
+    ims += im(pc.t, x0 + R, y0, w - 2 * R, B) + im(pc.b, x0 + R, y0 + h - B, w - 2 * R, B);
+    ims += im(pc.l, x0, y0 + R, B, h - 2 * R) + im(pc.r, x0 + w - B, y0 + R, B, h - 2 * R);
+    ims += im(pc.tl, x0, y0, R, R) + im(pc.tr, x0 + w - R, y0, R, R) + im(pc.br, x0 + w - R, y0 + h - R, R, R) + im(pc.bl, x0, y0 + h - R, R, R);
+    let merge = '<feMergeNode in="n"/>';
+    for (let k = 0; k < n; k++) merge += `<feMergeNode in="p${k}"/>`;
+    f.innerHTML = `<feFlood flood-color="rgb(128,128,0)" result="n"/>${ims}<feMerge result="map">${merge}</feMerge>`
+      + `<feDisplacementMap in="SourceGraphic" in2="map" scale="${S}" xChannelSelector="R" yChannelSelector="G" result="g"/>`
+      // блик: белый с прозрачностью из синего канала, поверх преломлённой картинки
+      + `<feColorMatrix in="map" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 1 0 0" result="s"/>`
+      + `<feComposite in="s" in2="g" operator="over"/>`;
+    defs.appendChild(f);
+    e.ready = true;
   }
   if (!e.ready) return;
   el.style.setProperty('--lens', `url(#${e.id})`);
@@ -297,7 +307,7 @@ const TL = typeof CSS !== 'undefined' && CSS.supports?.('animation-timeline: --l
 if (TL) document.documentElement.classList.add('lg-tl');
 const near = (a, b) => a != null && Math.abs(a - b) < .5;
 function update() {
-  raf = 0; budget = 2;
+  raf = 0; budget = 4;
   const root = document.documentElement;
   const on = root.classList.contains('wall-baked');
   if (!on || root.classList.contains('lite')) { for (const p of live) dropMirror(p); live.clear(); return; }
@@ -343,7 +353,7 @@ function update() {
           if (el.parentElement?.classList.contains('with-comments')) continue;
           const r = R(el);
           if (r.bottom < top || r.top > bottom || !r.width) continue;
-          bubbles.push([el, r, st, L, lens && r.bottom > sr.top - 60 && r.top < sr.bottom + 60]);
+          bubbles.push([el, r, st, L, lens && r.bottom > sr.top - 200 && r.top < sr.bottom + 200]);
         }
       }
     }
@@ -490,19 +500,8 @@ const onScroll = () => {
   if (scrollT) return;
   scrollT = setTimeout(() => { scrollT = 0; glassUpdate(); }, 60);
 };
-// Пока ленту крутят, линзы пузырей отдыхают: под каждым пузырём картинка движется, и линзу пришлось бы
-// пересчитывать на каждом кадре для каждого пузыря (вдвое больше работы видеокарте). Как только лента
-// остановилась (через 160 мс) — линзы снова на месте. Класс ставится только на ленту, а не на всю страницу.
-let restT = 0, restSc = null;
-const scrolling = sc => {
-  if (restSc !== sc) { restSc?.classList.remove('lg-scrolling'); restSc = sc; }
-  if (!sc.classList.contains('lg-scrolling')) sc.classList.add('lg-scrolling');
-  clearTimeout(restT);
-  restT = setTimeout(() => { sc.classList.remove('lg-scrolling'); restSc = null; }, 160);
-};
 document.addEventListener('scroll', e => {
   const t = e.target;
-  if (t?.classList?.contains('messages')) scrolling(t);
   if (t === document || !t.closest || !t.closest('.sidebar')) onScroll();
 }, { capture: true, passive: true });
 document.addEventListener('scrollend', e => { const t = e.target; if (t === document || !t.closest || !t.closest('.sidebar')) glassUpdate(); }, { capture: true, passive: true });
